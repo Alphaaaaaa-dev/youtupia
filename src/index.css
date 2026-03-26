@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 9%;
+  --foreground: 0 0% 95%;
+  --card: 0 0% 12%;
+  --card-foreground: 0 0% 95%;
+  --card-elevated: 0 0% 18%;
+  --popover: 0 0% 12%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 0 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 16%;
+  --secondary-foreground: 0 0% 95%;
+  --muted: 0 0% 16%;
+  --muted-foreground: 0 0% 55%;
+  --accent: 0 100% 45%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 85% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --safe: 142 70% 45%;
+  --safe-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --border: 0 0% 22%;
+  --input: 0 0% 22%;
+  --ring: 0 100% 50%;
+  --radius: 8px;
+}
+
+[data-theme="light"] {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --card-elevated: 0 0% 96%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 10%;
+  --primary: 0 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 94%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 100% 45%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 85% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --safe: 142 70% 40%;
+  --safe-foreground: 0 0% 100%;
+  --warning: 38 92% 44%;
+  --warning-foreground: 0 0% 100%;
+  --border: 0 0% 88%;
+  --input: 0 0% 88%;
+  --ring: 0 100% 50%;
+  --radius: 8px;
+}
+
+@layer base {
+  * { @apply border-border; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Roboto', sans-serif;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
+  ::selection { background: hsl(var(--primary) / 0.2); }
+}
+
+@layer utilities {
+  .yt-chip {
+    display: inline-flex; align-items: center;
+    padding: 6px 12px;
+    background: hsl(var(--secondary));
+    border-radius: 8px;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+    color: hsl(var(--foreground));
+    border: none;
+  }
+  .yt-chip:hover { background: hsl(var(--card-elevated)); }
+  .yt-chip.active { background: hsl(var(--foreground)); color: hsl(var(--background)); }
+
+  .product-card {
+    background: hsl(var(--card));
+    border-radius: 12px; overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid hsl(var(--border));
+  }
+  .product-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px hsl(0 0% 0% / 0.2); }
+
+  .btn-yt {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    background: hsl(var(--primary));
+    color: white; border: none; border-radius: 20px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    font-family: 'Roboto', sans-serif;
+  }
+  .btn-yt:hover { background: #cc0000; }
+  .btn-yt:active { transform: scale(0.98); }
+
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    background: hsl(var(--secondary));
+    color: hsl(var(--foreground)); border: none; border-radius: 20px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s;
+    font-family: 'Roboto', sans-serif;
+  }
+  .btn-ghost:hover { background: hsl(var(--card-elevated)); }
+
+  .masonry-grid { columns: 2; column-gap: 10px; }
+  @media (min-width: 640px) { .masonry-grid { columns: 3; } }
+  @media (min-width: 1024px) { .masonry-grid { columns: 4; } }
+  @media (min-width: 1280px) { .masonry-grid { columns: 5; } }
+  .masonry-item { break-inside: avoid; margin-bottom: 10px; border-radius: 12px; overflow: hidden; }
+
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .cart-slide { animation: cartSlide 0.3s ease forwards; }
+  @keyframes cartSlide { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+}
