@@ -97,9 +97,12 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
   };
 
   const navLinks = [
-    { to: '/', label: 'Home' }, { to: '/shop', label: 'Shop' },
-    { to: '/catalogue', label: 'Catalogue' }, { to: '/about', label: 'About' },
-    { to: '/faq', label: 'FAQ' }, { to: '/contact', label: 'Contact' },
+    { to: '/', label: 'Home' },
+    { to: '/shop', label: 'Shop' },
+    { to: '/drops', label: 'Drops' },
+    { to: '/catalogue', label: 'Catalogue' },
+    { to: '/about', label: 'About' },
+    { to: '/contact', label: 'Contact' },
   ];
 
   const iconBtn: React.CSSProperties = {
@@ -241,7 +244,7 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
                   <div style={{ padding: '8px 12px 10px', borderBottom: '1px solid hsl(var(--border))', marginBottom: '6px' }}>
                     <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', wordBreak: 'break-all' }}>{user.email}</div>
                   </div>
-                  {[{ to: '/orders', icon: '📦', label: 'My Orders' }].map(item => (
+                  {[{ to: '/orders', icon: '📦', label: 'My Orders' }, { to: '/wishlist', icon: '❤️', label: 'Wishlist' }, { to: '/track-order', icon: '🚚', label: 'Track Order' }].map(item => (
                     <Link key={item.to} to={item.to} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: '8px', fontSize: '13px', color: 'hsl(var(--foreground))', textDecoration: 'none', transition: 'background 0.15s' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--secondary))')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
