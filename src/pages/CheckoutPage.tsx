@@ -6,7 +6,11 @@ import { Shield, Lock, ChevronRight } from 'lucide-react';
 import { Order } from '../contexts/StoreContext';
 
 const CheckoutPage = () => {
-  const { cart, cartTotal, clearCart, addOrder } = useStore();
+  const { cart, cartTotal, clearCart, addOrder, validateDiscountCode } = useStore();
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountPct, setDiscountPct] = useState(0);
+  const [discountError, setDiscountError] = useState("");
+  const [discountApplied, setDiscountApplied] = useState(false);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
@@ -94,7 +98,14 @@ const CheckoutPage = () => {
   );
 
   const shipping = cartTotal >= 999 ? 0 : 60;
-  const total = cartTotal + shipping;
+  const discountAmount = Math.round(cartTotal * discountPct / 100);
+  const total = cartTotal - discountAmount + shipping;
+
+  const applyDiscount = () => {
+    const pct = validateDiscountCode(discountCode);
+    if (pct > 0) { setDiscountPct(pct); setDiscountApplied(true); setDiscountError(""); }
+    else { setDiscountError("Invalid code. Try YOUTUPIA10, DROP001 or FIRSTORDER"); }
+  };
 
   return (
     <div style={{ paddingTop: '56px', maxWidth: '1100px', margin: '0 auto', padding: '72px 24px 48px' }}>
@@ -150,6 +161,25 @@ const CheckoutPage = () => {
                 <span>Shipping</span><span style={{ color: shipping === 0 ? '#22c55e' : 'inherit' }}>{shipping === 0 ? 'FREE' : `₹${shipping}`}</span>
               </div>
               {shipping > 0 && <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>Add ₹{999 - cartTotal} more for free shipping</div>}
+
+              {/* Discount code */}
+              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid hsl(var(--border))' }}>
+                {!discountApplied ? (
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>Discount Code</div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input value={discountCode} onChange={e => setDiscountCode(e.target.value.toUpperCase())} placeholder="Enter code" style={{ flex: 1, padding: '8px 12px', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '13px', outline: 'none', fontFamily: 'Roboto, sans-serif' }} />
+                      <button onClick={applyDiscount} style={{ background: '#ff0000', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 14px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'Roboto, sans-serif' }}>Apply</button>
+                    </div>
+                    {discountError && <div style={{ fontSize: '11px', color: '#f87171', marginTop: '6px' }}>{discountError}</div>}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.2)', borderRadius: '8px', fontSize: '13px' }}>
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {discountCode} ({discountPct}% off)</span>
+                    <span style={{ color: '#16a34a', fontWeight: 700 }}>−₹{discountAmount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '16px', borderTop: '1px solid hsl(var(--border))', paddingTop: '12px', marginTop: '4px' }}>
                 <span>Total</span><span style={{ color: '#ff0000' }}>₹{total.toLocaleString()}</span>
               </div>
