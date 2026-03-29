@@ -1,19 +1,131 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useStore } from '../contexts/StoreContext';
 import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Package, ShoppingBag, Clock, TrendingUp, Plus, Edit2, Trash2,
-  X, Save, Image, BarChart2, Settings, ChevronDown, ChevronUp, CheckCircle
+  X, Save, Image as ImageIcon, BarChart2, Settings, CheckCircle, Users,
+  Upload, Link as LinkIcon, Youtube, Zap
 } from 'lucide-react';
-import { Product, Series } from '../contexts/StoreContext';
+import { Product, Series, Creator } from '../contexts/StoreContext';
 
 // ── SHARED STYLES ─────────────────────────────────
 const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px' } as const;
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators';
+
+// ── IMAGE UPLOAD DROPZONE ──────────────────────────
+const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [tab, setTab] = useState<'url' | 'upload'>('url');
+  const [preview, setPreview] = useState(value);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const url = e.target?.result as string;
+      setPreview(url);
+      onChange(url);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, []);
+
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <div style={{ ...label, marginBottom: '8px' }}>{lbl}</div>
+      {/* Tab toggle */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+        {(['url', 'upload'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            style={{ padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontFamily: 'Roboto, sans-serif', background: tab === t ? '#ff0000' : 'rgba(255,255,255,0.06)', color: tab === t ? 'white' : '#64748b', transition: 'all 0.15s' }}>
+            {t === 'url' ? <><LinkIcon size={9} style={{ display: 'inline', marginRight: '4px' }} />URL</> : <><Upload size={9} style={{ display: 'inline', marginRight: '4px' }} />Upload</>}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'url' ? (
+        <input style={inputStyle} value={value} onChange={e => { onChange(e.target.value); setPreview(e.target.value); }} placeholder="https://images.unsplash.com/..." />
+      ) : (
+        <div
+          onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileRef.current?.click()}
+          style={{ border: `2px dashed ${isDragging ? '#ff0000' : 'rgba(255,255,255,0.12)'}`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: isDragging ? 'rgba(255,0,0,0.05)' : 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}>
+          <Upload size={20} style={{ color: isDragging ? '#ff0000' : '#475569', marginBottom: '8px' }} />
+          <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Drag & drop image here</div>
+          <div style={{ fontSize: '11px', color: '#334155' }}>or click to select from device</div>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+        </div>
+      )}
+
+      {preview && (
+        <div style={{ marginTop: '8px', position: 'relative', display: 'inline-block' }}>
+          <img src={preview} alt="Preview" style={{ height: '72px', width: '72px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <button onClick={() => { setPreview(''); onChange(''); }} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ff0000', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={10} /></button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── MULTI IMAGE DROPZONE ───────────────────────────
+const MultiImageDropzone = ({ images, onChange }: { images: string[]; onChange: (imgs: string[]) => void }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = (files: FileList) => {
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const url = e.target?.result as string;
+        onChange([...images.filter(Boolean), url]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <div style={{ ...label, marginBottom: '8px' }}>PRODUCT IMAGES</div>
+
+      {/* Drag drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={e => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
+        onClick={() => fileRef.current?.click()}
+        style={{ border: `2px dashed ${isDragging ? '#ff0000' : 'rgba(255,255,255,0.12)'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: isDragging ? 'rgba(255,0,0,0.05)' : 'rgba(255,255,255,0.02)', transition: 'all 0.2s', marginBottom: '10px' }}>
+        <Upload size={18} style={{ color: isDragging ? '#ff0000' : '#475569', marginBottom: '6px' }} />
+        <div style={{ fontSize: '12px', color: '#64748b' }}>Drag & drop images or <span style={{ color: '#ff6666' }}>click to upload</span></div>
+        <div style={{ fontSize: '10px', color: '#334155', marginTop: '3px' }}>Multiple files supported</div>
+        <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { if (e.target.files) handleFiles(e.target.files); }} />
+      </div>
+
+      {/* URL inputs */}
+      {images.map((img, i) => (
+        <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
+          {img && <img src={img} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />}
+          <input style={{ ...inputStyle }} value={img} onChange={e => { const imgs = [...images]; imgs[i] = e.target.value; onChange(imgs); }} placeholder="https://... or drag image above" />
+          <button onClick={() => { const imgs = [...images]; imgs.splice(i, 1); onChange(imgs.length ? imgs : ['']); }} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171', flexShrink: 0 }}><X size={12} /></button>
+        </div>
+      ))}
+      <button onClick={() => onChange([...images, ''])} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer' }}>+ Add image URL</button>
+    </div>
+  );
+};
 
 // ── SIDEBAR ────────────────────────────────────────
 const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTab) => void; onLogout: () => void }) => {
@@ -22,6 +134,7 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'orders', icon: Package, label: 'Orders' },
     { id: 'products', icon: ShoppingBag, label: 'Products' },
     { id: 'series', icon: Settings, label: 'Series' },
+    { id: 'creators', icon: Users, label: 'Creators' },
   ];
   return (
     <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 6%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
@@ -57,22 +170,19 @@ const OverviewTab = () => {
   const { orders, products } = useStore();
   const totalSold = orders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + i.quantity, 0), 0);
   const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
-  const ordersLeft = orders.filter(o => o.status === 'processing' || o.status === 'confirmed' || o.status === 'shipped').length;
+  const ordersLeft = orders.filter(o => ['processing','confirmed','shipped'].includes(o.status)).length;
   const processing = orders.filter(o => o.status === 'processing').length;
   const delivered = orders.filter(o => o.status === 'delivered').length;
-
   const stats = [
     { label: 'TOTAL ITEMS SOLD', value: totalSold, color: '#ff6666', icon: TrendingUp },
     { label: 'ORDERS TO DELIVER', value: ordersLeft, color: '#fbbf24', icon: Clock },
     { label: 'PROCESSING', value: processing, color: '#60a5fa', icon: Package },
     { label: 'DELIVERED', value: delivered, color: '#4ade80', icon: CheckCircle },
   ];
-
   return (
     <div>
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', letterSpacing: '-0.02em', margin: '0 0 6px' }}>Store Overview</h1>
       <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Real-time snapshot of your merch store.</p>
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
         {stats.map(s => (
           <div key={s.label} style={{ ...card, padding: '20px' }}>
@@ -84,15 +194,11 @@ const OverviewTab = () => {
           </div>
         ))}
       </div>
-
-      {/* Revenue */}
       <div style={{ ...card, padding: '20px', marginBottom: '16px' }}>
         <div style={{ ...label, marginBottom: '6px' }}>TOTAL REVENUE</div>
         <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '36px', color: '#f1f5f9' }}>₹{totalRevenue.toLocaleString()}</div>
         <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b', marginTop: '4px' }}>From {orders.length} total orders</div>
       </div>
-
-      {/* Recent orders mini list */}
       <div style={{ ...card, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>Recent Orders</span>
@@ -106,7 +212,7 @@ const OverviewTab = () => {
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
-              <span style={{ background: o.status === 'delivered' ? 'rgba(74,222,128,0.1)' : o.status === 'shipped' ? 'rgba(139,92,246,0.1)' : o.status === 'confirmed' ? 'rgba(96,165,250,0.1)' : 'rgba(251,191,36,0.1)', color: o.status === 'delivered' ? '#4ade80' : o.status === 'shipped' ? '#a78bfa' : o.status === 'confirmed' ? '#60a5fa' : '#fbbf24', borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace', letterSpacing: '0.05em', textTransform: 'capitalize' }}>{o.status}</span>
+              <span style={{ background: o.status === 'delivered' ? 'rgba(74,222,128,0.1)' : o.status === 'shipped' ? 'rgba(139,92,246,0.1)' : 'rgba(251,191,36,0.1)', color: o.status === 'delivered' ? '#4ade80' : o.status === 'shipped' ? '#a78bfa' : '#fbbf24', borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace', textTransform: 'capitalize' }}>{o.status}</span>
             </div>
           </div>
         ))}
@@ -121,15 +227,11 @@ const OrdersTab = () => {
   const { orders, updateOrderStatus } = useStore();
   const [filter, setFilter] = useState('all');
   const STATUS_COLOR: Record<string, string> = { processing: '#fbbf24', confirmed: '#60a5fa', shipped: '#a78bfa', delivered: '#4ade80' };
-
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
-
   return (
     <div>
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 6px' }}>Orders</h1>
       <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>View and update order statuses.</p>
-
-      {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '20px' }}>
         {(['processing','confirmed','shipped','delivered'] as const).map(s => (
           <div key={s} style={{ ...card, padding: '14px' }}>
@@ -138,17 +240,11 @@ const OrdersTab = () => {
           </div>
         ))}
       </div>
-
-      {/* Filters */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
         {['all','processing','confirmed','shipped','delivered'].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
-            {f}
-          </button>
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>{f}</button>
         ))}
       </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>No orders found.</div>
@@ -159,14 +255,11 @@ const OrdersTab = () => {
                 <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>{o.id}</div>
                 <div style={{ ...label, marginTop: '2px' }}>{o.customerName} · {o.customerEmail} · {o.customerPhone}</div>
                 <div style={{ ...label, marginTop: '2px' }}>📍 {o.address}</div>
-                <div style={{ ...label, marginTop: '2px' }}>🕐 {new Date(o.createdAt).toLocaleString('en-IN')}</div>
               </div>
-              <div style={{ textAlign: 'right' }}>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
-                {o.paymentId && <div style={{ ...label, marginTop: '2px' }}>Pay: {o.paymentId.slice(0, 16)}...</div>}
               </div>
             </div>
-            {/* Items */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
               {o.items.map(item => (
                 <div key={`${item.productId}-${item.size}`} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '6px', padding: '5px 10px', fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#94a3b8' }}>
@@ -174,7 +267,6 @@ const OrdersTab = () => {
                 </div>
               ))}
             </div>
-            {/* Status buttons */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {(['processing','confirmed','shipped','delivered'] as const).map(s => (
                 <button key={s} onClick={() => updateOrderStatus(o.id, s)} disabled={o.status === s}
@@ -190,11 +282,15 @@ const OrdersTab = () => {
   );
 };
 
-// ── PRODUCT EDITOR MODAL ───────────────────────────
+// ── PRODUCT MODAL ──────────────────────────────────
 const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> | null; onSave: (p: Product) => void; onClose: () => void }) => {
-  const { series } = useStore();
+  const { series, creators, drops } = useStore();
   const isNew = !product?.id;
-  const [form, setForm] = useState<Partial<Product>>(product || { name: '', series: '', seriesId: '', price: 0, description: '', images: [''], variants: [{ size: 'S', stock: 10 }, { size: 'M', stock: 10 }, { size: 'L', stock: 10 }], tags: [], featured: false, createdAt: new Date().toISOString() });
+  const [form, setForm] = useState<Partial<Product>>(product || {
+    name: '', series: '', seriesId: '', price: 0, description: '',
+    images: [''], variants: [{ size: 'S', stock: 10 }, { size: 'M', stock: 10 }, { size: 'L', stock: 10 }],
+    tags: [], featured: false, limitedEdition: false, createdAt: new Date().toISOString(),
+  });
 
   const setField = (k: keyof Product, v: any) => setForm(f => ({ ...f, [k]: v }));
 
@@ -204,33 +300,44 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
     onSave({ ...form, id: form.id || 'p' + Date.now(), series: selectedSeries?.name || form.series || '', createdAt: form.createdAt || new Date().toISOString() } as Product);
   };
 
-  const backdrop = { position: 'fixed' as const, inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' };
-
   return (
-    <div style={backdrop} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'hsl(0 0% 10%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'hsl(0 0% 10%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '620px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#f1f5f9', margin: 0 }}>{isNew ? 'Add Product' : 'Edit Product'}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}><X size={18} /></button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
         </div>
 
-        {/* Name */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ ...label, marginBottom: '6px' }}>PRODUCT NAME *</div>
           <input style={inputStyle} value={form.name || ''} onChange={e => setField('name', e.target.value)} placeholder="OG Logo Tee" />
         </div>
 
-        {/* Series */}
-        <div style={{ marginBottom: '14px' }}>
-          <div style={{ ...label, marginBottom: '6px' }}>SERIES *</div>
-          <select value={form.seriesId || ''} onChange={e => { const s = series.find(ss => ss.id === e.target.value); setForm(f => ({ ...f, seriesId: e.target.value, series: s?.name || '' })); }}
-            style={{ ...inputStyle }}>
-            <option value="">Select series...</option>
-            {series.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>SERIES *</div>
+            <select value={form.seriesId || ''} onChange={e => { const s = series.find(ss => ss.id === e.target.value); setForm(f => ({ ...f, seriesId: e.target.value, series: s?.name || '' })); }} style={inputStyle}>
+              <option value="">Select series...</option>
+              {series.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>DROP</div>
+            <select value={form.dropId || ''} onChange={e => setField('dropId', e.target.value)} style={inputStyle}>
+              <option value="">No drop assigned</option>
+              {drops.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ ...label, marginBottom: '6px' }}>CREATOR</div>
+          <select value={form.creatorId || ''} onChange={e => setField('creatorId', e.target.value)} style={{ ...inputStyle, marginBottom: '14px' }}>
+            <option value="">No creator assigned</option>
+            {creators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
 
-        {/* Price & Original Price */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
           <div>
             <div style={{ ...label, marginBottom: '6px' }}>PRICE (₹) *</div>
@@ -238,37 +345,23 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
           </div>
           <div>
             <div style={{ ...label, marginBottom: '6px' }}>ORIGINAL PRICE (₹)</div>
-            <input style={inputStyle} type="number" value={form.originalPrice || ''} onChange={e => setField('originalPrice', e.target.value ? Number(e.target.value) : undefined)} placeholder="999 (for sale badge)" />
+            <input style={inputStyle} type="number" value={form.originalPrice || ''} onChange={e => setField('originalPrice', e.target.value ? Number(e.target.value) : undefined)} placeholder="999" />
           </div>
         </div>
 
-        {/* Description */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ ...label, marginBottom: '6px' }}>DESCRIPTION</div>
           <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.description || ''} onChange={e => setField('description', e.target.value)} placeholder="Product description..." />
         </div>
 
-        {/* Images */}
-        <div style={{ marginBottom: '14px' }}>
-          <div style={{ ...label, marginBottom: '6px' }}>IMAGE URLS</div>
-          {(form.images || ['']).map((img, i) => (
-            <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
-              <input style={{ ...inputStyle }} value={img} onChange={e => { const imgs = [...(form.images || [''])]; imgs[i] = e.target.value; setField('images', imgs); }} placeholder="https://..." />
-              {i === (form.images || []).length - 1 ? (
-                <button onClick={() => setField('images', [...(form.images || []), ''])} style={{ background: 'rgba(255,0,0,0.1)', border: '1px solid rgba(255,0,0,0.2)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#ff6666', flexShrink: 0 }}>+</button>
-              ) : (
-                <button onClick={() => { const imgs = [...(form.images || [])]; imgs.splice(i, 1); setField('images', imgs); }} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171', flexShrink: 0 }}><X size={12} /></button>
-              )}
-            </div>
-          ))}
-        </div>
+        {/* Multi image dropzone */}
+        <MultiImageDropzone images={form.images || ['']} onChange={imgs => setField('images', imgs)} />
 
-        {/* Variants / Sizes */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ ...label, marginBottom: '6px' }}>SIZES & STOCK</div>
           {(form.variants || []).map((v, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
-              <input style={inputStyle} value={v.size} onChange={e => { const vars = [...(form.variants || [])]; vars[i] = { ...vars[i], size: e.target.value }; setField('variants', vars); }} placeholder="Size (S/M/L/XL)" />
+              <input style={inputStyle} value={v.size} onChange={e => { const vars = [...(form.variants || [])]; vars[i] = { ...vars[i], size: e.target.value }; setField('variants', vars); }} placeholder="S/M/L/XL" />
               <input style={inputStyle} type="number" value={v.stock} onChange={e => { const vars = [...(form.variants || [])]; vars[i] = { ...vars[i], stock: Number(e.target.value) }; setField('variants', vars); }} placeholder="Stock" />
               <button onClick={() => { const vars = [...(form.variants || [])]; vars.splice(i, 1); setField('variants', vars); }} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171' }}><X size={12} /></button>
             </div>
@@ -276,12 +369,15 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
           <button onClick={() => setField('variants', [...(form.variants || []), { size: '', stock: 10 }])} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}>+ Add size</button>
         </div>
 
-        {/* Featured toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-          <button onClick={() => setField('featured', !form.featured)} style={{ width: '40px', height: '22px', borderRadius: '11px', background: form.featured ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-            <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: form.featured ? '20px' : '2px', transition: 'left 0.2s' }} />
-          </button>
-          <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#94a3b8' }}>Featured product</span>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
+          {[['featured', 'Featured product'], ['limitedEdition', 'Limited Edition']].map(([key, lbl]) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => setField(key as keyof Product, !(form as any)[key])} style={{ width: '36px', height: '20px', borderRadius: '10px', background: (form as any)[key] ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: (form as any)[key] ? '18px' : '2px', transition: 'left 0.2s' }} />
+              </button>
+              <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#94a3b8' }}>{lbl}</span>
+            </div>
+          ))}
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -305,13 +401,7 @@ const ProductsTab = () => {
     const exists = products.find(x => x.id === p.id);
     if (exists) setProducts(products.map(x => x.id === p.id ? p : x));
     else setProducts([...products, p]);
-    setShowModal(false);
-    setEditing(null);
-  };
-
-  const handleDelete = (id: string) => {
-    if (!confirm('Delete this product?')) return;
-    setProducts(products.filter(p => p.id !== id));
+    setShowModal(false); setEditing(null);
   };
 
   return (
@@ -319,45 +409,43 @@ const ProductsTab = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
           <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Products</h1>
-          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Add, edit, or remove products from your store.</p>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Add, edit, or remove products.</p>
         </div>
         <button onClick={() => { setEditing(null); setShowModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
           <Plus size={14} /> Add Product
         </button>
       </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {products.map(p => (
           <div key={p.id} style={{ ...card, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{ width: '56px', height: '56px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.04)' }}>
-              {p.images[0] ? <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image size={18} style={{ color: '#334155' }} /></div>}
+              {p.images[0] ? <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImageIcon size={18} style={{ color: '#334155' }} /></div>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 600, fontSize: '14px', color: '#f1f5f9', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {p.name} {p.featured && <span style={{ background: 'rgba(255,0,0,0.12)', color: '#ff6666', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>FEATURED</span>}
+              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 600, fontSize: '14px', color: '#f1f5f9', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                {p.name}
+                {p.featured && <span style={{ background: 'rgba(255,0,0,0.12)', color: '#ff6666', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>FEATURED</span>}
+                {p.limitedEdition && <span style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>LIMITED</span>}
               </div>
               <div style={{ ...label, marginBottom: '4px' }}>{p.series} · {p.variants.map(v => v.size).join(', ')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#ff6666' }}>₹{p.price.toLocaleString()}</span>
-                {p.originalPrice && <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#475569', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
-                <span style={{ ...label }}>· Stock: {p.variants.reduce((s, v) => s + v.stock, 0)} total</span>
+                {p.originalPrice && <span style={{ fontSize: '12px', color: '#475569', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
+                <span style={{ ...label }}>· Stock: {p.variants.reduce((s, v) => s + v.stock, 0)}</span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
               <button onClick={() => { setEditing(p); setShowModal(true); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
                 <Edit2 size={12} /> Edit
               </button>
-              <button onClick={() => handleDelete(p.id)} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
+              <button onClick={() => { if (confirm('Delete this product?')) setProducts(products.filter(x => x.id !== p.id)); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
                 <Trash2 size={12} /> Delete
               </button>
             </div>
           </div>
         ))}
       </div>
-
-      {showModal && (
-        <ProductModal product={editing} onSave={handleSave} onClose={() => { setShowModal(false); setEditing(null); }} />
-      )}
+      {showModal && <ProductModal product={editing} onSave={handleSave} onClose={() => { setShowModal(false); setEditing(null); }} />}
     </div>
   );
 };
@@ -368,61 +456,44 @@ const SeriesTab = () => {
   const [editing, setEditing] = useState<Partial<Series> | null>(null);
 
   const handleSave = () => {
-    if (!editing?.name) { alert('Series name is required'); return; }
-    const exists = series.find(s => s.id === editing.id);
+    if (!editing?.name) { alert('Name required'); return; }
     const updated: Series = { id: editing.id || 's' + Date.now(), name: editing.name || '', description: editing.description || '', logo: editing.logo || '', banner: editing.banner || '', color: editing.color || '#ff0000' };
-    if (exists) setSeries(series.map(s => s.id === updated.id ? updated : s));
+    if (series.find(s => s.id === updated.id)) setSeries(series.map(s => s.id === updated.id ? updated : s));
     else setSeries([...series, updated]);
     setEditing(null);
   };
+
+  const SeriesForm = ({ data, setData }: { data: Partial<Series>; setData: (d: Partial<Series>) => void }) => (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+        <div><div style={{ ...label, marginBottom: '5px' }}>NAME *</div><input style={inputStyle} value={data.name || ''} onChange={e => setData({ ...data, name: e.target.value })} placeholder="Drop Name" /></div>
+        <div><div style={{ ...label, marginBottom: '5px' }}>ACCENT COLOR</div><input type="color" value={data.color || '#ff0000'} onChange={e => setData({ ...data, color: e.target.value })} style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'transparent' }} /></div>
+      </div>
+      <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div><input style={inputStyle} value={data.description || ''} onChange={e => setData({ ...data, description: e.target.value })} /></div>
+      <ImageDropzone value={data.logo || ''} onChange={v => setData({ ...data, logo: v })} label="LOGO IMAGE" />
+      <ImageDropzone value={data.banner || ''} onChange={v => setData({ ...data, banner: v })} label="BANNER IMAGE" />
+      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+        <button onClick={handleSave} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={13} /> Save</button>
+        <button onClick={() => setEditing(null)} style={{ padding: '8px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+      </div>
+    </div>
+  );
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
           <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Series</h1>
-          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Manage your product series / collections.</p>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Manage product collections.</p>
         </div>
         <button onClick={() => setEditing({ name: '', description: '', logo: '', banner: '', color: '#ff0000' })} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
           <Plus size={14} /> Add Series
         </button>
       </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {series.map(s => (
           <div key={s.id} style={{ ...card, padding: '16px 20px' }}>
-            {editing?.id === s.id ? (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                  <div>
-                    <div style={{ ...label, marginBottom: '5px' }}>NAME *</div>
-                    <input style={inputStyle} value={editing.name || ''} onChange={e => setEditing(ed => ({ ...ed!, name: e.target.value }))} />
-                  </div>
-                  <div>
-                    <div style={{ ...label, marginBottom: '5px' }}>COLOR</div>
-                    <input type="color" value={editing.color || '#ff0000'} onChange={e => setEditing(ed => ({ ...ed!, color: e.target.value }))} style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'transparent' }} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: '10px' }}>
-                  <div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div>
-                  <input style={inputStyle} value={editing.description || ''} onChange={e => setEditing(ed => ({ ...ed!, description: e.target.value }))} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-                  <div>
-                    <div style={{ ...label, marginBottom: '5px' }}>LOGO URL</div>
-                    <input style={inputStyle} value={editing.logo || ''} onChange={e => setEditing(ed => ({ ...ed!, logo: e.target.value }))} placeholder="https://..." />
-                  </div>
-                  <div>
-                    <div style={{ ...label, marginBottom: '5px' }}>BANNER URL</div>
-                    <input style={inputStyle} value={editing.banner || ''} onChange={e => setEditing(ed => ({ ...ed!, banner: e.target.value }))} placeholder="https://..." />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={handleSave} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={13} /> Save</button>
-                  <button onClick={() => setEditing(null)} style={{ padding: '8px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
+            {editing?.id === s.id ? <SeriesForm data={editing} setData={setEditing} /> : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div style={{ width: '48px', height: '48px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.04)', flexShrink: 0, border: `2px solid ${s.color}40` }}>
                   {s.logo && <img src={s.logo} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
@@ -432,53 +503,138 @@ const SeriesTab = () => {
                   <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b' }}>{s.description}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => setEditing({ ...s })} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
-                    <Edit2 size={12} /> Edit
-                  </button>
-                  <button onClick={() => { if(confirm('Delete series?')) setSeries(series.filter(ss => ss.id !== s.id)); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
-                    <Trash2 size={12} /> Delete
-                  </button>
+                  <button onClick={() => setEditing({ ...s })} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}><Edit2 size={12} /> Edit</button>
+                  <button onClick={() => { if (confirm('Delete?')) setSeries(series.filter(ss => ss.id !== s.id)); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}><Trash2 size={12} /> Delete</button>
                 </div>
               </div>
             )}
           </div>
         ))}
-
-        {/* New series inline form */}
         {editing && !editing.id && (
           <div style={{ ...card, padding: '20px' }}>
             <h3 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9', margin: '0 0 16px' }}>New Series</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-              <div>
-                <div style={{ ...label, marginBottom: '5px' }}>NAME *</div>
-                <input style={inputStyle} value={editing.name || ''} onChange={e => setEditing(ed => ({ ...ed!, name: e.target.value }))} placeholder="Drop Name" />
-              </div>
-              <div>
-                <div style={{ ...label, marginBottom: '5px' }}>COLOR</div>
-                <input type="color" value={editing.color || '#ff0000'} onChange={e => setEditing(ed => ({ ...ed!, color: e.target.value }))} style={{ width: '100%', height: '38px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'transparent' }} />
-              </div>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div>
-              <input style={inputStyle} value={editing.description || ''} onChange={e => setEditing(ed => ({ ...ed!, description: e.target.value }))} placeholder="Short series description" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-              <div>
-                <div style={{ ...label, marginBottom: '5px' }}>LOGO URL</div>
-                <input style={inputStyle} value={editing.logo || ''} onChange={e => setEditing(ed => ({ ...ed!, logo: e.target.value }))} placeholder="https://..." />
-              </div>
-              <div>
-                <div style={{ ...label, marginBottom: '5px' }}>BANNER URL</div>
-                <input style={inputStyle} value={editing.banner || ''} onChange={e => setEditing(ed => ({ ...ed!, banner: e.target.value }))} placeholder="https://..." />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={handleSave} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Plus size={13} /> Create Series</button>
-              <button onClick={() => setEditing(null)} style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
-            </div>
+            <SeriesForm data={editing} setData={setEditing} />
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+// ── CREATORS TAB ───────────────────────────────────
+const CreatorsTab = () => {
+  const { creators, setCreators, products } = useStore();
+  const [editing, setEditing] = useState<Partial<Creator> | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const handleSave = () => {
+    if (!editing?.name || !editing?.handle) { alert('Name and handle required'); return; }
+    const updated: Creator = {
+      id: editing.id || 'c' + Date.now(),
+      name: editing.name, handle: editing.handle.toLowerCase().replace(/\s+/g, ''),
+      bio: editing.bio || '', avatar: editing.avatar || '', banner: editing.banner || '',
+      youtubeVideoId: editing.youtubeVideoId || '', subscribers: editing.subscribers || '',
+      productIds: editing.productIds || [],
+      dropCountdownEnd: editing.dropCountdownEnd || '',
+    };
+    if (creators.find(c => c.id === updated.id)) setCreators(creators.map(c => c.id === updated.id ? updated : c));
+    else setCreators([...creators, updated]);
+    setShowModal(false); setEditing(null);
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Creators</h1>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Manage creator pages and their merch assignments.</p>
+        </div>
+        <button onClick={() => { setEditing({ productIds: [] }); setShowModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+          <Plus size={14} /> Add Creator
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {creators.map(c => (
+          <div key={c.id} style={{ ...card, overflow: 'hidden' }}>
+            {c.banner && <div style={{ position: 'relative', height: '100px', overflow: 'hidden' }}><img src={c.banner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} /></div>}
+            <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <img src={c.avatar} alt={c.name} style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,0,0,0.4)', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>{c.name}</div>
+                <div style={{ ...label, marginTop: '2px' }}>@{c.handle} · {c.subscribers || '—'} subscribers</div>
+                <div style={{ ...label, marginTop: '2px' }}>{c.productIds.length} products assigned</div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                <a href={`/creator/${c.handle}`} target="_blank" rel="noopener noreferrer" style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>View Page</a>
+                <button onClick={() => { setEditing({ ...c }); setShowModal(true); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}><Edit2 size={12} /> Edit</button>
+                <button onClick={() => { if (confirm('Delete creator?')) setCreators(creators.filter(x => x.id !== c.id)); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}><Trash2 size={12} /> Delete</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Creator Modal */}
+      {showModal && editing && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={() => { setShowModal(false); setEditing(null); }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'hsl(0 0% 10%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#f1f5f9', margin: 0 }}>{editing.id ? 'Edit Creator' : 'Add Creator'}</h2>
+              <button onClick={() => { setShowModal(false); setEditing(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+              <div><div style={{ ...label, marginBottom: '6px' }}>NAME *</div><input style={inputStyle} value={editing.name || ''} onChange={e => setEditing(ed => ({ ...ed!, name: e.target.value }))} placeholder="Carry Minati" /></div>
+              <div><div style={{ ...label, marginBottom: '6px' }}>HANDLE * (URL slug)</div><input style={inputStyle} value={editing.handle || ''} onChange={e => setEditing(ed => ({ ...ed!, handle: e.target.value.toLowerCase().replace(/\s/g, '') }))} placeholder="carryminati" /></div>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}><div style={{ ...label, marginBottom: '6px' }}>BIO</div><textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={editing.bio || ''} onChange={e => setEditing(ed => ({ ...ed!, bio: e.target.value }))} placeholder="Creator bio..." /></div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+              <div><div style={{ ...label, marginBottom: '6px' }}>SUBSCRIBERS</div><input style={inputStyle} value={editing.subscribers || ''} onChange={e => setEditing(ed => ({ ...ed!, subscribers: e.target.value }))} placeholder="41M" /></div>
+              <div><div style={{ ...label, marginBottom: '6px' }}>YOUTUBE VIDEO ID</div><input style={inputStyle} value={editing.youtubeVideoId || ''} onChange={e => setEditing(ed => ({ ...ed!, youtubeVideoId: e.target.value }))} placeholder="dQw4w9WgXcQ" /></div>
+            </div>
+
+            <ImageDropzone value={editing.avatar || ''} onChange={v => setEditing(ed => ({ ...ed!, avatar: v }))} label="AVATAR IMAGE" />
+            <ImageDropzone value={editing.banner || ''} onChange={v => setEditing(ed => ({ ...ed!, banner: v }))} label="BANNER IMAGE" />
+
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ ...label, marginBottom: '6px' }}>DROP COUNTDOWN END (optional)</div>
+              <input type="datetime-local" style={inputStyle} value={editing.dropCountdownEnd ? new Date(editing.dropCountdownEnd).toISOString().slice(0, 16) : ''} onChange={e => setEditing(ed => ({ ...ed!, dropCountdownEnd: e.target.value ? new Date(e.target.value).toISOString() : '' }))} />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ ...label, marginBottom: '8px' }}>ASSIGN PRODUCTS</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto', padding: '4px' }}>
+                {products.map(p => {
+                  const assigned = (editing.productIds || []).includes(p.id);
+                  return (
+                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '8px 10px', borderRadius: '8px', background: assigned ? 'rgba(255,0,0,0.08)' : 'rgba(255,255,255,0.02)', border: `1px solid ${assigned ? 'rgba(255,0,0,0.2)' : 'rgba(255,255,255,0.06)'}`, transition: 'all 0.15s' }}>
+                      <input type="checkbox" checked={assigned} onChange={() => {
+                        const ids = editing.productIds || [];
+                        setEditing(ed => ({ ...ed!, productIds: assigned ? ids.filter(id => id !== p.id) : [...ids, p.id] }));
+                      }} style={{ accentColor: '#ff0000' }} />
+                      {p.images[0] && <img src={p.images[0]} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px' }} />}
+                      <div>
+                        <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#f1f5f9' }}>{p.name}</div>
+                        <div style={{ ...label }}>₹{p.price}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => { setShowModal(false); setEditing(null); }} style={{ flex: 1, padding: '11px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '14px', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSave} style={{ flex: 2, padding: '11px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <Save size={14} /> {editing.id ? 'Save Changes' : 'Add Creator'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -490,7 +646,6 @@ const AdminDashboard = () => {
   const [tab, setTab] = useState<AdminTab>('overview');
 
   useEffect(() => { if (!isAdmin) navigate('/admin'); }, [isAdmin]);
-
   if (!isAdmin) return null;
 
   return (
@@ -501,6 +656,7 @@ const AdminDashboard = () => {
         {tab === 'orders' && <OrdersTab />}
         {tab === 'products' && <ProductsTab />}
         {tab === 'series' && <SeriesTab />}
+        {tab === 'creators' && <CreatorsTab />}
       </main>
     </div>
   );
