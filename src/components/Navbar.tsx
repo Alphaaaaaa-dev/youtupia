@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, Sun, Moon, Menu, X, User, LogOut, ChevronDown } from 'lucide-react';
+import { Search, ShoppingCart, Sun, Moon, Menu, X, User, LogOut, ChevronDown, Heart } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useStore } from '../contexts/StoreContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -177,6 +177,13 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
         {/* Right: actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           <ThemeToggle />
+
+          {/* Wishlist */}
+          <a href="/wishlist" style={{ ...iconBtn, textDecoration: 'none', color: 'hsl(var(--foreground))', display: 'flex', alignItems: 'center' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'hsl(var(--secondary))'; (e.currentTarget as HTMLElement).style.transform = 'scale(1.08)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}>
+            <Heart size={20} />
+          </a>
 
           {/* Cart */}
           <button onClick={onCartOpen} style={{ ...iconBtn, position: 'relative' }}
