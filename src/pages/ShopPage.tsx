@@ -2,29 +2,37 @@ import { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { SlidersHorizontal, ArrowUpDown, Heart, Eye, ShoppingCart } from 'lucide-react';
 
 const ShopPage = () => {
-  const { products, series, addToCart } = useStore();
+  const { products, series, drops, addToCart, toggleWishlist, wishlist } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [searchParams] = useSearchParams();
   const [activeSeries, setActiveSeries] = useState(searchParams.get('series') || 'all');
+  const [activeDrop, setActiveDrop] = useState(searchParams.get('drop') || 'all');
   const [sortBy, setSortBy] = useState('newest');
+  const [filterMode, setFilterMode] = useState<'series' | 'drop'>('series');
   const query = searchParams.get('q') || '';
   const [addedId, setAddedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (searchParams.get('drop')) setFilterMode('drop');
+  }, []);
+
   const filtered = useMemo(() => {
     let res = [...products];
-    if (activeSeries !== 'all') res = res.filter(p => p.seriesId === activeSeries);
+    if (filterMode === 'series' && activeSeries !== 'all') res = res.filter(p => p.seriesId === activeSeries);
+    if (filterMode === 'drop' && activeDrop !== 'all') res = res.filter(p => p.dropId === activeDrop);
     if (query) res = res.filter(p => p.name.toLowerCase().includes(query.toLowerCase()) || p.tags.some(t => t.includes(query.toLowerCase())));
     if (sortBy === 'price-asc') res.sort((a, b) => a.price - b.price);
     else if (sortBy === 'price-desc') res.sort((a, b) => b.price - a.price);
     else res.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return res;
-  }, [products, activeSeries, query, sortBy]);
+  }, [products, activeSeries, activeDrop, filterMode, query, sortBy]);
 
-  const handleAdd = (p: any) => {
+  const handleAdd = (p: any, e: React.MouseEvent) => {
+    e.preventDefault();
     addToCart(p, p.variants[0]?.size || 'M');
     setAddedId(p.id);
     setTimeout(() => setAddedId(null), 1800);
@@ -32,34 +40,53 @@ const ShopPage = () => {
 
   return (
     <div style={{ paddingTop: '56px', position: 'relative', zIndex: 1 }}>
-      {/* Page header */}
       <div style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))', borderBottom: '1px solid hsl(var(--border))', padding: '32px 24px 0' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
           <div className="page-enter">
             <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '6px' }}>
-              {query ? `Results for "${query}"` : activeSeries !== 'all' ? series.find(s => s.id === activeSeries)?.name : 'All Products'}
+              {query ? `Results for "${query}"` : 'All Products'}
             </div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, margin: '0 0 4px', letterSpacing: '-0.02em' }}>Shop</h1>
-            <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginBottom: '24px' }}>{filtered.length} product{filtered.length !== 1 ? 's' : ''}</p>
+            <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginBottom: '20px' }}>{filtered.length} product{filtered.length !== 1 ? 's' : ''}</p>
+          </div>
+
+          {/* Filter mode toggle */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+            {(['series', 'drop'] as const).map(mode => (
+              <button key={mode} onClick={() => setFilterMode(mode)}
+                style={{ padding: '5px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, fontFamily: 'Roboto, sans-serif', textTransform: 'capitalize', background: filterMode === mode ? '#ff0000' : 'hsl(var(--secondary))', color: filterMode === mode ? 'white' : 'hsl(var(--muted-foreground))', transition: 'all 0.15s' }}>
+                By {mode}
+              </button>
+            ))}
           </div>
 
           {/* Filter chips */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '1px' }}>
-            <button onClick={() => setActiveSeries('all')} className={`yt-chip ${activeSeries === 'all' ? 'active' : ''}`}>All</button>
-            {series.map(s => (
-              <button key={s.id} onClick={() => setActiveSeries(s.id)} className={`yt-chip ${activeSeries === s.id ? 'active' : ''}`}>{s.name}</button>
-            ))}
+            {filterMode === 'series' ? (
+              <>
+                <button onClick={() => setActiveSeries('all')} className={`yt-chip ${activeSeries === 'all' ? 'active' : ''}`}>All</button>
+                {series.map(s => (
+                  <button key={s.id} onClick={() => setActiveSeries(s.id)} className={`yt-chip ${activeSeries === s.id ? 'active' : ''}`}>{s.name}</button>
+                ))}
+              </>
+            ) : (
+              <>
+                <button onClick={() => setActiveDrop('all')} className={`yt-chip ${activeDrop === 'all' ? 'active' : ''}`}>All Drops</button>
+                {drops.map(d => (
+                  <button key={d.id} onClick={() => setActiveDrop(d.id)} className={`yt-chip ${activeDrop === d.id ? 'active' : ''}`}>
+                    {d.limited && '🔒 '}{d.name}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
-
-          {/* Active indicator bar */}
           <div style={{ height: '2px', background: 'transparent', marginTop: '16px', position: 'relative' }}>
-            <div style={{ position: 'absolute', bottom: 0, height: '2px', background: '#ff0000', borderRadius: '2px 2px 0 0', width: '40px', transition: 'left 0.3s ease' }} />
+            <div style={{ position: 'absolute', bottom: 0, height: '2px', background: '#ff0000', borderRadius: '2px 2px 0 0', width: '40px' }} />
           </div>
         </div>
       </div>
 
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '24px 24px 64px' }}>
-        {/* Sort bar */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '20px', gap: '10px', alignItems: 'center' }}>
           <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>{filtered.length} items</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -78,46 +105,57 @@ const ShopPage = () => {
             <div style={{ fontSize: '52px', marginBottom: '16px' }}>🔍</div>
             <h2 style={{ fontWeight: 700, marginBottom: '10px' }}>Nothing found</h2>
             <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '24px' }}>Try a different filter or browse all products</p>
-            <button onClick={() => setActiveSeries('all')} className="btn-yt" style={{ borderRadius: '10px' }}>Clear Filters</button>
+            <button onClick={() => { setActiveSeries('all'); setActiveDrop('all'); }} className="btn-yt" style={{ borderRadius: '10px' }}>Clear Filters</button>
           </div>
         ) : (
           <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-            {filtered.map(p => (
-              <div key={p.id} className="product-card">
-                <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))' }}>
-                    <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-                    {p.originalPrice && (
-                      <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em', boxShadow: '0 2px 8px rgba(255,0,0,0.4)' }}>
-                        {Math.round((1 - p.price / p.originalPrice) * 100)}% OFF
-                      </span>
-                    )}
-                    {p.variants.reduce((s: number, v: any) => s + v.stock, 0) < 5 && (
-                      <span style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.75)', color: '#fbbf24', fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px' }}>LOW STOCK</span>
-                    )}
-                  </div>
-                  <div style={{ padding: '12px 12px 4px' }}>
-                    <div style={{ fontSize: '10px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
-                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', lineHeight: 1.3 }}>{p.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '15px', color: '#ff0000' }}>₹{p.price.toLocaleString()}</span>
-                      {p.originalPrice && <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
-                    </div>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                      {p.variants.slice(0, 4).map((v: any) => (
-                        <span key={v.size} style={{ fontSize: '9px', padding: '2px 5px', borderRadius: '3px', background: 'hsl(var(--secondary))', color: v.stock === 0 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', textDecoration: v.stock === 0 ? 'line-through' : 'none', fontWeight: 600 }}>{v.size}</span>
-                      ))}
-                    </div>
-                  </div>
-                </Link>
-                <div style={{ padding: '0 10px 10px' }}>
-                  <button onClick={() => handleAdd(p)} className="btn-yt ripple"
-                    style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s' }}>
-                    {addedId === p.id ? '✓ Added!' : 'Add to Cart'}
+            {filtered.map(p => {
+              const totalStock = p.variants.reduce((s: number, v: any) => s + v.stock, 0);
+              const isWishlisted = wishlist.includes(p.id);
+              return (
+                <div key={p.id} className="product-card" style={{ position: 'relative' }}>
+                  {/* Wishlist */}
+                  <button onClick={() => toggleWishlist(p.id)}
+                    style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isWishlisted ? '#ff0000' : 'white', transition: 'transform 0.2s', transform: isWishlisted ? 'scale(1.1)' : 'scale(1)' }}>
+                    <Heart size={14} fill={isWishlisted ? '#ff0000' : 'none'} />
                   </button>
+
+                  <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))' }}>
+                      <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                      {p.originalPrice && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em', boxShadow: '0 2px 8px rgba(255,0,0,0.4)' }}>{Math.round((1 - p.price / p.originalPrice) * 100)}% OFF</span>}
+                      {p.limitedEdition && <span style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', color: '#ff0000', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,0,0,0.3)' }}>LIMITED</span>}
+                      {totalStock < 5 && totalStock > 0 && <span style={{ position: 'absolute', top: '10px', right: p.originalPrice ? 'auto' : '10px', left: p.originalPrice ? 'auto' : 'auto', background: 'rgba(0,0,0,0.75)', color: '#fbbf24', fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px' }}>LOW STOCK</span>}
+                      {/* Viewer count */}
+                      {p.viewerCount && p.viewerCount > 3 && (
+                        <span style={{ position: 'absolute', bottom: p.limitedEdition ? '30px' : '10px', left: '10px', background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.8)', fontSize: '9px', padding: '3px 7px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Eye size={8} /> {p.viewerCount} viewing
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ padding: '12px 12px 4px' }}>
+                      <div style={{ fontSize: '10px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
+                      <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', lineHeight: 1.3 }}>{p.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: 800, fontSize: '15px', color: '#ff0000' }}>₹{p.price.toLocaleString()}</span>
+                        {p.originalPrice && <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+                        {p.variants.slice(0, 4).map((v: any) => (
+                          <span key={v.size} style={{ fontSize: '9px', padding: '2px 5px', borderRadius: '3px', background: 'hsl(var(--secondary))', color: v.stock === 0 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', textDecoration: v.stock === 0 ? 'line-through' : 'none', fontWeight: 600 }}>{v.size}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </Link>
+                  <div style={{ padding: '0 10px 10px' }}>
+                    <button onClick={e => handleAdd(p, e)} className="btn-yt ripple"
+                      style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <ShoppingCart size={13} /> {addedId === p.id ? '✓ Added!' : 'Add to Cart'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
