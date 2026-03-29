@@ -73,3 +73,4 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
 };
 
 export default CartDrawer;
+ 
