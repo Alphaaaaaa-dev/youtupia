@@ -27,10 +27,13 @@ import LoginPage from './pages/LoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import NotFound from './pages/NotFound';
+import CreatorPage from './pages/CreatorPage';
+import DropsPage from './pages/DropsPage';
+import WishlistPage from './pages/WishlistPage';
+import TrackOrderPage from './pages/TrackOrderPage';
 
 const queryClient = new QueryClient();
 
-// ── Animated page transition wrapper ─────────────────
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [displayed, setDisplayed] = useState(children);
@@ -41,11 +44,7 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => {
     if (location.pathname === prevPath.current) return;
     prevPath.current = location.pathname;
     setPhase('exit');
-    const t1 = setTimeout(() => {
-      setDisplayed(children);
-      setPhase('enter');
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    }, 220);
+    const t1 = setTimeout(() => { setDisplayed(children); setPhase('enter'); window.scrollTo({ top: 0, behavior: 'instant' }); }, 220);
     const t2 = setTimeout(() => setPhase('idle'), 520);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [location.pathname, children]);
@@ -53,15 +52,12 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   const style: React.CSSProperties = {
     opacity: phase === 'exit' ? 0 : 1,
     transform: phase === 'exit' ? 'translateY(-8px)' : phase === 'enter' ? 'translateY(0)' : 'none',
-    transition: phase === 'exit'
-      ? 'opacity 0.22s ease, transform 0.22s ease'
-      : 'opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1)',
+    transition: phase === 'exit' ? 'opacity 0.22s ease, transform 0.22s ease' : 'opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1)',
   };
 
   return <div style={style}>{displayed}</div>;
 };
 
-// ── Use scroll-triggered reveals ─────────────────────
 export const useReveal = () => {
   useEffect(() => {
     const els = document.querySelectorAll('.reveal');
@@ -77,7 +73,6 @@ const StoreLayout = () => {
   const [cartOpen, setCartOpen] = useState(false);
   return (
     <>
-      {/* Background orbs — only in dark mode */}
       <div className="orb orb-1" />
       <div className="orb orb-2" />
       <Navbar onCartOpen={() => setCartOpen(true)} />
@@ -97,6 +92,10 @@ const StoreLayout = () => {
           <Route path="/policy" element={<PolicyPage />} />
           <Route path="/contact" element={<ContactSupportPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/creator/:handle" element={<CreatorPage />} />
+          <Route path="/drops" element={<DropsPage />} />
+          <Route path="/wishlist" element={<WishlistPage />} />
+          <Route path="/track-order" element={<TrackOrderPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </PageWrapper>
