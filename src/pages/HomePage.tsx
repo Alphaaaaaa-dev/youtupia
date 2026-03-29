@@ -39,7 +39,7 @@ const Counter = ({ target, suffix = '' }: { target: number; suffix?: string }) =
 };
 
 const HomePage = () => {
-  const { products, series, addToCart } = useStore();
+  const { products, series, creators, drops, addToCart } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const featured = products.filter(p => p.featured);
@@ -247,6 +247,37 @@ const HomePage = () => {
         </div>
       </section>
 
+
+      {/* ── CREATORS ── */}
+      <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px 64px' }}>
+        <div className="reveal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>Creators</div>
+            <h2 style={{ fontSize: '28px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Shop by Creator</h2>
+            <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginTop: '6px' }}>Merch from your favourite YouTubers.</p>
+          </div>
+        </div>
+        <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+          {creators.map(c => (
+            <a key={c.id} href={`/creator/${c.handle}`}
+              style={{ textDecoration: 'none', borderRadius: '20px', overflow: 'hidden', position: 'relative', height: '200px', display: 'flex', alignItems: 'flex-end', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 20px 50px rgba(0,0,0,0.3)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+              {c.banner && <img src={c.banner} alt={c.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 20%, rgba(0,0,0,0.8))' }} />
+              <div style={{ position: 'relative', padding: '18px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%' }}>
+                <img src={c.avatar} alt={c.name} style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid #ff0000', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: 'white', fontWeight: 800, fontSize: '16px' }}>{c.name}</div>
+                  {c.subscribers && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '2px' }}>{c.subscribers} subscribers</div>}
+                  <div style={{ color: '#ff6666', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>{c.productIds.length} products →</div>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
       {/* ── WHY YOUTUPIA ── */}
       <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '64px 24px' }}>
         <div className="reveal" style={{ textAlign: 'center', marginBottom: '48px' }}>
@@ -310,8 +341,8 @@ const HomePage = () => {
             </div>
           </div>
           {[
-            { heading: 'Shop', links: [['All Products', '/shop'], ['Classic Drop', '/shop?series=classic'], ['Street Series', '/shop?series=streetwear'], ['New Arrivals', '/shop']] },
-            { heading: 'Info', links: [['About Us', '/about'], ['FAQ', '/faq'], ['Contact', '/contact'], ['Policies', '/policy']] },
+            { heading: 'Shop', links: [['All Products', '/shop'], ['Drops', '/drops'], ['Creators', '/shop'], ['Wishlist', '/wishlist'], ['New Arrivals', '/shop']] },
+            { heading: 'Info', links: [['About Us', '/about'], ['Track Order', '/track-order'], ['FAQ', '/faq'], ['Contact', '/contact'], ['Policies', '/policy']] },
             { heading: 'Connect', links: [['📧 hello@youtupia.com', '/contact'], ['📱 +91 00000 00000', '/contact'], ['📸 @youtupia', '/contact'], ['💬 WhatsApp', '/contact']] },
           ].map(col => (
             <div key={col.heading}>
