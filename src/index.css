@@ -284,4 +284,92 @@
     animation: scanLine 3s ease-in-out infinite;
   }
   @keyframes scanLine { to { left: 200%; } }
+
+  /* ── Float up entrance ── */
+  .float-up {
+    animation: floatUp 0.7s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  @keyframes floatUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Stagger children ── */
+  .stagger > * { opacity: 0; transform: translateY(16px); animation: floatUp 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+  .stagger > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.10s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.15s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.20s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.25s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.30s; }
+  .stagger > *:nth-child(n+7) { animation-delay: 0.35s; }
+
+  /* ── Page enter ── */
+  .page-enter { animation: pageEnter 0.5s cubic-bezier(0.22,1,0.36,1) both; }
+  @keyframes pageEnter {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Fade in ── */
+  .fade-in { animation: fadeIn 0.4s ease both; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ── Pulse dot (live badge) ── */
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #ff0000;
+    animation: pulseDot 1.5s ease-in-out infinite;
+    display: inline-block;
+  }
+  @keyframes pulseDot {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,0,0,0.4); }
+    50%      { box-shadow: 0 0 0 6px rgba(255,0,0,0); }
+  }
+
+  /* ── Typewriter cursor ── */
+  .cursor::after {
+    content: '|'; animation: blink 1s step-end infinite; color: #ff0000;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  /* ── Marquee scroll ── */
+  .marquee-track { display: flex; gap: 40px; animation: marquee 20s linear infinite; white-space: nowrap; }
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* ── Glow button pulse ── */
+  .btn-yt:hover { animation: btnGlow 1s ease infinite alternate; }
+  @keyframes btnGlow {
+    from { box-shadow: 0 4px 20px rgba(255,0,0,0.35); }
+    to   { box-shadow: 0 6px 30px rgba(255,0,0,0.55); }
+  }
+
+  /* ── Card shimmer on hover ── */
+  .product-card::after {
+    content: ''; position: absolute; inset: 0; border-radius: 12px;
+    background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0) 100%);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .product-card:hover::after { opacity: 1; }
+
+  /* ── Slide in from right ── */
+  .slide-in-right { animation: slideInRight 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── Number count animation ── */
+  .count-animate { transition: all 0.3s cubic-bezier(0.22,1,0.36,1); }
+
+  /* ── Hero gradient animated background ── */
+  .hero-gradient-bg {
+    background: radial-gradient(ellipse 80% 60% at 20% 40%, rgba(255,0,0,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 70%, rgba(255,0,0,0.05) 0%, transparent 50%);
+    animation: heroGradientShift 8s ease-in-out infinite alternate;
+  }
+  @keyframes heroGradientShift {
+    from { opacity: 0.7; }
+    to   { opacity: 1; }
+  }
+
 }
