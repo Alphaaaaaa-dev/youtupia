@@ -105,40 +105,8 @@ const HomePage = () => {
         {/* Grid overlay */}
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(hsl(var(--border)/0.3) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)/0.3) 1px, transparent 1px)', backgroundSize: '60px 60px', pointerEvents: 'none', opacity: 0.4 }} />
 
-        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '60px 24px', width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', alignItems: 'center' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '60px 24px', width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'center' }}>
           <div className="page-enter">
-            {/* Promo video panel (admin-controlled) */}
-            <div style={{ marginBottom: '20px', maxWidth: '420px' }}>
-              <div style={{ border: '2px solid rgba(255,255,255,0.85)', borderRadius: '34px', overflow: 'hidden', background: 'rgba(0,0,0,0.35)', aspectRatio: '16 / 8', position: 'relative' }}>
-                {homePromo.videoUrl ? (
-                  <video
-                    src={homePromo.videoUrl}
-                    poster={homePromo.posterUrl}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    controls
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.85)', fontSize: '22px', fontWeight: 500 }}>
-                    promotion video screen ...
-                  </div>
-                )}
-              </div>
-              <div style={{ marginTop: '10px', fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>
-                {homePromo.title} {homePromo.subtitle ? `— ${homePromo.subtitle}` : ''}
-              </div>
-              {homePromo.ctaText && (
-                <div style={{ marginTop: '8px' }}>
-                  <Link to={homePromo.ctaLink || '/drops'} className="btn-ghost" style={{ textDecoration: 'none', borderRadius: '10px', padding: '8px 14px', fontSize: '12px' }}>
-                    {homePromo.ctaText}
-                  </Link>
-                </div>
-              )}
-            </div>
-
             {/* Live badge */}
             <div className="glow-pill" style={{ marginBottom: '28px', width: 'fit-content' }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff0000', display: 'inline-block', animation: 'glowPulse 1.5s ease-in-out infinite' }} />
@@ -217,25 +185,63 @@ const HomePage = () => {
             </div>
           </div>
 
-          {/* Hero product grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }} className="page-enter">
+          {/* Right column: promo video (large) + small product grid */}
+          <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Promo video — large, right side */}
+            <div style={{ borderRadius: '24px', overflow: 'hidden', background: 'rgba(0,0,0,0.35)', aspectRatio: '16/9', position: 'relative', border: isDark ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(0,0,0,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+              {homePromo.videoUrl ? (
+                <video
+                  src={homePromo.videoUrl}
+                  poster={homePromo.posterUrl}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(255,0,0,0.08) 0%, rgba(0,0,0,0.6) 100%)', color: 'rgba(255,255,255,0.7)', gap: '12px' }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,0,0,0.15)', border: '2px solid rgba(255,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8 5.14v14.72L19 12 8 5.14z" fill="rgba(255,255,255,0.8)"/></svg>
+                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '0.04em' }}>Promotion Video</span>
+                  <span style={{ fontSize: '11px', opacity: 0.5 }}>Set in Admin → Promo</span>
+                </div>
+              )}
+              {/* Video overlay info */}
+              {(homePromo.title || homePromo.ctaText) && (
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 24px', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}>
+                  {homePromo.title && <div style={{ color: 'white', fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{homePromo.title}{homePromo.subtitle ? ` — ${homePromo.subtitle}` : ''}</div>}
+                  {homePromo.ctaText && (
+                    <Link to={homePromo.ctaLink || '/drops'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ff0000', color: 'white', textDecoration: 'none', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, marginTop: '6px' }}>
+                      {homePromo.ctaText} →
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Small product strip below video */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '8px' }}>
             {featured.slice(0, 4).map((p, i) => (
               <Link key={p.id} to={`/product/${p.id}`}
-                style={{ textDecoration: 'none', borderRadius: '14px', overflow: 'hidden', aspectRatio: i === 0 ? '2/3' : '3/4', position: 'relative', display: 'block', background: 'hsl(var(--secondary))', gridRow: i === 0 ? 'span 2' : undefined, gridColumn: i === 0 ? '1' : '2', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)', }}
+                style={{ textDecoration: 'none', borderRadius: '10px', overflow: 'hidden', aspectRatio: '3/4', position: 'relative', display: 'block', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
                 onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
                 <div className="img-zoom" style={{ width: '100%', height: '100%' }}>
                   <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
                 </div>
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,0.8))' }} />
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px' }}>
-                  <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
-                  <div style={{ color: 'white', fontSize: '13px', fontWeight: 700 }}>{p.name}</div>
-                  <div style={{ color: '#ff6666', fontSize: '13px', fontWeight: 800, marginTop: '2px' }}>₹{p.price.toLocaleString()}</div>
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '8px' }}>
+                  <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '8px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '2px' }}>{p.series}</div>
+                  <div style={{ color: 'white', fontSize: '11px', fontWeight: 700, lineHeight: 1.2 }}>{p.name}</div>
+                  <div style={{ color: '#ff6666', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>₹{p.price.toLocaleString()}</div>
                 </div>
                 {p.originalPrice && <div style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 7px', borderRadius: '4px', letterSpacing: '0.05em' }}>SALE</div>}
               </Link>
             ))}
+            </div>
           </div>
         </div>
 
