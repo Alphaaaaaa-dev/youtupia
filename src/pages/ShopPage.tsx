@@ -38,7 +38,9 @@ const ShopPage = () => {
 
   const handleAdd = (p: Product, e: React.MouseEvent) => {
     e.preventDefault();
-    addToCart(p, p.variants[0]?.size || 'M');
+    const inStock = p.variants.find(v => v.stock > 0);
+    if (!inStock) return;
+    addToCart(p, inStock.size || 'M');
     setAddedId(p.id);
     setTimeout(() => setAddedId(null), 1800);
   };
@@ -132,6 +134,7 @@ const ShopPage = () => {
             {filtered.map(p => {
               const totalStock = p.variants.reduce((s: number, v: ProductVariant) => s + v.stock, 0);
               const isWishlisted = wishlist.includes(p.id);
+              const inStock = totalStock > 0;
               return (
                 <div key={p.id} className="product-card" style={{ position: 'relative' }}>
                   {/* Wishlist */}
@@ -203,8 +206,9 @@ const ShopPage = () => {
 
                   <div style={{ padding: '0 10px 10px' }}>
                     <button onClick={e => handleAdd(p, e)} className="btn-yt ripple"
-                      style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <ShoppingCart size={13} /> {addedId === p.id ? '✓ Added!' : 'Add to Cart'}
+                      disabled={!inStock}
+                      style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: !inStock ? '#475569' : addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '6px', cursor: inStock ? 'pointer' : 'not-allowed', opacity: inStock ? 1 : 0.75 }}>
+                      <ShoppingCart size={13} /> {!inStock ? 'Out of Stock' : addedId === p.id ? '✓ Added!' : 'Add to Cart'}
                     </button>
                   </div>
                 </div>
