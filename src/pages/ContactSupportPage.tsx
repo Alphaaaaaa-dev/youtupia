@@ -22,7 +22,7 @@ const ContactSupportPage = () => {
   };
 
   const contactCards = [
-    { icon: Mail, label: 'Email Us', value: 'hello@youtupia.com', sub: 'Response within 24 hrs', href: 'mailto:hello@youtupia.com', color: '#ff0000' },
+    { icon: Mail, label: 'Email Us', value: 'youtupiastore@gmail.com', sub: 'Response within 24 hrs', href: 'mailto:youtupiastore@gmail.com', color: '#ff0000' },
     { icon: Phone, label: 'WhatsApp', value: '+91 00000 00000', sub: 'Mon–Sat, 10am–8pm IST', href: 'https://wa.me/910000000000', color: '#25D366' },
     { icon: Instagram, label: 'Instagram', value: '@_youtupia_', sub: 'DMs open for collabs', href: 'https://www.instagram.com/_youtupia_', color: '#E1306C' },
     { icon: Clock, label: 'Support Hours', value: '10am – 8pm', sub: 'Monday to Saturday', href: '#', color: '#ff0000' },
