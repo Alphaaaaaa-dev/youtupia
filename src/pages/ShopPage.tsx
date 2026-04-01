@@ -143,7 +143,8 @@ const ShopPage = () => {
                     <Heart size={14} fill={isWishlisted ? '#ff0000' : 'none'} />
                   </button>
 
-                  <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  {/* Clicking image area opens quick view */}
+                  <div onClick={() => { setQuickViewProduct(p); setQuickViewOpen(true); }} style={{ cursor: 'pointer' }}>
                     <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))' }}>
                       <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
                       {p.originalPrice && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em', boxShadow: '0 2px 8px rgba(255,0,0,0.4)' }}>{Math.round((1 - p.price / p.originalPrice) * 100)}% OFF</span>}
@@ -156,59 +157,32 @@ const ShopPage = () => {
                         </span>
                       )}
                     </div>
-                    <div style={{ padding: '12px 12px 4px' }}>
-                      <div style={{ fontSize: '10px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
-                      <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', lineHeight: 1.3 }}>{p.name}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{ fontWeight: 800, fontSize: '15px', color: '#ff0000' }}>₹{p.price.toLocaleString()}</span>
-                        {p.originalPrice && <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
-                      </div>
-                      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                          {p.variants.slice(0, 4).map((v: ProductVariant) => (
-                          <span key={v.size} style={{ fontSize: '9px', padding: '2px 5px', borderRadius: '3px', background: 'hsl(var(--secondary))', color: v.stock === 0 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', textDecoration: v.stock === 0 ? 'line-through' : 'none', fontWeight: 600 }}>{v.size}</span>
-                        ))}
-                      </div>
+                  </div>
+
+                  {/* Product info — click name/price opens product page */}
+                  <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+                  <div style={{ padding: '0 10px 4px' }}>
+                    <div style={{ fontSize: '10px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
+                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', lineHeight: 1.3 }}>{p.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: 800, fontSize: '15px', color: '#ff0000' }}>₹{p.price.toLocaleString()}</span>
+                      {p.originalPrice && <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
                     </div>
+                  </div>
                   </Link>
 
-                  {/* Quick View */}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setQuickViewProduct(p);
-                      setQuickViewOpen(true);
-                    }}
-                    style={{
-                      position: 'absolute',
-                      top: 56,
-                      right: 10,
-                      zIndex: 15,
-                      width: 40,
-                      height: 40,
-                      borderRadius: 999,
-                      border: '1px solid rgba(255,255,255,0.15)',
-                      background: 'rgba(0,0,0,0.45)',
-                      backdropFilter: 'blur(6px)',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      transition: 'transform 0.2s',
-                    }}
-                    aria-label={`Quick view ${p.name}`}
-                    onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                  >
-                    <Eye size={16} />
-                  </button>
-
-                  <div style={{ padding: '0 10px 10px' }}>
+                  <div style={{ padding: '0 10px 10px', display: 'flex', gap: '6px' }}>
                     <button onClick={e => handleAdd(p, e)} className="btn-yt ripple"
                       disabled={!inStock}
-                      style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: !inStock ? '#475569' : addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '6px', cursor: inStock ? 'pointer' : 'not-allowed', opacity: inStock ? 1 : 0.75 }}>
+                      style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: !inStock ? '#475569' : addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '6px', cursor: inStock ? 'pointer' : 'not-allowed', opacity: inStock ? 1 : 0.75 }}>
                       <ShoppingCart size={13} /> {!inStock ? 'Out of Stock' : addedId === p.id ? '✓ Added!' : 'Add to Cart'}
+                    </button>
+                    <button onClick={(e) => { e.preventDefault(); setQuickViewProduct(p); setQuickViewOpen(true); }}
+                      title="Quick view"
+                      style={{ width: '38px', borderRadius: '8px', border: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--muted-foreground))', flexShrink: 0, transition: 'all 0.15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ff0000'; (e.currentTarget as HTMLElement).style.color = '#ff0000'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'hsl(var(--border))'; (e.currentTarget as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}>
+                      <Eye size={14} />
                     </button>
                   </div>
                 </div>
