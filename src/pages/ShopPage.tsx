@@ -3,9 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { SlidersHorizontal, ArrowUpDown, Heart, Eye, ShoppingCart } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import ProductQuickViewModal from '@/components/ProductQuickViewModal';
+import type { Product, ProductVariant } from '@/contexts/StoreContext';
 
 const ShopPage = () => {
-  const { products, series, drops, addToCart, toggleWishlist, wishlist } = useStore();
+  const { products, series, drops, addToCart, toggleWishlist, wishlist, hydrating } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [searchParams] = useSearchParams();
@@ -15,6 +18,8 @@ const ShopPage = () => {
   const [filterMode, setFilterMode] = useState<'series' | 'drop'>('series');
   const query = searchParams.get('q') || '';
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('drop')) setFilterMode('drop');
@@ -31,7 +36,7 @@ const ShopPage = () => {
     return res;
   }, [products, activeSeries, activeDrop, filterMode, query, sortBy]);
 
-  const handleAdd = (p: any, e: React.MouseEvent) => {
+  const handleAdd = (p: Product, e: React.MouseEvent) => {
     e.preventDefault();
     addToCart(p, p.variants[0]?.size || 'M');
     setAddedId(p.id);
@@ -100,7 +105,22 @@ const ShopPage = () => {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {hydrating ? (
+          <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, overflow: 'hidden' }}>
+                <Skeleton className="w-full" style={{ aspectRatio: '3/4' }} />
+                <div style={{ padding: 12 }}>
+                  <Skeleton className="h-3 w-2/3" />
+                  <div style={{ height: 8 }} />
+                  <Skeleton className="h-3 w-full" />
+                  <div style={{ height: 8 }} />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '100px 24px' }} className="page-enter">
             <div style={{ fontSize: '52px', marginBottom: '16px' }}>🔍</div>
             <h2 style={{ fontWeight: 700, marginBottom: '10px' }}>Nothing found</h2>
@@ -110,7 +130,7 @@ const ShopPage = () => {
         ) : (
           <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
             {filtered.map(p => {
-              const totalStock = p.variants.reduce((s: number, v: any) => s + v.stock, 0);
+              const totalStock = p.variants.reduce((s: number, v: ProductVariant) => s + v.stock, 0);
               const isWishlisted = wishlist.includes(p.id);
               return (
                 <div key={p.id} className="product-card" style={{ position: 'relative' }}>
@@ -141,12 +161,46 @@ const ShopPage = () => {
                         {p.originalPrice && <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
                       </div>
                       <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                        {p.variants.slice(0, 4).map((v: any) => (
+                          {p.variants.slice(0, 4).map((v: ProductVariant) => (
                           <span key={v.size} style={{ fontSize: '9px', padding: '2px 5px', borderRadius: '3px', background: 'hsl(var(--secondary))', color: v.stock === 0 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', textDecoration: v.stock === 0 ? 'line-through' : 'none', fontWeight: 600 }}>{v.size}</span>
                         ))}
                       </div>
                     </div>
                   </Link>
+
+                  {/* Quick View */}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setQuickViewProduct(p);
+                      setQuickViewOpen(true);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: 56,
+                      right: 10,
+                      zIndex: 15,
+                      width: 40,
+                      height: 40,
+                      borderRadius: 999,
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      background: 'rgba(0,0,0,0.45)',
+                      backdropFilter: 'blur(6px)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      transition: 'transform 0.2s',
+                    }}
+                    aria-label={`Quick view ${p.name}`}
+                    onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                  >
+                    <Eye size={16} />
+                  </button>
+
                   <div style={{ padding: '0 10px 10px' }}>
                     <button onClick={e => handleAdd(p, e)} className="btn-yt ripple"
                       style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -159,6 +213,15 @@ const ShopPage = () => {
           </div>
         )}
       </div>
+
+      <ProductQuickViewModal
+        open={quickViewOpen}
+        product={quickViewProduct}
+        onClose={() => {
+          setQuickViewOpen(false);
+          setQuickViewProduct(null);
+        }}
+      />
     </div>
   );
 };
