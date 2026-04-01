@@ -7,14 +7,14 @@ import {
   X, Save, Image as ImageIcon, BarChart2, Settings, CheckCircle, Users,
   Upload, Link as LinkIcon, Youtube, Zap
 } from 'lucide-react';
-import { Product, Series, Creator } from '../contexts/StoreContext';
+import { Product, Series, Creator, HomePromo } from '../contexts/StoreContext';
 
 // ── SHARED STYLES ─────────────────────────────────
 const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px' } as const;
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage';
 
 // ── IMAGE UPLOAD DROPZONE ──────────────────────────
 const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
@@ -80,6 +80,74 @@ const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChang
   );
 };
 
+// ── VIDEO UPLOAD DROPZONE ──────────────────────────
+const VideoDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [tab, setTab] = useState<'url' | 'upload'>('url');
+  const [preview, setPreview] = useState(value);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith('video/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const url = e.target?.result as string;
+      setPreview(url);
+      onChange(url);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, []);
+
+  return (
+    <div style={{ marginBottom: '14px' }}>
+      <div style={{ ...label, marginBottom: '8px' }}>{lbl}</div>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+        {(['url', 'upload'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            style={{ padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontFamily: 'Roboto, sans-serif', background: tab === t ? '#ff0000' : 'rgba(255,255,255,0.06)', color: tab === t ? 'white' : '#64748b', transition: 'all 0.15s' }}>
+            {t === 'url' ? <><LinkIcon size={9} style={{ display: 'inline', marginRight: '4px' }} />URL</> : <><Upload size={9} style={{ display: 'inline', marginRight: '4px' }} />Upload</>}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'url' ? (
+        <input
+          style={inputStyle}
+          value={value}
+          onChange={e => { onChange(e.target.value); setPreview(e.target.value); }}
+          placeholder="https://...mp4"
+        />
+      ) : (
+        <div
+          onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileRef.current?.click()}
+          style={{ border: `2px dashed ${isDragging ? '#ff0000' : 'rgba(255,255,255,0.12)'}`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: isDragging ? 'rgba(255,0,0,0.05)' : 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}>
+          <Upload size={20} style={{ color: isDragging ? '#ff0000' : '#475569', marginBottom: '8px' }} />
+          <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Drag & drop video here</div>
+          <div style={{ fontSize: '11px', color: '#334155' }}>or click to select from device</div>
+          <input ref={fileRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+        </div>
+      )}
+
+      {preview && (
+        <div style={{ marginTop: '10px', position: 'relative' }}>
+          <video src={preview} controls muted playsInline style={{ width: '100%', maxHeight: '220px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'black' }} />
+          <button onClick={() => { setPreview(''); onChange(''); }} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ff0000', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={11} /></button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── MULTI IMAGE DROPZONE ───────────────────────────
 const MultiImageDropzone = ({ images, onChange }: { images: string[]; onChange: (imgs: string[]) => void }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -135,6 +203,8 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'products', icon: ShoppingBag, label: 'Products' },
     { id: 'series', icon: Settings, label: 'Series' },
     { id: 'creators', icon: Users, label: 'Creators' },
+    { id: 'drops', icon: Zap, label: 'Drop Control' },
+    { id: 'homepage', icon: Youtube, label: 'Home Content' },
   ];
   return (
     <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 6%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
@@ -639,6 +709,178 @@ const CreatorsTab = () => {
   );
 };
 
+// ── DROP CONTROL TAB ───────────────────────────────
+const DropControlTab = () => {
+  const { drops, products, setDrops } = useStore();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<any>(null);
+
+  const openEdit = (dropId: string) => {
+    const d = drops.find(x => x.id === dropId);
+    if (!d) return;
+    setEditingId(dropId);
+    setForm({ ...d });
+  };
+
+  const save = () => {
+    if (!form?.id || !form?.name) return;
+    setDrops(drops.map(d => d.id === form.id ? {
+      ...d,
+      name: form.name || d.name,
+      description: form.description || '',
+      theme: form.theme || '',
+      banner: form.banner || '',
+      endsAt: form.endsAt || '',
+      limited: Boolean(form.limited),
+      productIds: form.productIds || [],
+    } : d));
+    setEditingId(null);
+    setForm(null);
+  };
+
+  return (
+    <div>
+      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Drop Control</h1>
+      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Control drop content, timer, banner and products from one page.</p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {drops.map(d => (
+          <div key={d.id} style={{ ...card, padding: '18px' }}>
+            {editingId === d.id && form ? (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div><div style={{ ...label, marginBottom: '5px' }}>DROP NAME</div><input style={inputStyle} value={form.name || ''} onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
+                  <div><div style={{ ...label, marginBottom: '5px' }}>THEME</div><input style={inputStyle} value={form.theme || ''} onChange={e => setForm((f: any) => ({ ...f, theme: e.target.value }))} /></div>
+                </div>
+                <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div><textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.description || ''} onChange={e => setForm((f: any) => ({ ...f, description: e.target.value }))} /></div>
+                <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>BANNER URL</div><input style={inputStyle} value={form.banner || ''} onChange={e => setForm((f: any) => ({ ...f, banner: e.target.value }))} /></div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                  <div>
+                    <div style={{ ...label, marginBottom: '5px' }}>DROP END TIME</div>
+                    <input
+                      type="datetime-local"
+                      style={inputStyle}
+                      value={form.endsAt ? new Date(form.endsAt).toISOString().slice(0, 16) : ''}
+                      onChange={e => setForm((f: any) => ({ ...f, endsAt: e.target.value ? new Date(e.target.value).toISOString() : '' }))}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ ...label, marginBottom: '5px' }}>LIMITED DROP</div>
+                    <button onClick={() => setForm((f: any) => ({ ...f, limited: !f.limited }))}
+                      style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer' as const }}>
+                      {form.limited ? 'YES (Never restocking)' : 'NO (Regular drop)'}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ ...label, marginBottom: '6px' }}>ASSIGNED PRODUCTS</div>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '6px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
+                    {products.map(p => {
+                      const checked = (form.productIds || []).includes(p.id);
+                      return (
+                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const ids = form.productIds || [];
+                              setForm((f: any) => ({ ...f, productIds: checked ? ids.filter((id: string) => id !== p.id) : [...ids, p.id] }));
+                            }}
+                          />
+                          <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#cbd5e1' }}>{p.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={save} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={13} /> Save Drop</button>
+                  <button onClick={() => { setEditingId(null); setForm(null); }} style={{ padding: '8px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                <div>
+                  <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>
+                    {d.name}
+                  </div>
+                  <div style={{ ...label, marginTop: '4px' }}>{d.theme}</div>
+                  <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#94a3b8', marginTop: '6px', maxWidth: '680px' }}>{d.description}</div>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ ...label }}>Products: {d.productIds.length}</span>
+                    <span style={{ ...label }}>Limited: {d.limited ? 'Yes' : 'No'}</span>
+                    <span style={{ ...label }}>Ends: {d.endsAt ? new Date(d.endsAt).toLocaleString() : 'Not set'}</span>
+                  </div>
+                </div>
+                <button onClick={() => openEdit(d.id)} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px', flexShrink: 0 }}>
+                  <Edit2 size={12} /> Edit Drop
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── HOME CONTENT TAB ───────────────────────────────
+const HomeContentTab = () => {
+  const { homePromo, setHomePromo } = useStore();
+  const [form, setForm] = useState<HomePromo>(homePromo);
+
+  useEffect(() => {
+    setForm(homePromo);
+  }, [homePromo]);
+
+  const save = () => {
+    setHomePromo(form);
+  };
+
+  return (
+    <div>
+      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Home Content</h1>
+      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Control the promo video section shown on the home hero (top-left area).</p>
+
+      <div style={{ ...card, padding: '20px', maxWidth: '760px' }}>
+        <VideoDropzone value={form.videoUrl} onChange={v => setForm(f => ({ ...f, videoUrl: v }))} label="PROMO VIDEO (URL OR UPLOAD)" />
+        <ImageDropzone value={form.posterUrl || ''} onChange={v => setForm(f => ({ ...f, posterUrl: v }))} label="POSTER IMAGE (URL OR UPLOAD)" />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>TITLE</div>
+            <input style={inputStyle} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Promotion Video" />
+          </div>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>SUBTITLE</div>
+            <input style={inputStyle} value={form.subtitle} onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))} placeholder="Creator drop preview" />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>CTA TEXT</div>
+            <input style={inputStyle} value={form.ctaText} onChange={e => setForm(f => ({ ...f, ctaText: e.target.value }))} placeholder="Watch Drop" />
+          </div>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>CTA LINK</div>
+            <input style={inputStyle} value={form.ctaLink} onChange={e => setForm(f => ({ ...f, ctaLink: e.target.value }))} placeholder="/drops" />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={save} style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Save size={14} /> Save Home Content
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── MAIN ADMIN ─────────────────────────────────────
 const AdminDashboard = () => {
   const { isAdmin, logout } = useAdminAuth();
@@ -657,6 +899,8 @@ const AdminDashboard = () => {
         {tab === 'products' && <ProductsTab />}
         {tab === 'series' && <SeriesTab />}
         {tab === 'creators' && <CreatorsTab />}
+        {tab === 'drops' && <DropControlTab />}
+        {tab === 'homepage' && <HomeContentTab />}
       </main>
     </div>
   );
