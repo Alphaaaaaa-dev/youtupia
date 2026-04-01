@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Shield, Lock, ChevronRight } from 'lucide-react';
@@ -11,6 +11,8 @@ const CheckoutPage = () => {
   const [discountPct, setDiscountPct] = useState(0);
   const [discountError, setDiscountError] = useState("");
   const [discountApplied, setDiscountApplied] = useState(false);
+  const [searchParams] = useSearchParams();
+  const discountCodeFromUrl = (searchParams.get('discountCode') || '').trim();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
@@ -18,6 +20,23 @@ const CheckoutPage = () => {
   const [form, setForm] = useState({ name: '', email: '', phone: '', address: '', city: '', pincode: '' });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Apply discount automatically if user came from Cart with a code.
+  useEffect(() => {
+    if (!discountCodeFromUrl) return;
+    const upper = discountCodeFromUrl.toUpperCase();
+    const pct = validateDiscountCode(upper);
+    setDiscountCode(upper);
+    if (pct > 0) {
+      setDiscountPct(pct);
+      setDiscountApplied(true);
+      setDiscountError('');
+    } else {
+      setDiscountApplied(false);
+      setDiscountPct(0);
+      setDiscountError('Invalid code from cart. You can re-apply a valid one.');
+    }
+  }, [discountCodeFromUrl, validateDiscountCode]);
 
   if (cart.length === 0) return (
     <div style={{ paddingTop: '80px', textAlign: 'center', padding: '120px 24px' }}>
@@ -43,6 +62,10 @@ const CheckoutPage = () => {
     if (!validate()) return;
     setLoading(true);
 
+    const shippingNow = cartTotal >= 999 ? 0 : 60;
+    const discountAmountNow = Math.round(cartTotal * discountPct / 100);
+    const totalNow = cartTotal - discountAmountNow + shippingNow;
+
     // Load Razorpay script
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -51,7 +74,7 @@ const CheckoutPage = () => {
     script.onload = () => {
       const options = {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-        amount: (cartTotal + (cartTotal >= 999 ? 0 : 60)) * 100, // paise
+        amount: totalNow * 100, // paise
         currency: 'INR',
         name: 'Youtupia',
         description: `Order - ${cart.length} item(s)`,
@@ -62,13 +85,15 @@ const CheckoutPage = () => {
           const order: Order = {
             id: 'ORD' + Date.now(),
             items: cart,
-            total: cartTotal,
+            total: totalNow,
             status: 'confirmed',
             customerName: form.name,
             customerEmail: form.email,
             customerPhone: form.phone,
             address: `${form.address}, ${form.city} - ${form.pincode}`,
             paymentId: response.razorpay_payment_id,
+            discountCode: discountApplied ? discountCode : undefined,
+            discountAmount: discountApplied ? discountAmountNow : undefined,
             createdAt: new Date().toISOString(),
           };
           addOrder(order);
