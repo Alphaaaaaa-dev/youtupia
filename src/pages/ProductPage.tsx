@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Zap, Star, Truck, Shield, Heart, Eye, Users, CheckCircle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { toast as sonnerToast } from '@/components/ui/sonner';
 
 const StarInput = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => (
   <div style={{ display: 'flex', gap: '4px' }}>
@@ -59,6 +60,19 @@ const ProductPage = () => {
 
   useEffect(() => {
     if (product) addRecentlyViewed(product.id);
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!product) return;
+    const key = 'youtupia_notify_stock';
+    try {
+      const stored = localStorage.getItem(key);
+      const arr = stored ? (JSON.parse(stored) as Array<{ productId: string }>) : [];
+      const already = arr.some((x) => x.productId === product.id);
+      setNotified(already);
+    } catch {
+      setNotified(false);
+    }
   }, [product?.id]);
 
   if (!product) return (
@@ -200,7 +214,28 @@ const ProductPage = () => {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)} placeholder="your@email.com"
                       style={{ flex: 1, padding: '9px 12px', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '13px', outline: 'none', fontFamily: 'Roboto, sans-serif' }} />
-                    <button onClick={() => { setNotified(true); }} style={{ background: '#ff0000', color: 'white', border: 'none', borderRadius: '8px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'Roboto, sans-serif' }}>
+                    <button
+                      onClick={() => {
+                        if (notified) return;
+                        const email = notifyEmail.trim();
+                        if (!email || !email.includes('@')) {
+                          sonnerToast.message('Enter a valid email', { description: 'So we can notify you when this is back in stock.' });
+                          return;
+                        }
+                        const key = 'youtupia_notify_stock';
+                        try {
+                          const stored = localStorage.getItem(key);
+                          const arr = stored ? (JSON.parse(stored) as Array<{ productId: string; email: string; createdAt: string }>) : [];
+                          const next = [{ productId: product.id, email, createdAt: new Date().toISOString() }, ...arr.filter((x) => x.productId !== product.id)].slice(0, 25);
+                          localStorage.setItem(key, JSON.stringify(next));
+                        } catch (e) {
+                          void e;
+                        }
+                        setNotified(true);
+                        sonnerToast.success('You’re in!', { description: 'We’ll email you when it’s back.' });
+                      }}
+                      style={{ background: '#ff0000', color: 'white', border: 'none', borderRadius: '8px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'Roboto, sans-serif' }}
+                    >
                       {notified ? '✓ Done' : 'Notify Me'}
                     </button>
                   </div>
