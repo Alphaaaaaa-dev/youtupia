@@ -25,6 +25,14 @@ export interface Order {
   customerName: string; customerEmail: string; customerPhone: string; address: string;
   paymentId?: string; createdAt: string; discountCode?: string; discountAmount?: number;
 }
+export interface HomePromo {
+  videoUrl: string;
+  posterUrl?: string;
+  title: string;
+  subtitle: string;
+  ctaText: string;
+  ctaLink: string;
+}
 
 const DEFAULT_CREATORS: Creator[] = [
   { id: 'creator1', name: 'Carry Minati', handle: 'carryminati', bio: "India's biggest YouTuber. Roasts, gaming, and now — fire merch. The OG Carry collection is here.", avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face', banner: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=1200&h=400&fit=crop', subscribers: '41M', productIds: ['p1', 'p3'], dropCountdownEnd: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() },
@@ -48,13 +56,23 @@ const DEFAULT_PRODUCTS: Product[] = [
 ];
 
 const VALID_CODES: Record<string, number> = { 'YOUTUPIA10': 10, 'DROP001': 15, 'FIRSTORDER': 20 };
+const DEFAULT_HOME_PROMO: HomePromo = {
+  videoUrl: '',
+  posterUrl: '',
+  title: 'Promotion Video',
+  subtitle: 'Creator drop preview',
+  ctaText: 'Watch Drop',
+  ctaLink: '/drops',
+};
 
 interface StoreContextType {
   products: Product[]; series: Series[]; creators: Creator[]; drops: Drop[];
   cart: CartItem[]; orders: Order[]; wishlist: string[]; recentlyViewed: string[];
+  homePromo: HomePromo;
   hydrating: boolean;
   setProducts: (p: Product[]) => void; setSeries: (s: Series[]) => void;
   setCreators: (c: Creator[]) => void; setDrops: (d: Drop[]) => void;
+  setHomePromo: (p: HomePromo) => void;
   addToCart: (product: Product, size: string, qty?: number) => void;
   removeFromCart: (productId: string, size: string) => void;
   updateCartQty: (productId: string, size: string, qty: number) => void;
@@ -83,11 +101,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [orders, setOrders] = useState<Order[]>(() => { try { const s = localStorage.getItem('youtupia_orders'); return s ? JSON.parse(s) : []; } catch { return []; } });
   const [wishlist, setWishlist] = useState<string[]>(() => { try { const s = localStorage.getItem('youtupia_wishlist'); return s ? JSON.parse(s) : []; } catch { return []; } });
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => { try { const s = localStorage.getItem('youtupia_recent'); return s ? JSON.parse(s) : []; } catch { return []; } });
+  const [homePromo, setHomePromoState] = useState<HomePromo>(() => { try { const s = localStorage.getItem('youtupia_home_promo'); return s ? JSON.parse(s) : DEFAULT_HOME_PROMO; } catch { return DEFAULT_HOME_PROMO; } });
 
   const setProducts = (p: Product[]) => { setProductsState(p); localStorage.setItem('youtupia_products', JSON.stringify(p)); };
   const setSeries = (s: Series[]) => { setSeriesState(s); localStorage.setItem('youtupia_series', JSON.stringify(s)); };
   const setCreators = (c: Creator[]) => { setCreatorsState(c); localStorage.setItem('youtupia_creators', JSON.stringify(c)); };
   const setDrops = (d: Drop[]) => { setDropsState(d); localStorage.setItem('youtupia_drops', JSON.stringify(d)); };
+  const setHomePromo = (p: HomePromo) => { setHomePromoState(p); localStorage.setItem('youtupia_home_promo', JSON.stringify(p)); };
 
   useEffect(() => { localStorage.setItem('youtupia_cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('youtupia_orders', JSON.stringify(orders)); }, [orders]);
@@ -95,9 +115,28 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => { localStorage.setItem('youtupia_recent', JSON.stringify(recentlyViewed)); }, [recentlyViewed]);
 
   const addToCart = (product: Product, size: string, qty = 1) => {
+    const variant = product.variants.find(v => v.size === size);
+    const variantStock = variant?.stock ?? 0;
+    if (variantStock <= 0) {
+      sonnerToast.message('Out of stock', { description: `${product.name} (${size}) is unavailable.` });
+      return;
+    }
+
     setCart(prev => {
       const ex = prev.find(i => i.productId === product.id && i.size === size);
-      if (ex) return prev.map(i => i.productId === product.id && i.size === size ? { ...i, quantity: i.quantity + qty } : i);
+      if (ex) {
+        const nextQty = ex.quantity + qty;
+        if (nextQty > variantStock) {
+          sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left for ${product.name} (${size}).` });
+          return prev;
+        }
+        return prev.map(i => i.productId === product.id && i.size === size ? { ...i, quantity: nextQty } : i);
+      }
+
+      if (qty > variantStock) {
+        sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left for ${product.name} (${size}).` });
+        return prev;
+      }
       return [...prev, { productId: product.id, size, quantity: qty, product }];
     });
     sonnerToast.success('Added to cart', {
@@ -105,7 +144,20 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
   };
   const removeFromCart = (productId: string, size: string) => setCart(prev => prev.filter(i => !(i.productId === productId && i.size === size)));
-  const updateCartQty = (productId: string, size: string, qty: number) => { if (qty <= 0) { removeFromCart(productId, size); return; } setCart(prev => prev.map(i => i.productId === productId && i.size === size ? { ...i, quantity: qty } : i)); };
+  const updateCartQty = (productId: string, size: string, qty: number) => {
+    if (qty <= 0) { removeFromCart(productId, size); return; }
+    setCart(prev => prev.map(i => {
+      if (!(i.productId === productId && i.size === size)) return i;
+      const liveProduct = products.find(p => p.id === productId);
+      const liveVariant = liveProduct?.variants.find(v => v.size === size);
+      const maxStock = liveVariant?.stock ?? i.quantity;
+      if (qty > maxStock) {
+        sonnerToast.message('Stock limit reached', { description: `Only ${maxStock} left for ${i.product.name} (${size}).` });
+        return { ...i, quantity: maxStock };
+      }
+      return { ...i, quantity: qty };
+    }));
+  };
   const clearCart = () => setCart([]);
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
@@ -124,7 +176,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const validateDiscountCode = (code: string): number => VALID_CODES[code.toUpperCase()] || 0;
 
   return (
-    <StoreContext.Provider value={{ products, series, creators, drops, cart, orders, wishlist, recentlyViewed, hydrating, setProducts, setSeries, setCreators, setDrops, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount, addOrder, updateOrderStatus, toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode }}>
+    <StoreContext.Provider value={{ products, series, creators, drops, cart, orders, wishlist, recentlyViewed, homePromo, hydrating, setProducts, setSeries, setCreators, setDrops, setHomePromo, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount, addOrder, updateOrderStatus, toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode }}>
       {children}
     </StoreContext.Provider>
   );
