@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Truck, Shield, RefreshCw, TrendingUp, Zap, Package, Users } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
+import DropVotingSection from '@/components/DropVotingSection';
 
 // Scroll reveal hook
 const useReveal = () => {
@@ -38,11 +39,52 @@ const Counter = ({ target, suffix = '' }: { target: number; suffix?: string }) =
   return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
 };
 
+const DropCountdown = ({ endsAt }: { endsAt: string }) => {
+  const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      const diff = new Date(endsAt).getTime() - Date.now();
+      if (diff <= 0) return;
+      setTime({
+        d: Math.floor(diff / 86400000),
+        h: Math.floor((diff % 86400000) / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+      });
+    };
+    update();
+    const t = setInterval(update, 1000);
+    return () => clearInterval(t);
+  }, [endsAt]);
+
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+      {[
+        ['d', time.d],
+        ['h', time.h],
+        ['m', time.m],
+        ['s', time.s],
+      ].map(([label, val]) => (
+        <div key={label} style={{ textAlign: 'center' }}>
+          <div style={{ background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.25)', borderRadius: 12, padding: '10px 14px', fontSize: 18, fontWeight: 900, color: '#ff0000', minWidth: 52, fontVariantNumeric: 'tabular-nums' }}>
+            {String(val).padStart(2, '0')}
+          </div>
+          <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+            {label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const HomePage = () => {
   const { products, series, creators, drops, addToCart } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const featured = products.filter(p => p.featured);
+  const latestDrop = drops.slice().sort((a, b) => b.dropNumber - a.dropNumber)[0];
   const [heroImgIdx, setHeroImgIdx] = useState(0);
   useReveal();
 
@@ -68,7 +110,9 @@ const HomePage = () => {
             {/* Live badge */}
             <div className="glow-pill" style={{ marginBottom: '28px', width: 'fit-content' }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff0000', display: 'inline-block', animation: 'glowPulse 1.5s ease-in-out infinite' }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>LATEST DROP IS LIVE</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>
+                LATEST DROP {latestDrop ? `#${String(latestDrop.dropNumber).padStart(3, '0')}` : ''}
+              </span>
             </div>
 
             <h1 style={{ fontSize: 'clamp(40px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '6px' }}>
@@ -81,6 +125,38 @@ const HomePage = () => {
             <p style={{ fontSize: '17px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.75, marginBottom: '36px', maxWidth: '440px' }}>
               Premium merch drops from Youtupia. Every piece is limited, every series tells a story. No fast fashion, no compromises.
             </p>
+
+            {/* Latest Drop Spotlight */}
+            {latestDrop && (
+              <div style={{ background: isDark ? 'rgba(255,0,0,0.06)' : 'rgba(255,0,0,0.05)', border: '1px solid rgba(255,0,0,0.16)', borderRadius: 18, padding: 18, marginBottom: 36 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#ff0000' }}>Limited Drop</div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: 'hsl(var(--foreground))', marginTop: 4 }}>{latestDrop.name}</div>
+                    <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>{latestDrop.theme}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', padding: '6px 10px', borderRadius: 999 }}>Selling fast</span>
+                    {latestDrop.limited && <span style={{ fontSize: 12, fontWeight: 900, color: '#ff0000', background: 'rgba(255,0,0,0.08)', border: '1px solid rgba(255,0,0,0.16)', padding: '6px 10px', borderRadius: 999 }}>Never restocking</span>}
+                  </div>
+                </div>
+
+                {latestDrop.endsAt ? (
+                  <DropCountdown endsAt={latestDrop.endsAt} />
+                ) : (
+                  <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}>Drop is live now.</div>
+                )}
+
+                <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+                  <Link to={`/shop?drop=${latestDrop.id}`} className="btn-yt ripple" style={{ textDecoration: 'none', borderRadius: 12, padding: '12px 18px', fontSize: 14 }}>
+                    Shop Latest Drop <ArrowRight size={16} />
+                  </Link>
+                  <Link to="/drops" className="btn-ghost" style={{ textDecoration: 'none', borderRadius: 12, padding: '12px 18px', fontSize: 14 }}>
+                    View all drops
+                  </Link>
+                </div>
+              </div>
+            )}
 
             {/* Tags */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '36px' }}>
@@ -196,6 +272,11 @@ const HomePage = () => {
             </Link>
           ))}
         </div>
+      </section>
+
+      {/* ── COMMUNITY VOTING ── */}
+      <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px 64px' }}>
+        <DropVotingSection />
       </section>
 
       {/* ── FEATURED ── */}
