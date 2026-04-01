@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { toast as sonnerToast } from '@/components/ui/sonner';
 
 export interface ProductVariant { size: string; stock: number; }
 export interface Review { id: string; userName: string; rating: number; comment: string; createdAt: string; verified: boolean; }
@@ -51,6 +52,7 @@ const VALID_CODES: Record<string, number> = { 'YOUTUPIA10': 10, 'DROP001': 15, '
 interface StoreContextType {
   products: Product[]; series: Series[]; creators: Creator[]; drops: Drop[];
   cart: CartItem[]; orders: Order[]; wishlist: string[]; recentlyViewed: string[];
+  hydrating: boolean;
   setProducts: (p: Product[]) => void; setSeries: (s: Series[]) => void;
   setCreators: (c: Creator[]) => void; setDrops: (d: Drop[]) => void;
   addToCart: (product: Product, size: string, qty?: number) => void;
@@ -66,6 +68,13 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
+  const [hydrating, setHydrating] = useState(true);
+  useEffect(() => {
+    // Small "premium" hydration delay so skeleton loaders can feel intentional.
+    const t = setTimeout(() => setHydrating(false), 520);
+    return () => clearTimeout(t);
+  }, []);
+
   const [products, setProductsState] = useState<Product[]>(() => { try { const s = localStorage.getItem('youtupia_products'); return s ? JSON.parse(s) : DEFAULT_PRODUCTS; } catch { return DEFAULT_PRODUCTS; } });
   const [series, setSeriesState] = useState<Series[]>(() => { try { const s = localStorage.getItem('youtupia_series'); return s ? JSON.parse(s) : DEFAULT_SERIES; } catch { return DEFAULT_SERIES; } });
   const [creators, setCreatorsState] = useState<Creator[]>(() => { try { const s = localStorage.getItem('youtupia_creators'); return s ? JSON.parse(s) : DEFAULT_CREATORS; } catch { return DEFAULT_CREATORS; } });
@@ -85,7 +94,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => { localStorage.setItem('youtupia_wishlist', JSON.stringify(wishlist)); }, [wishlist]);
   useEffect(() => { localStorage.setItem('youtupia_recent', JSON.stringify(recentlyViewed)); }, [recentlyViewed]);
 
-  const addToCart = (product: Product, size: string, qty = 1) => setCart(prev => { const ex = prev.find(i => i.productId === product.id && i.size === size); if (ex) return prev.map(i => i.productId === product.id && i.size === size ? { ...i, quantity: i.quantity + qty } : i); return [...prev, { productId: product.id, size, quantity: qty, product }]; });
+  const addToCart = (product: Product, size: string, qty = 1) => {
+    setCart(prev => {
+      const ex = prev.find(i => i.productId === product.id && i.size === size);
+      if (ex) return prev.map(i => i.productId === product.id && i.size === size ? { ...i, quantity: i.quantity + qty } : i);
+      return [...prev, { productId: product.id, size, quantity: qty, product }];
+    });
+    sonnerToast.success('Added to cart', {
+      description: `${product.name} · ${size}`,
+    });
+  };
   const removeFromCart = (productId: string, size: string) => setCart(prev => prev.filter(i => !(i.productId === productId && i.size === size)));
   const updateCartQty = (productId: string, size: string, qty: number) => { if (qty <= 0) { removeFromCart(productId, size); return; } setCart(prev => prev.map(i => i.productId === productId && i.size === size ? { ...i, quantity: qty } : i)); };
   const clearCart = () => setCart([]);
@@ -93,13 +111,20 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const addOrder = (order: Order) => setOrders(prev => [order, ...prev]);
   const updateOrderStatus = (orderId: string, status: Order['status']) => setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-  const toggleWishlist = (productId: string) => setWishlist(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
+  const toggleWishlist = (productId: string) => setWishlist(prev => {
+    const exists = prev.includes(productId);
+    const next = exists ? prev.filter(id => id !== productId) : [...prev, productId];
+    sonnerToast.message(exists ? 'Removed from wishlist' : 'Saved to wishlist', {
+      description: exists ? 'Your favorites have been updated.' : 'We’ll keep this one ready for you.',
+    });
+    return next;
+  });
   const addRecentlyViewed = (productId: string) => setRecentlyViewed(prev => [productId, ...prev.filter(id => id !== productId)].slice(0, 10));
   const addReview = (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => { const nr: Review = { ...review, id: `r${Date.now()}`, createdAt: new Date().toISOString() }; setProducts(products.map(p => p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p)); };
   const validateDiscountCode = (code: string): number => VALID_CODES[code.toUpperCase()] || 0;
 
   return (
-    <StoreContext.Provider value={{ products, series, creators, drops, cart, orders, wishlist, recentlyViewed, setProducts, setSeries, setCreators, setDrops, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount, addOrder, updateOrderStatus, toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode }}>
+    <StoreContext.Provider value={{ products, series, creators, drops, cart, orders, wishlist, recentlyViewed, hydrating, setProducts, setSeries, setCreators, setDrops, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount, addOrder, updateOrderStatus, toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode }}>
       {children}
     </StoreContext.Provider>
   );
