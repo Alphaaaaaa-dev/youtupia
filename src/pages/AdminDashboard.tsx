@@ -1,3 +1,4 @@
+import { toast as sonnerToast } from '@/components/ui/sonner';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAdminAuth } from '../contexts/AdminAuthContext';
 import { useStore } from '../contexts/StoreContext';
@@ -294,59 +295,174 @@ const OverviewTab = () => {
 
 // ── ORDERS TAB ─────────────────────────────────────
 const OrdersTab = () => {
-  const { orders, updateOrderStatus } = useStore();
+  const { orders, updateOrderStatus, updateOrder } = useStore();
   const [filter, setFilter] = useState('all');
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
+  const [notesInputs, setNotesInputs] = useState<Record<string, string>>({});
+  const [savedTracking, setSavedTracking] = useState<string | null>(null);
+
   const STATUS_COLOR: Record<string, string> = { processing: '#fbbf24', confirmed: '#60a5fa', shipped: '#a78bfa', delivered: '#4ade80' };
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
+  const codCount = orders.filter(o => (o as any).paymentMethod === 'cod').length;
+  const onlineCount = orders.filter(o => (o as any).paymentMethod !== 'cod').length;
+
+  const saveTracking = (orderId: string) => {
+    const trackingId = (trackingInputs[orderId] || '').trim();
+    const notes = (notesInputs[orderId] || '').trim();
+    if (!trackingId && !notes) return;
+    const updates: any = {};
+    if (trackingId) {
+      updates.trackingId = trackingId;
+      updates.trackingUrl = `https://www.delhivery.com/track/package/${trackingId}`;
+      updates.status = 'shipped'; // auto-mark shipped when tracking added
+    }
+    if (notes) updates.notes = notes;
+    updateOrder(orderId, updates);
+    sonnerToast.success('Tracking saved!', { description: `Order ${orderId} updated.` });
+    setSavedTracking(orderId);
+    setTimeout(() => setSavedTracking(null), 2500);
+  };
+
   return (
     <div>
-      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 6px' }}>Orders</h1>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>View and update order statuses.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '20px' }}>
-        {(['processing','confirmed','shipped','delivered'] as const).map(s => (
-          <div key={s} style={{ ...card, padding: '14px' }}>
-            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '24px', color: STATUS_COLOR[s] }}>{orders.filter(o => o.status === s).length}</div>
-            <div style={{ ...label, marginTop: '4px', textTransform: 'capitalize' }}>{s}</div>
+      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Orders</h1>
+      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Manage orders, update status, add Delhivery tracking numbers.</p>
+
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
+        {[
+          { label: 'TOTAL ORDERS', value: orders.length, color: '#f1f5f9' },
+          { label: 'REVENUE', value: '₹' + totalRevenue.toLocaleString(), color: '#ff6666' },
+          { label: 'PROCESSING', value: orders.filter(o => o.status === 'processing').length, color: STATUS_COLOR.processing },
+          { label: 'SHIPPED', value: orders.filter(o => o.status === 'shipped').length, color: STATUS_COLOR.shipped },
+          { label: 'COD ORDERS', value: codCount, color: '#4ade80' },
+          { label: 'ONLINE PAID', value: onlineCount, color: '#60a5fa' },
+        ].map(s => (
+          <div key={s.label} style={{ ...card, padding: '12px 14px' }}>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '20px', color: s.color, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ ...label, marginTop: '4px' }}>{s.label}</div>
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+
+      {/* Filter */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
         {['all','processing','confirmed','shipped','delivered'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>{f}</button>
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
+            {f === 'all' ? `All (${orders.length})` : `${f.charAt(0).toUpperCase()+f.slice(1)} (${orders.filter(o=>o.status===f).length})`}
+          </button>
         ))}
       </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>No orders found.</div>
-        ) : filtered.map(o => (
-          <div key={o.id} style={{ ...card, padding: '16px 20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>{o.id}</div>
-                <div style={{ ...label, marginTop: '2px' }}>{o.customerName} · {o.customerEmail} · {o.customerPhone}</div>
-                <div style={{ ...label, marginTop: '2px' }}>📍 {o.address}</div>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
-              {o.items.map(item => (
-                <div key={`${item.productId}-${item.size}`} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '6px', padding: '5px 10px', fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#94a3b8' }}>
-                  {item.product.name} · {item.size} × {item.quantity}
+        ) : filtered.map(o => {
+          const isCOD = (o as any).paymentMethod === 'cod';
+          const isOpen = expanded === o.id;
+          return (
+            <div key={o.id} style={{ ...card, overflow: 'hidden' }}>
+              {/* Header row — clickable */}
+              <div style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}
+                onClick={() => setExpanded(isOpen ? null : o.id)}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '5px' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '13px', color: '#f1f5f9' }}>{o.id}</span>
+                    <span style={{ background: STATUS_COLOR[o.status] + '18', color: STATUS_COLOR[o.status], border: `1px solid ${STATUS_COLOR[o.status]}30`, borderRadius: '20px', padding: '2px 9px', fontSize: '10px', fontWeight: 700, textTransform: 'capitalize' }}>{o.status}</span>
+                    <span style={{ background: isCOD ? 'rgba(74,222,128,0.1)' : 'rgba(96,165,250,0.1)', color: isCOD ? '#4ade80' : '#60a5fa', borderRadius: '20px', padding: '2px 8px', fontSize: '9px', fontWeight: 700 }}>{isCOD ? '💵 COD' : '💳 PAID'}</span>
+                    {(o as any).trackingId && <span style={{ background: 'rgba(139,92,246,0.12)', color: '#a78bfa', borderRadius: '20px', padding: '2px 8px', fontSize: '9px', fontWeight: 700 }}>🚚 TRACKING ADDED</span>}
+                  </div>
+                  <div style={{ ...label }}>{o.customerName} · {o.customerEmail} · {o.customerPhone}</div>
+                  <div style={{ ...label, marginTop: '2px' }}>📍 {o.address}</div>
+                  {(o as any).discountCode && <div style={{ ...label, color: '#4ade80', marginTop: '2px' }}>🏷 {(o as any).discountCode}</div>}
                 </div>
-              ))}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
+                  <div style={{ ...label, marginTop: '2px' }}>{new Date(o.createdAt).toLocaleDateString('en-IN')}</div>
+                  <div style={{ ...label, marginTop: '4px', color: isOpen ? '#ff6666' : '#475569' }}>{isOpen ? '▲ collapse' : '▼ expand'}</div>
+                </div>
+              </div>
+
+              {/* Expanded section */}
+              {isOpen && (
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px' }}>
+                  {/* Items */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    {o.items.map(item => (
+                      <div key={`${item.productId}-${item.size}`} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '6px 10px' }}>
+                        <img src={item.product.images[0]} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px' }} onError={e => { (e.target as any).style.display = 'none'; }} />
+                        <div>
+                          <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#f1f5f9', fontWeight: 600 }}>{item.product.name}</div>
+                          <div style={{ ...label }}>{item.size} × {item.quantity} · ₹{(item.product.price * item.quantity).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Status buttons */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ ...label, marginBottom: '8px' }}>UPDATE STATUS</div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {(['processing','confirmed','shipped','delivered'] as const).map(s => (
+                        <button key={s} onClick={() => { updateOrderStatus(o.id, s); sonnerToast.success('Status updated', { description: o.id + ' → ' + s }); }} disabled={o.status === s}
+                          style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${o.status === s ? STATUS_COLOR[s] : 'rgba(255,255,255,0.1)'}`, background: o.status === s ? STATUS_COLOR[s] + '18' : 'rgba(255,255,255,0.03)', color: o.status === s ? STATUS_COLOR[s] : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: o.status === s ? 'default' : 'pointer', textTransform: 'capitalize', transition: 'all 0.15s', fontWeight: o.status === s ? 700 : 400 }}>
+                          {o.status === s ? '● ' : ''}{s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Delhivery tracking input */}
+                  <div style={{ ...card, padding: '14px', marginBottom: '10px', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <div style={{ ...label, marginBottom: '8px', color: '#a78bfa' }}>DELHIVERY TRACKING NUMBER (AWB)</div>
+                    {(o as any).trackingId ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '13px', color: '#a78bfa', fontWeight: 700 }}>{(o as any).trackingId}</div>
+                          <a href={(o as any).trackingUrl || `https://www.delhivery.com/track/package/${(o as any).trackingId}`} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#60a5fa', textDecoration: 'none' }}>
+                            🔗 Open on Delhivery →
+                          </a>
+                        </div>
+                        <button onClick={() => { updateOrder(o.id, { trackingId: '', trackingUrl: '' }); }} style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer' }}>
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                          <input
+                            value={trackingInputs[o.id] || ''}
+                            onChange={e => setTrackingInputs(prev => ({ ...prev, [o.id]: e.target.value }))}
+                            placeholder="Enter AWB / tracking number from Delhivery"
+                            style={{ ...inputStyle, flex: 1 }}
+                          />
+                        </div>
+                        <div style={{ ...label, marginBottom: '6px', marginTop: '4px' }}>INTERNAL NOTES (optional)</div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            value={notesInputs[o.id] || ''}
+                            onChange={e => setNotesInputs(prev => ({ ...prev, [o.id]: e.target.value }))}
+                            placeholder="e.g. Dispatched from Delhi warehouse"
+                            style={{ ...inputStyle, flex: 1 }}
+                          />
+                          <button onClick={() => saveTracking(o.id)}
+                            style={{ padding: '9px 16px', borderRadius: '8px', border: 'none', background: savedTracking === o.id ? '#16a34a' : '#8b5cf6', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.25s', flexShrink: 0 }}>
+                            <Save size={12} /> {savedTracking === o.id ? 'Saved!' : 'Save & Mark Shipped'}
+                          </button>
+                        </div>
+                        <div style={{ ...label, marginTop: '6px', color: '#475569' }}>
+                          💡 Saving a tracking number automatically marks the order as "Shipped"
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {(['processing','confirmed','shipped','delivered'] as const).map(s => (
-                <button key={s} onClick={() => updateOrderStatus(o.id, s)} disabled={o.status === s}
-                  style={{ padding: '5px 12px', borderRadius: '6px', border: `1px solid ${o.status === s ? STATUS_COLOR[s] : 'rgba(255,255,255,0.08)'}`, background: o.status === s ? STATUS_COLOR[s] + '18' : 'transparent', color: o.status === s ? STATUS_COLOR[s] : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: o.status === s ? 'default' : 'pointer', textTransform: 'capitalize', transition: 'all 0.15s' }}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -738,10 +854,74 @@ const DropControlTab = () => {
     setForm(null);
   };
 
+  const [creatingNew, setCreatingNew] = useState(false);
+  const [newForm, setNewForm] = useState<any>({
+    id: '', name: '', description: '', dropNumber: drops.length + 1, theme: '',
+    banner: '', endsAt: '', productIds: [], limited: false
+  });
+  const [dropSaved, setDropSaved] = useState<string | null>(null);
+
+  const saveNew = () => {
+    if (!newForm.name) return;
+    const newDrop = {
+      ...newForm,
+      id: 'drop' + Date.now(),
+      dropNumber: drops.length + 1,
+    };
+    setDrops([...drops, newDrop]);
+    sonnerToast.success('Drop created!', { description: newDrop.name + ' is now live.' });
+    setCreatingNew(false);
+    setNewForm({ id: '', name: '', description: '', dropNumber: drops.length + 2, theme: '', banner: '', endsAt: '', productIds: [], limited: false });
+  };
+
+  const saveDrop = () => {
+    save();
+    sonnerToast.success('Drop updated!', { description: form?.name + ' saved successfully.' });
+    setDropSaved(editingId);
+    setTimeout(() => setDropSaved(null), 2500);
+  };
+
   return (
     <div>
-      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Drop Control</h1>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Control drop content, timer, banner and products from one page.</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Drop Control</h1>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Create, edit and manage your drops.</p>
+        </div>
+        <button onClick={() => setCreatingNew(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+          <Plus size={14} /> New Drop
+        </button>
+      </div>
+
+      {/* Create new drop form */}
+      {creatingNew && (
+        <div style={{ ...card, padding: '20px', marginBottom: '16px', border: '1px solid rgba(255,0,0,0.2)' }}>
+          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9', marginBottom: '14px' }}>New Drop</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div><div style={{ ...label, marginBottom: '5px' }}>DROP NAME *</div><input style={inputStyle} value={newForm.name} onChange={e => setNewForm((f: any) => ({ ...f, name: e.target.value }))} placeholder="Drop 003 — Summer" /></div>
+            <div><div style={{ ...label, marginBottom: '5px' }}>THEME</div><input style={inputStyle} value={newForm.theme} onChange={e => setNewForm((f: any) => ({ ...f, theme: e.target.value }))} placeholder="Streetwear / Gaming..." /></div>
+          </div>
+          <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div><textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={newForm.description} onChange={e => setNewForm((f: any) => ({ ...f, description: e.target.value }))} placeholder="What this drop is about..." /></div>
+          <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>BANNER URL</div><input style={inputStyle} value={newForm.banner} onChange={e => setNewForm((f: any) => ({ ...f, banner: e.target.value }))} placeholder="https://..." /></div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div><div style={{ ...label, marginBottom: '5px' }}>DROP END TIME</div><input type="datetime-local" style={inputStyle} value={newForm.endsAt ? new Date(newForm.endsAt).toISOString().slice(0,16) : ''} onChange={e => setNewForm((f: any) => ({ ...f, endsAt: e.target.value ? new Date(e.target.value).toISOString() : '' }))} /></div>
+            <div><div style={{ ...label, marginBottom: '5px' }}>LIMITED DROP</div><button onClick={() => setNewForm((f: any) => ({ ...f, limited: !f.limited }))} style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer' as const }}>{newForm.limited ? 'YES — Never restocking' : 'NO — Regular drop'}</button></div>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ ...label, marginBottom: '6px' }}>ASSIGN PRODUCTS</div>
+            <div style={{ maxHeight: '140px', overflowY: 'auto', padding: '6px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
+              {products.map(p => {
+                const checked = (newForm.productIds || []).includes(p.id);
+                return (<label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 4px', cursor: 'pointer' }}><input type="checkbox" checked={checked} onChange={() => { const ids = newForm.productIds || []; setNewForm((f: any) => ({ ...f, productIds: checked ? ids.filter((id: string) => id !== p.id) : [...ids, p.id] })); }} /><span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#cbd5e1' }}>{p.name}</span></label>);
+              })}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={saveNew} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={13} /> Create Drop</button>
+            <button onClick={() => setCreatingNew(false)} style={{ padding: '8px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {drops.map(d => (
@@ -796,8 +976,8 @@ const DropControlTab = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={save} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={13} /> Save Drop</button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button onClick={saveDrop} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: dropSaved === editingId ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.25s' }}><Save size={13} /> {dropSaved === editingId ? '✓ Saved!' : 'Save Drop'}</button>
                   <button onClick={() => { setEditingId(null); setForm(null); }} style={{ padding: '8px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
                 </div>
               </div>
@@ -831,23 +1011,41 @@ const DropControlTab = () => {
 const HomeContentTab = () => {
   const { homePromo, setHomePromo } = useStore();
   const [form, setForm] = useState<HomePromo>(homePromo);
+  const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    setForm(homePromo);
-  }, [homePromo]);
+  useEffect(() => { setForm(homePromo); }, [homePromo]);
 
   const save = () => {
     setHomePromo(form);
+    setSaved(true);
+    sonnerToast.success('Home content saved!', { description: 'Video and promo settings updated on homepage.' });
+    setTimeout(() => setSaved(false), 3000);
   };
 
   return (
     <div>
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Home Content</h1>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Control the promo video section shown on the home hero (top-left area).</p>
+      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>Control the promo video shown on the home page hero section.</p>
+      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#475569', marginBottom: '20px' }}>
+        ✅ Paste a <strong style={{ color: '#ff6666' }}>YouTube link</strong> (youtu.be/... or youtube.com/watch?v=...), an <strong style={{ color: '#ff6666' }}>Instagram reel link</strong>, or a <strong style={{ color: '#ff6666' }}>direct video URL</strong>. All are supported.
+      </p>
 
       <div style={{ ...card, padding: '20px', maxWidth: '760px' }}>
-        <VideoDropzone value={form.videoUrl} onChange={v => setForm(f => ({ ...f, videoUrl: v }))} label="PROMO VIDEO (URL OR UPLOAD)" />
-        <ImageDropzone value={form.posterUrl || ''} onChange={v => setForm(f => ({ ...f, posterUrl: v }))} label="POSTER IMAGE (URL OR UPLOAD)" />
+        {/* Video URL — plain text input that accepts any link */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ ...label, marginBottom: '6px' }}>PROMO VIDEO URL</div>
+          <input
+            style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+            value={form.videoUrl}
+            onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value.trim() }))}
+            placeholder="https://youtu.be/dQw4w9WgXcQ  or  https://www.instagram.com/reel/xxx  or direct .mp4 URL"
+          />
+          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '5px' }}>
+            YouTube · Instagram Reels · Direct video file (.mp4 / .webm) — all supported
+          </div>
+        </div>
+
+        <ImageDropzone value={form.posterUrl || ''} onChange={v => setForm(f => ({ ...f, posterUrl: v }))} label="POSTER IMAGE (shown before video loads — URL or upload)" />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
           <div>
@@ -860,21 +1058,22 @@ const HomeContentTab = () => {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
           <div>
-            <div style={{ ...label, marginBottom: '6px' }}>CTA TEXT</div>
+            <div style={{ ...label, marginBottom: '6px' }}>CTA BUTTON TEXT</div>
             <input style={inputStyle} value={form.ctaText} onChange={e => setForm(f => ({ ...f, ctaText: e.target.value }))} placeholder="Watch Drop" />
           </div>
           <div>
-            <div style={{ ...label, marginBottom: '6px' }}>CTA LINK</div>
+            <div style={{ ...label, marginBottom: '6px' }}>CTA BUTTON LINK</div>
             <input style={inputStyle} value={form.ctaLink} onChange={e => setForm(f => ({ ...f, ctaLink: e.target.value }))} placeholder="/drops" />
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={save} style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Save size={14} /> Save Home Content
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={save} style={{ padding: '11px 20px', borderRadius: '8px', border: 'none', background: saved ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.25s' }}>
+            <Save size={14} /> {saved ? '✓ Saved!' : 'Save Home Content'}
           </button>
+          {saved && <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#4ade80' }}>Changes live on homepage ✓</span>}
         </div>
       </div>
     </div>
