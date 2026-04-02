@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { SlidersHorizontal, ArrowUpDown, Heart, Eye, ShoppingCart } from 'lucide-react';
+import { ArrowUpDown, Heart, Eye, ShoppingCart } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import ProductQuickViewModal from '@/components/ProductQuickViewModal';
 import type { Product, ProductVariant } from '@/contexts/StoreContext';
@@ -10,6 +10,7 @@ import type { Product, ProductVariant } from '@/contexts/StoreContext';
 const ShopPage = () => {
   const { products, series, drops, addToCart, toggleWishlist, wishlist, hydrating } = useStore();
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const isDark = theme === 'dark';
   const [searchParams] = useSearchParams();
   const [activeSeries, setActiveSeries] = useState(searchParams.get('series') || 'all');
@@ -36,13 +37,25 @@ const ShopPage = () => {
     return res;
   }, [products, activeSeries, activeDrop, filterMode, query, sortBy]);
 
+  // Stoppage: add to cart WITHOUT navigating
   const handleAdd = (p: Product, e: React.MouseEvent) => {
-    e.preventDefault();
+    e.stopPropagation(); // prevent card-level navigate
     const inStock = p.variants.find(v => v.stock > 0);
     if (!inStock) return;
     addToCart(p, inStock.size || 'M');
     setAddedId(p.id);
     setTimeout(() => setAddedId(null), 1800);
+  };
+
+  const handleWishlist = (productId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWishlist(productId);
+  };
+
+  const handleQuickView = (p: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setQuickViewProduct(p);
+    setQuickViewOpen(true);
   };
 
   return (
@@ -57,7 +70,6 @@ const ShopPage = () => {
             <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginBottom: '20px' }}>{filtered.length} product{filtered.length !== 1 ? 's' : ''}</p>
           </div>
 
-          {/* Filter mode toggle */}
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
             {(['series', 'drop'] as const).map(mode => (
               <button key={mode} onClick={() => setFilterMode(mode)}
@@ -67,7 +79,6 @@ const ShopPage = () => {
             ))}
           </div>
 
-          {/* Filter chips */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '1px' }}>
             {filterMode === 'series' ? (
               <>
@@ -108,7 +119,7 @@ const ShopPage = () => {
         </div>
 
         {hydrating ? (
-          <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, overflow: 'hidden' }}>
                 <Skeleton className="w-full" style={{ aspectRatio: '3/4' }} />
@@ -135,53 +146,77 @@ const ShopPage = () => {
               const totalStock = p.variants.reduce((s: number, v: ProductVariant) => s + v.stock, 0);
               const isWishlisted = wishlist.includes(p.id);
               const inStock = totalStock > 0;
+              const discount = p.originalPrice ? Math.round((1 - p.price / p.originalPrice) * 100) : 0;
+
               return (
-                <div key={p.id} className="product-card" style={{ position: 'relative' }}>
-                  {/* Wishlist */}
-                  <button onClick={() => toggleWishlist(p.id)}
-                    style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isWishlisted ? '#ff0000' : 'white', transition: 'transform 0.2s', transform: isWishlisted ? 'scale(1.1)' : 'scale(1)' }}>
+                /* KEY FIX: entire card is a div with onClick→navigate.
+                   Buttons inside use e.stopPropagation() to prevent nav. */
+                <div
+                  key={p.id}
+                  className="product-card"
+                  style={{ position: 'relative', cursor: 'pointer' }}
+                  onClick={() => navigate(`/product/${p.id}`)}
+                >
+                  {/* Wishlist button — stopPropagation keeps us on this page */}
+                  <button
+                    onClick={e => handleWishlist(p.id, e)}
+                    style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 20, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isWishlisted ? '#ff0000' : 'white', transition: 'transform 0.2s', transform: isWishlisted ? 'scale(1.1)' : 'scale(1)' }}
+                  >
                     <Heart size={14} fill={isWishlisted ? '#ff0000' : 'none'} />
                   </button>
 
-                  {/* Clicking image area opens quick view */}
-                  <div onClick={() => { setQuickViewProduct(p); setQuickViewOpen(true); }} style={{ cursor: 'pointer' }}>
-                    <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))' }}>
-                      <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-                      {p.originalPrice && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em', boxShadow: '0 2px 8px rgba(255,0,0,0.4)' }}>{Math.round((1 - p.price / p.originalPrice) * 100)}% OFF</span>}
-                      {p.limitedEdition && <span style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', color: '#ff0000', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,0,0,0.3)' }}>LIMITED</span>}
-                      {totalStock < 5 && totalStock > 0 && <span style={{ position: 'absolute', top: '10px', right: p.originalPrice ? 'auto' : '10px', left: p.originalPrice ? 'auto' : 'auto', background: 'rgba(0,0,0,0.75)', color: '#fbbf24', fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px' }}>LOW STOCK</span>}
-                      {/* Viewer count */}
-                      {p.viewerCount && p.viewerCount > 3 && (
-                        <span style={{ position: 'absolute', bottom: p.limitedEdition ? '30px' : '10px', left: '10px', background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.8)', fontSize: '9px', padding: '3px 7px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <Eye size={8} /> {p.viewerCount} viewing
-                        </span>
-                      )}
-                    </div>
+                  {/* Image */}
+                  <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))', overflow: 'hidden' }}>
+                    <img
+                      src={p.images[0]}
+                      alt={p.name}
+                      loading="lazy"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                    />
+                    {discount > 0 && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em', boxShadow: '0 2px 8px rgba(255,0,0,0.4)', zIndex: 5 }}>{discount}% OFF</span>}
+                    {p.limitedEdition && <span style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', color: '#ff0000', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,0,0,0.3)', zIndex: 5 }}>LIMITED</span>}
+                    {totalStock > 0 && totalStock < 5 && <span style={{ position: 'absolute', top: discount ? '34px' : '10px', left: '10px', background: 'rgba(0,0,0,0.75)', color: '#fbbf24', fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px', zIndex: 5 }}>ONLY {totalStock} LEFT</span>}
+                    {totalStock === 0 && <span style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(0,0,0,0.8)', color: '#94a3b8', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', zIndex: 5 }}>SOLD OUT</span>}
+                    {p.viewerCount && p.viewerCount > 3 && (
+                      <span style={{ position: 'absolute', bottom: p.limitedEdition ? '30px' : '10px', left: '10px', background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.8)', fontSize: '9px', padding: '3px 7px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px', zIndex: 5 }}>
+                        <Eye size={8} /> {p.viewerCount} viewing
+                      </span>
+                    )}
                   </div>
 
-                  {/* Product info — click name/price opens product page */}
-                  <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-                  <div style={{ padding: '0 10px 4px' }}>
+                  {/* Product info */}
+                  <div style={{ padding: '10px 10px 4px' }}>
                     <div style={{ fontSize: '10px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
-                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', lineHeight: 1.3 }}>{p.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '4px', lineHeight: 1.3, color: 'hsl(var(--foreground))' }}>{p.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                       <span style={{ fontWeight: 800, fontSize: '15px', color: '#ff0000' }}>₹{p.price.toLocaleString()}</span>
                       {p.originalPrice && <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
                     </div>
+                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                      {p.variants.slice(0, 5).map((v: ProductVariant) => (
+                        <span key={v.size} style={{ fontSize: '9px', padding: '2px 5px', borderRadius: '3px', background: 'hsl(var(--secondary))', color: v.stock === 0 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', textDecoration: v.stock === 0 ? 'line-through' : 'none', fontWeight: 600 }}>{v.size}</span>
+                      ))}
+                    </div>
                   </div>
-                  </Link>
 
-                  <div style={{ padding: '0 10px 10px', display: 'flex', gap: '6px' }}>
-                    <button onClick={e => handleAdd(p, e)} className="btn-yt ripple"
+                  {/* Buttons — all use stopPropagation to block card-level navigate */}
+                  <div style={{ padding: '8px 10px 10px', display: 'flex', gap: '6px' }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={e => handleAdd(p, e)}
                       disabled={!inStock}
-                      style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: !inStock ? '#475569' : addedId === p.id ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '6px', cursor: inStock ? 'pointer' : 'not-allowed', opacity: inStock ? 1 : 0.75 }}>
-                      <ShoppingCart size={13} /> {!inStock ? 'Out of Stock' : addedId === p.id ? '✓ Added!' : 'Add to Cart'}
+                      style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, background: !inStock ? 'hsl(var(--secondary))' : addedId === p.id ? '#16a34a' : '#ff0000', color: !inStock ? 'hsl(var(--muted-foreground))' : 'white', transition: 'background 0.25s', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: inStock ? 'pointer' : 'not-allowed', fontFamily: 'Roboto, sans-serif' }}
+                    >
+                      <ShoppingCart size={13} />
+                      {!inStock ? 'Out of Stock' : addedId === p.id ? '✓ Added!' : 'Add to Cart'}
                     </button>
-                    <button onClick={(e) => { e.preventDefault(); setQuickViewProduct(p); setQuickViewOpen(true); }}
+                    <button
+                      onClick={e => handleQuickView(p, e)}
                       title="Quick view"
                       style={{ width: '38px', borderRadius: '8px', border: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--muted-foreground))', flexShrink: 0, transition: 'all 0.15s' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#ff0000'; (e.currentTarget as HTMLElement).style.color = '#ff0000'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'hsl(var(--border))'; (e.currentTarget as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}>
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'hsl(var(--border))'; (e.currentTarget as HTMLElement).style.color = 'hsl(var(--muted-foreground))'; }}
+                    >
                       <Eye size={14} />
                     </button>
                   </div>
@@ -195,14 +230,10 @@ const ShopPage = () => {
       <ProductQuickViewModal
         open={quickViewOpen}
         product={quickViewProduct}
-        onClose={() => {
-          setQuickViewOpen(false);
-          setQuickViewProduct(null);
-        }}
+        onClose={() => { setQuickViewOpen(false); setQuickViewProduct(null); }}
       />
     </div>
   );
 };
 
 export default ShopPage;
- 
