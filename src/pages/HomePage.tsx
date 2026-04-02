@@ -187,30 +187,59 @@ const HomePage = () => {
 
           {/* Right column: promo video (large) + small product grid */}
           <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Promo video — large, right side */}
+            {/* Promo video — supports YouTube URL, direct video URL, or Instagram reel */}
             <div style={{ borderRadius: '24px', overflow: 'hidden', background: 'rgba(0,0,0,0.35)', aspectRatio: '16/9', position: 'relative', border: isDark ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(0,0,0,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
-              {homePromo.videoUrl ? (
-                <video
-                  src={homePromo.videoUrl}
-                  poster={homePromo.posterUrl}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  controls
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                />
-              ) : (
+              {homePromo.videoUrl ? (() => {
+                const url = homePromo.videoUrl.trim();
+                // Extract YouTube video ID from any YouTube URL
+                const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+                const ytId = ytMatch ? ytMatch[1] : null;
+                // Instagram embed
+                const isInsta = url.includes('instagram.com');
+                if (ytId) {
+                  return (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=1&modestbranding=1&rel=0`}
+                      title={homePromo.title || 'Promo Video'}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                    />
+                  );
+                }
+                if (isInsta) {
+                  const instaPostMatch = url.match(/instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)/);
+                  if (instaPostMatch) {
+                    return (
+                      <iframe
+                        src={`https://www.instagram.com/${instaPostMatch[1]}/${instaPostMatch[2]}/embed`}
+                        title={homePromo.title || 'Promo Video'}
+                        allowFullScreen
+                        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                      />
+                    );
+                  }
+                }
+                // Direct video file
+                return (
+                  <video
+                    src={url}
+                    poster={homePromo.posterUrl}
+                    autoPlay muted loop playsInline controls
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                );
+              })() : (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(255,0,0,0.08) 0%, rgba(0,0,0,0.6) 100%)', color: 'rgba(255,255,255,0.7)', gap: '12px' }}>
                   <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,0,0,0.15)', border: '2px solid rgba(255,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8 5.14v14.72L19 12 8 5.14z" fill="rgba(255,255,255,0.8)"/></svg>
                   </div>
                   <span style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '0.04em' }}>Promotion Video</span>
-                  <span style={{ fontSize: '11px', opacity: 0.5 }}>Set in Admin → Promo</span>
+                  <span style={{ fontSize: '11px', opacity: 0.5 }}>Paste YouTube / Instagram link in Admin → Home Content</span>
                 </div>
               )}
-              {/* Video overlay info */}
-              {(homePromo.title || homePromo.ctaText) && (
+              {/* Video overlay info — only shows on non-iframe */}
+              {homePromo.videoUrl && !homePromo.videoUrl.includes('youtube') && !homePromo.videoUrl.includes('youtu.be') && !homePromo.videoUrl.includes('instagram') && (homePromo.title || homePromo.ctaText) && (
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 24px', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}>
                   {homePromo.title && <div style={{ color: 'white', fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{homePromo.title}{homePromo.subtitle ? ` — ${homePromo.subtitle}` : ''}</div>}
                   {homePromo.ctaText && (
