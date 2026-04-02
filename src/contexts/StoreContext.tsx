@@ -24,6 +24,11 @@ export interface Order {
   status: 'processing' | 'confirmed' | 'shipped' | 'delivered';
   customerName: string; customerEmail: string; customerPhone: string; address: string;
   paymentId?: string; createdAt: string; discountCode?: string; discountAmount?: number;
+  paymentMethod: 'razorpay' | 'cod';   // NEW
+  codCharge?: number;                    // NEW – extra charge for COD (if any)
+  trackingId?: string;                   // NEW – Delhivery AWB / tracking number
+  trackingUrl?: string;                  // NEW – Delhivery tracking URL
+  notes?: string;                        // NEW – admin notes on order
 }
 export interface HomePromo {
   videoUrl: string;
@@ -81,6 +86,7 @@ interface StoreContextType {
   toggleWishlist: (productId: string) => void; addRecentlyViewed: (productId: string) => void;
   addReview: (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => void;
   validateDiscountCode: (code: string) => number;
+  updateOrder: (orderId: string, updates: Partial<Order>) => void;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -174,9 +180,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const addRecentlyViewed = (productId: string) => setRecentlyViewed(prev => [productId, ...prev.filter(id => id !== productId)].slice(0, 10));
   const addReview = (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => { const nr: Review = { ...review, id: `r${Date.now()}`, createdAt: new Date().toISOString() }; setProducts(products.map(p => p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p)); };
   const validateDiscountCode = (code: string): number => VALID_CODES[code.toUpperCase()] || 0;
+  const updateOrder = (orderId: string, updates: Partial<Order>) =>
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updates } : o));
 
   return (
-    <StoreContext.Provider value={{ products, series, creators, drops, cart, orders, wishlist, recentlyViewed, homePromo, hydrating, setProducts, setSeries, setCreators, setDrops, setHomePromo, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount, addOrder, updateOrderStatus, toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode }}>
+    <StoreContext.Provider value={{ products, series, creators, drops, cart, orders, wishlist, recentlyViewed, homePromo, hydrating, setProducts, setSeries, setCreators, setDrops, setHomePromo, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount, addOrder, updateOrderStatus, updateOrder, toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode }}>
       {children}
     </StoreContext.Provider>
   );
