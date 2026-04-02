@@ -348,6 +348,7 @@
     content: ''; position: absolute; inset: 0; border-radius: 12px;
     background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0) 100%);
     opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; /* CRITICAL FIX: do not block clicks */
   }
   .product-card:hover::after { opacity: 1; }
 
