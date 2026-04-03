@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Zap, Star, Truck, Shield, Heart, Eye, Users, CheckCircle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 
 const StarInput = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => (
@@ -45,6 +46,7 @@ const ProductPage = () => {
   const { id } = useParams();
   const { products, addToCart, toggleWishlist, wishlist, addRecentlyViewed, addReview } = useStore();
   const { theme } = useTheme();
+  const { user } = useAuth() as any;
   const navigate = useNavigate();
   const isDark = theme === 'dark';
   const product = products.find(p => p.id === id);
@@ -91,6 +93,10 @@ const ProductPage = () => {
 
   const handleBuyNow = () => {
     if (!selectedSize) { alert('Please select a size'); return; }
+    if (!user) {
+      navigate('/login?redirect=/checkout');
+      return;
+    }
     addToCart(product, selectedSize);
     navigate('/checkout');
   };
@@ -110,7 +116,7 @@ const ProductPage = () => {
   const isWishlisted = wishlist.includes(product.id);
 
   return (
-    <div style={{ paddingTop: '56px' }}>
+    <div style={{ paddingTop: '96px' }}>
       {sizeGuide && <SizeGuideModal onClose={() => setSizeGuide(false)} />}
 
       {/* Full image zoom */}
@@ -354,4 +360,3 @@ const ProductPage = () => {
 };
 
 export default ProductPage;
- 
