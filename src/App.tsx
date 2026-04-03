@@ -12,6 +12,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
 import ProtectedRoute from './components/ProtectedRoute';
+import PromoBanner from './components/PromoBanner';
 
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
@@ -76,6 +77,7 @@ const StoreLayout = () => {
     <>
       <div className="orb orb-1" />
       <div className="orb orb-2" />
+      <PromoBanner />
       <Navbar onCartOpen={() => setCartOpen(true)} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
       <PageWrapper>
