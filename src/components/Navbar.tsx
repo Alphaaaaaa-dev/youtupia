@@ -112,7 +112,7 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
   return (
     <>
       <header style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        position: 'fixed', top: 32, left: 0, right: 0, zIndex: 100,
         background: headerBg,
         backdropFilter: 'blur(16px)',
         borderBottom: scrolled ? '1px solid hsl(var(--border))' : '1px solid transparent',
