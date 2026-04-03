@@ -166,7 +166,7 @@ const CheckoutPage = () => {
   const applyDiscount = () => {
     const pct = validateDiscountCode(discountCode.trim());
     if (pct > 0) { setDiscountPct(pct); setDiscountApplied(true); setDiscountError(''); sonnerToast.success(`${discountCode} applied — ${pct}% off!`); }
-    else setDiscountError('Invalid code. Try YOUTUPIA10, DROP001 or FIRSTORDER');
+    else setDiscountError('Invalid code. Try a valid code');
   };
 
   // ── Field renderer ────────────────────────────────
