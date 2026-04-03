@@ -21,6 +21,7 @@ const ShopPage = () => {
   const [addedId, setAddedId] = useState<string | null>(null);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [quickViewOpen, setQuickViewOpen] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('drop')) setFilterMode('drop');
@@ -59,7 +60,7 @@ const ShopPage = () => {
   };
 
   return (
-    <div style={{ paddingTop: '56px', position: 'relative', zIndex: 1 }}>
+    <div style={{ paddingTop: '96px', position: 'relative', zIndex: 1 }}>
       <div style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))', borderBottom: '1px solid hsl(var(--border))', padding: '32px 24px 0' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
           <div className="page-enter">
@@ -155,6 +156,8 @@ const ShopPage = () => {
                   key={p.id}
                   className="product-card"
                   style={{ position: 'relative', cursor: 'pointer' }}
+                  onMouseEnter={() => setHoveredId(p.id)}
+                  onMouseLeave={() => setHoveredId(null)}
                   onClick={() => navigate(`/product/${p.id}`)}
                 >
                   {/* Wishlist button — stopPropagation keeps us on this page */}
@@ -167,13 +170,38 @@ const ShopPage = () => {
 
                   {/* Image */}
                   <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))', overflow: 'hidden' }}>
+                    {/* Primary image */}
                     <img
                       src={p.images[0]}
                       alt={p.name}
                       loading="lazy"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      style={{
+                        width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                        position: 'absolute', inset: 0,
+                        opacity: hoveredId === p.id && p.images.length > 1 ? 0 : 1,
+                        transition: 'opacity 0.35s ease',
+                      }}
                       onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
                     />
+                    {/* Hover image (only rendered if product has 2+ images) */}
+                    {p.images.length > 1 && (
+                      <img
+                        src={p.images[1]}
+                        alt={p.name + ' - alternate view'}
+                        loading="lazy"
+                        style={{
+                          width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                          position: 'absolute', inset: 0,
+                          opacity: hoveredId === p.id ? 1 : 0,
+                          transition: 'opacity 0.35s ease',
+                          transform: hoveredId === p.id ? 'scale(1.04)' : 'scale(1)',
+                          transitionProperty: 'opacity, transform',
+                          transitionDuration: '0.35s',
+                          transitionTimingFunction: 'ease',
+                        }}
+                        onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                      />
+                    )}
                     {discount > 0 && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em', boxShadow: '0 2px 8px rgba(255,0,0,0.4)', zIndex: 5 }}>{discount}% OFF</span>}
                     {p.limitedEdition && <span style={{ position: 'absolute', bottom: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', color: '#ff0000', fontSize: '9px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', border: '1px solid rgba(255,0,0,0.3)', zIndex: 5 }}>LIMITED</span>}
                     {totalStock > 0 && totalStock < 5 && <span style={{ position: 'absolute', top: discount ? '34px' : '10px', left: '10px', background: 'rgba(0,0,0,0.75)', color: '#fbbf24', fontSize: '9px', fontWeight: 700, padding: '3px 7px', borderRadius: '4px', zIndex: 5 }}>ONLY {totalStock} LEFT</span>}
