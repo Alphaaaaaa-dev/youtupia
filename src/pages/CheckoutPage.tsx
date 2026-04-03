@@ -43,7 +43,7 @@ const CheckoutPage = () => {
   }, [discountFromUrl]);
 
   if (cart.length === 0) return (
-    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', paddingTop: '56px' }}>
+    <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', paddingTop: '128px' }}>
       <div style={{ fontSize: '48px' }}>🛒</div>
       <h2 style={{ fontWeight: 700 }}>Your cart is empty</h2>
       <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none' }}>Go Shopping</Link>
@@ -97,12 +97,19 @@ const CheckoutPage = () => {
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     document.body.appendChild(script);
 
-    script.onload = () => {
-      const rzpKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
-      if (!rzpKey || rzpKey === 'rzp_test_placeholder') {
-        // Show setup instruction in dev
-        sonnerToast.error('Razorpay key missing', {
-          description: 'Add VITE_RAZORPAY_KEY_ID to your .env file. See SETUP.md.',
+    script.onload = async () => {
+      // Fetch key from server — never exposed in frontend bundle
+      let rzpKey = '';
+      try {
+        const keyRes = await fetch('/api/razorpay-key');
+        const keyData = await keyRes.json();
+        rzpKey = keyData.key || '';
+      } catch {
+        rzpKey = '';
+      }
+      if (!rzpKey) {
+        sonnerToast.error('Razorpay not configured', {
+          description: 'Add RAZORPAY_KEY_ID to your Vercel environment variables.',
         });
         setLoading(false);
         return;
@@ -183,7 +190,7 @@ const CheckoutPage = () => {
   const cardStyle = { background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', padding: '24px' };
 
   return (
-    <div style={{ paddingTop: '56px', maxWidth: '1100px', margin: '0 auto', padding: '72px 24px 64px' }}>
+    <div style={{ paddingTop: '128px', maxWidth: '1100px', margin: '0 auto', padding: '72px 24px 64px' }}>
       <h1 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '32px', letterSpacing: '-0.02em' }}>Checkout</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '28px', alignItems: 'start' }}>
