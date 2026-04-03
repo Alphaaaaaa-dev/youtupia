@@ -126,9 +126,20 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
         {/* Footer */}
         {cart.length > 0 && (
           <div style={{ padding: '16px 20px', borderTop: '1px solid hsl(var(--border))' }}>
-            {cartTotal < 999 && (
-              <div style={{ marginBottom: '12px', padding: '8px 12px', background: 'rgba(255,0,0,0.05)', borderRadius: '8px', border: '1px solid rgba(255,0,0,0.1)', fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>
-                🚚 Add <strong style={{ color: '#ff0000' }}>₹{(999 - cartTotal).toLocaleString()}</strong> more for free shipping!
+            {/* Free shipping progress bar */}
+            {cartTotal < 999 ? (
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '11px' }}>
+                  <span style={{ color: 'hsl(var(--muted-foreground))' }}>🚚 Free shipping at ₹999</span>
+                  <span style={{ color: '#ff0000', fontWeight: 700 }}>₹{(999 - cartTotal).toLocaleString()} away</span>
+                </div>
+                <div style={{ height: '6px', background: 'hsl(var(--secondary))', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min((cartTotal / 999) * 100, 100)}%`, background: 'linear-gradient(90deg, #ff0000, #ff6b6b)', borderRadius: '3px', transition: 'width 0.5s ease' }} />
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '14px', padding: '8px 12px', background: 'rgba(22,163,74,0.08)', borderRadius: '8px', border: '1px solid rgba(22,163,74,0.2)', fontSize: '12px', color: '#16a34a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                ✅ You've unlocked FREE shipping!
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
