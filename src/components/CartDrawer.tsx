@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { X, Trash2, Plus, Minus, ShoppingBag, Percent } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 
 const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const { cart, cartTotal, removeFromCart, updateCartQty, recentlyViewed, products, validateDiscountCode } = useStore();
   const { theme } = useTheme();
+  const { user } = useAuth() as any;
+  const navigate = useNavigate();
   const isDark = theme === 'dark';
 
   const shipping = cartTotal >= 999 ? 0 : 60;
@@ -176,14 +179,25 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '16px', fontWeight: 800 }}>
               <span>Total</span><span style={{ color: '#ff0000' }}>₹{total.toLocaleString()}</span>
             </div>
-            <Link
-              to={discountApplied && discountCode ? `/checkout?discountCode=${encodeURIComponent(discountCode)}` : '/checkout'}
-              onClick={onClose}
+            <button
+              onClick={() => {
+                onClose();
+                if (!user) {
+                  const dest = discountApplied && discountCode
+                    ? `/checkout?discountCode=${encodeURIComponent(discountCode)}`
+                    : '/checkout';
+                  navigate(`/login?redirect=${encodeURIComponent(dest)}`);
+                } else {
+                  navigate(discountApplied && discountCode
+                    ? `/checkout?discountCode=${encodeURIComponent(discountCode)}`
+                    : '/checkout');
+                }
+              }}
               className="btn-yt ripple"
-              style={{ display: 'flex', width: '100%', justifyContent: 'center', textDecoration: 'none', borderRadius: '10px', padding: '14px', fontSize: '15px', fontWeight: 700, boxShadow: '0 4px 20px rgba(255,0,0,0.3)' }}
+              style={{ display: 'flex', width: '100%', justifyContent: 'center', border: 'none', cursor: 'pointer', borderRadius: '10px', padding: '14px', fontSize: '15px', fontWeight: 700, boxShadow: '0 4px 20px rgba(255,0,0,0.3)' }}
             >
-              Proceed to Checkout
-            </Link>
+              {user ? 'Proceed to Checkout' : '🔒 Sign in to Checkout'}
+            </button>
             <button onClick={onClose} style={{ width: '100%', marginTop: '8px', padding: '10px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'hsl(var(--muted-foreground))', fontFamily: 'Roboto, sans-serif' }}>
               Continue Shopping
             </button>
@@ -195,4 +209,3 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
 };
 
 export default CartDrawer;
- 
