@@ -11,6 +11,7 @@ import { AuthProvider } from './contexts/AuthContext';
 
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
@@ -79,14 +80,12 @@ const StoreLayout = () => {
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
       <PageWrapper>
         <Routes>
+          {/* Public routes */}
           <Route path="/" element={<HomePage />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/product/:id" element={<ProductPage />} />
           <Route path="/catalogue" element={<CataloguePage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/order-success" element={<OrderSuccessPage />} />
-          <Route path="/orders" element={<OrdersPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/policy" element={<PolicyPage />} />
@@ -94,8 +93,24 @@ const StoreLayout = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/creator/:handle" element={<CreatorPage />} />
           <Route path="/drops" element={<DropsPage />} />
-          <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/track-order" element={<TrackOrderPage />} />
+
+          {/* 🔒 Protected routes — require login */}
+          <Route path="/checkout" element={
+            <ProtectedRoute><CheckoutPage /></ProtectedRoute>
+          } />
+          <Route path="/order-success" element={
+            <ProtectedRoute><OrderSuccessPage /></ProtectedRoute>
+          } />
+          <Route path="/orders" element={
+            <ProtectedRoute><OrdersPage /></ProtectedRoute>
+          } />
+          <Route path="/wishlist" element={
+            <ProtectedRoute><WishlistPage /></ProtectedRoute>
+          } />
+          <Route path="/track-order" element={
+            <ProtectedRoute><TrackOrderPage /></ProtectedRoute>
+          } />
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </PageWrapper>
