@@ -78,7 +78,7 @@ const ProductPage = () => {
   }, [product?.id]);
 
   if (!product) return (
-    <div style={{ paddingTop: '80px', textAlign: 'center', padding: '100px 24px' }}>
+    <div style={{ paddingTop: '0px', textAlign: 'center', padding: '40px 24px' }}>
       <h2 style={{ marginBottom: '16px' }}>Product not found</h2>
       <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none' }}>Back to Shop</Link>
     </div>
@@ -116,7 +116,7 @@ const ProductPage = () => {
   const isWishlisted = wishlist.includes(product.id);
 
   return (
-    <div style={{ paddingTop: '96px' }}>
+    <div style={{ paddingTop: '24px' }}>
       {sizeGuide && <SizeGuideModal onClose={() => setSizeGuide(false)} />}
 
       {/* Full image zoom */}
