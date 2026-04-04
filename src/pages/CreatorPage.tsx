@@ -37,7 +37,7 @@ const CreatorPage = () => {
   const [addedId, setAddedId] = useState<string | null>(null);
 
   if (!creator) return (
-    <div style={{ paddingTop: '100px', textAlign: 'center' }}>
+    <div style={{ paddingTop: '24px', textAlign: 'center' }}>
       <h2>Creator not found</h2>
       <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none', marginTop: '16px', display: 'inline-flex' }}>Back to Shop</Link>
     </div>
@@ -53,7 +53,7 @@ const CreatorPage = () => {
   };
 
   return (
-    <div style={{ paddingTop: '56px' }}>
+    <div style={{ paddingTop: '0px' }}>
       {/* Banner */}
       <div style={{ position: 'relative', height: '340px', overflow: 'hidden' }}>
         <img src={creator.banner} alt={creator.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
