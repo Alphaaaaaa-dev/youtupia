@@ -10,7 +10,7 @@ const OrderSuccessPage = () => {
   const isCOD = order?.paymentMethod === 'cod';
 
   return (
-    <div style={{ paddingTop: '56px', minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+    <div style={{ paddingTop: '0px', minHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
       <div style={{ maxWidth: '520px', width: '100%' }}>
         {/* Hero icon */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
