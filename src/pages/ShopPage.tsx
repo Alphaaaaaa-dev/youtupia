@@ -253,7 +253,7 @@ const ShopPage = () => {
   );
 
   return (
-    <div style={{ paddingTop: '128px', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
+    <div style={{ paddingTop: '24px', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
 
       {/* ── Promo / breadcrumb bar ── */}
       <div style={{ background: isDark ? 'hsl(0 0% 6%)' : '#f8f8f8', borderBottom: '1px solid hsl(var(--border))', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
