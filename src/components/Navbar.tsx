@@ -57,7 +57,7 @@ const ThemeToggle = () => {
 
 const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
   const { theme } = useTheme();
-  const { cartCount } = useStore();
+  const { cartCount, topBanner } = useStore();
   const { user, signOut } = useAuth() as any;
   const navigate = useNavigate();
   const location = useLocation();
@@ -112,7 +112,7 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
   return (
     <>
       <header style={{
-        position: 'fixed', top: 32, left: 0, right: 0, zIndex: 100,
+        position: 'fixed', top: topBanner.enabled ? 32 : 0, left: 0, right: 0, zIndex: 100,
         background: headerBg,
         backdropFilter: 'blur(16px)',
         borderBottom: scrolled ? '1px solid hsl(var(--border))' : '1px solid transparent',
