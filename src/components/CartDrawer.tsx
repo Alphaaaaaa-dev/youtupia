@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { toast as sonnerToast } from '@/components/ui/sonner';
 
 const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const { cart, cartTotal, removeFromCart, updateCartQty, recentlyViewed, products, validateDiscountCode } = useStore();
@@ -17,32 +16,41 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
 
   const [discountCode, setDiscountCode] = useState('');
   const [discountPct, setDiscountPct] = useState(0);
+  const [discountFixed, setDiscountFixed] = useState(0);
+  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountApplied, setDiscountApplied] = useState(false);
+  const [discountError, setDiscountError] = useState('');
 
-  const discountAmount = Math.round(cartTotal * discountPct / 100);
+  const discountAmount = discountApplied
+    ? (discountType === 'percentage' ? Math.round(cartTotal * discountPct / 100) : Math.min(discountFixed, cartTotal))
+    : 0;
   const discountedSubtotal = cartTotal - discountAmount;
   const total = discountedSubtotal + shipping;
 
   const applyDiscount = () => {
-    const pct = validateDiscountCode(discountCode);
-    if (pct > 0) {
-      setDiscountPct(pct);
+    const result = validateDiscountCode(discountCode);
+    if (result.valid) {
+      setDiscountPct(result.pct);
+      setDiscountFixed(result.amount);
+      setDiscountType(result.type);
       setDiscountApplied(true);
-      sonnerToast.success('Discount applied', { description: `${discountCode.toUpperCase()} · ${pct}% off` });
+      setDiscountError('');
     } else {
       setDiscountApplied(false);
-      sonnerToast.message('Invalid discount code', { description: 'Try YOUTUPIA10, DROP001, or FIRSTORDER.' });
+      setDiscountError('Invalid code. Please try a valid code.');
     }
   };
 
+  const discountLabel = discountApplied
+    ? (discountType === 'percentage' ? `${discountPct}% off` : `₹${discountFixed} off`)
+    : '';
+
   return (
     <>
-      {/* Overlay */}
       {open && (
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199, backdropFilter: 'blur(2px)', transition: 'opacity 0.3s' }} />
       )}
 
-      {/* Drawer */}
       <div style={{
         position: 'fixed', top: 0, right: 0, bottom: 0, width: '420px', maxWidth: '100vw',
         background: isDark ? 'hsl(0 0% 9%)' : 'hsl(var(--background))',
@@ -126,7 +134,7 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
         {/* Footer */}
         {cart.length > 0 && (
           <div style={{ padding: '16px 20px', borderTop: '1px solid hsl(var(--border))' }}>
-            {/* Free shipping progress bar */}
+            {/* Free shipping progress */}
             {cartTotal < 999 ? (
               <div style={{ marginBottom: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '11px' }}>
@@ -142,12 +150,13 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
                 ✅ You've unlocked FREE shipping!
               </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
               <span>Subtotal</span><span>₹{cartTotal.toLocaleString()}</span>
             </div>
 
-            {/* Discount code (cart-level) */}
-            <div style={{ marginBottom: '14px' }}>
+            {/* Discount code */}
+            <div style={{ marginBottom: '12px' }}>
               {!discountApplied ? (
                 <div style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -157,52 +166,46 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input
                       value={discountCode}
-                      onChange={e => setDiscountCode(e.target.value.toUpperCase())}
+                      onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && applyDiscount()}
                       placeholder="Enter code"
-                      style={{ flex: 1, padding: '10px 12px', background: 'transparent', border: '1px solid hsl(var(--border))', borderRadius: 10, color: 'hsl(var(--foreground))', fontSize: 13, outline: 'none', fontFamily: 'Roboto, sans-serif' }}
+                      style={{ flex: 1, padding: '10px 12px', background: 'transparent', border: `1px solid ${discountError ? '#f87171' : 'hsl(var(--border))'}`, borderRadius: 10, color: 'hsl(var(--foreground))', fontSize: 13, outline: 'none', fontFamily: 'Roboto, sans-serif' }}
                     />
-                    <button
-                      onClick={applyDiscount}
-                      style={{ background: '#ff0000', color: 'white', border: 'none', borderRadius: 10, padding: '10px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 800 }}
-                    >
-                      Apply
-                    </button>
+                    <button onClick={applyDiscount} style={{ background: '#ff0000', color: 'white', border: 'none', borderRadius: 10, padding: '10px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 800 }}>Apply</button>
                   </div>
+                  {discountError && (
+                    <div style={{ fontSize: '11px', color: '#f87171', marginTop: '6px', fontFamily: 'Roboto, sans-serif' }}>
+                      {discountError}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div style={{ padding: '12px 12px', borderRadius: 12, border: '1px solid rgba(22,163,74,0.2)', background: 'rgba(22,163,74,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <div style={{ color: '#16a34a', fontWeight: 900, fontSize: 13 }}>
-                    ✓ {discountCode.toUpperCase()} ({discountPct}% off)
-                  </div>
+                <div style={{ padding: '12px', borderRadius: 12, border: '1px solid rgba(22,163,74,0.2)', background: 'rgba(22,163,74,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div style={{ color: '#16a34a', fontWeight: 900, fontSize: 13 }}>✓ {discountCode} ({discountLabel})</div>
                   <div style={{ color: '#16a34a', fontWeight: 900, fontSize: 13 }}>−₹{discountAmount.toLocaleString()}</div>
-                  <button
-                    onClick={() => { setDiscountCode(''); setDiscountPct(0); setDiscountApplied(false); }}
-                    style={{ background: 'transparent', border: '1px solid rgba(22,163,74,0.25)', color: '#16a34a', borderRadius: 10, padding: '8px 10px', cursor: 'pointer', fontWeight: 900, fontSize: 12 }}
-                  >
+                  <button onClick={() => { setDiscountCode(''); setDiscountPct(0); setDiscountFixed(0); setDiscountApplied(false); setDiscountError(''); }}
+                    style={{ background: 'transparent', border: '1px solid rgba(22,163,74,0.25)', color: '#16a34a', borderRadius: 10, padding: '8px 10px', cursor: 'pointer', fontWeight: 900, fontSize: 12 }}>
                     Remove
                   </button>
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
               <span>Shipping</span><span style={{ color: shipping === 0 ? '#16a34a' : 'inherit' }}>{shipping === 0 ? 'FREE' : `₹${shipping}`}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '16px', fontWeight: 800 }}>
               <span>Total</span><span style={{ color: '#ff0000' }}>₹{total.toLocaleString()}</span>
             </div>
+
             <button
               onClick={() => {
                 onClose();
-                if (!user) {
-                  const dest = discountApplied && discountCode
-                    ? `/checkout?discountCode=${encodeURIComponent(discountCode)}`
-                    : '/checkout';
-                  navigate(`/login?redirect=${encodeURIComponent(dest)}`);
-                } else {
-                  navigate(discountApplied && discountCode
-                    ? `/checkout?discountCode=${encodeURIComponent(discountCode)}`
-                    : '/checkout');
-                }
+                const dest = discountApplied && discountCode
+                  ? `/checkout?discountCode=${encodeURIComponent(discountCode)}`
+                  : '/checkout';
+                if (!user) navigate(`/login?redirect=${encodeURIComponent(dest)}`);
+                else navigate(dest);
               }}
               className="btn-yt ripple"
               style={{ display: 'flex', width: '100%', justifyContent: 'center', border: 'none', cursor: 'pointer', borderRadius: '10px', padding: '14px', fontSize: '15px', fontWeight: 700, boxShadow: '0 4px 20px rgba(255,0,0,0.3)' }}
