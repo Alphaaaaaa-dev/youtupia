@@ -21,7 +21,7 @@ const OrdersPage = () => {
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
   if (orders.length === 0) return (
-    <div style={{ paddingTop: '80px', textAlign: 'center', padding: '120px 24px' }}>
+    <div style={{ paddingTop: '0px', textAlign: 'center', padding: '40px 24px' }}>
       <Package size={52} style={{ margin: '0 auto 20px', opacity: 0.2 }} />
       <h2 style={{ fontWeight: 700, marginBottom: '12px' }}>No orders yet</h2>
       <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '24px', fontSize: '14px' }}>Your orders will appear here after you shop.</p>
@@ -30,7 +30,7 @@ const OrdersPage = () => {
   );
 
   return (
-    <div style={{ paddingTop: '56px', maxWidth: '820px', margin: '0 auto', padding: '72px 24px 64px' }}>
+    <div style={{ paddingTop: '0px', maxWidth: '820px', margin: '0 auto', padding: '72px 24px 64px' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
