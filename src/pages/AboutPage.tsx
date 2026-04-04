@@ -27,7 +27,7 @@ const AboutPage = () => {
   ];
 
   return (
-    <div style={{ paddingTop: '56px' }}>
+    <div style={{ paddingTop: '0px' }}>
       {/* Hero */}
       <section style={{ position: 'relative', background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))', padding: '80px 24px', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(255,0,0,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
