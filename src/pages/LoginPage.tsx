@@ -63,9 +63,7 @@ const LoginPage = () => {
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', marginBottom: '20px' }}>
-            <div style={{ background: '#ff0000', borderRadius: '8px', padding: '6px 10px' }}>
-              <svg width="16" height="14" viewBox="0 0 16 14" fill="none"><path d="M6.5 10L10.5 7L6.5 4V10Z" fill="white"/></svg>
-            </div>
+            <img src="/favicon.ico" alt="Youtupia" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'contain', display: 'block' }} />
             <span style={{ fontWeight: 800, fontSize: '20px', color: 'hsl(var(--foreground))' }}>Youtupia</span>
           </Link>
           <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 6px' }}>
