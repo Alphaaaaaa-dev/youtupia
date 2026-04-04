@@ -6,16 +6,16 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Package, ShoppingBag, Clock, TrendingUp, Plus, Edit2, Trash2,
   X, Save, Image as ImageIcon, BarChart2, Settings, CheckCircle, Users,
-  Upload, Link as LinkIcon, Youtube, Zap
+  Upload, Link as LinkIcon, Youtube, Zap, Tag, ToggleLeft, ToggleRight, Palette
 } from 'lucide-react';
-import { Product, Series, Creator, HomePromo } from '../contexts/StoreContext';
+import { Product, Series, Creator, HomePromo, DiscountCoupon, TopBanner } from '../contexts/StoreContext';
 
 // ── SHARED STYLES ─────────────────────────────────
 const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px' } as const;
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage' | 'coupons';
 
 // ── IMAGE UPLOAD DROPZONE ──────────────────────────
 const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
@@ -206,6 +206,7 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'creators', icon: Users, label: 'Creators' },
     { id: 'drops', icon: Zap, label: 'Drop Control' },
     { id: 'homepage', icon: Youtube, label: 'Home Content' },
+    { id: 'coupons', icon: Tag, label: 'Coupons' },
   ];
   return (
     <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 6%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
@@ -1009,43 +1010,166 @@ const DropControlTab = () => {
 
 // ── HOME CONTENT TAB ───────────────────────────────
 const HomeContentTab = () => {
-  const { homePromo, setHomePromo } = useStore();
+  const { homePromo, setHomePromo, topBanner, setTopBanner } = useStore();
   const [form, setForm] = useState<HomePromo>(homePromo);
+  const [bannerForm, setBannerForm] = useState<TopBanner>(topBanner);
   const [saved, setSaved] = useState(false);
+  const [bannerSaved, setBannerSaved] = useState(false);
+  const [videoTab, setVideoTab] = useState<'url' | 'upload'>('url');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setForm(homePromo); }, [homePromo]);
+  useEffect(() => { setBannerForm(topBanner); }, [topBanner]);
 
   const save = () => {
     setHomePromo(form);
     setSaved(true);
-    sonnerToast.success('Home content saved!', { description: 'Video and promo settings updated on homepage.' });
+    sonnerToast.success('Home content saved!', { description: 'Video and promo settings updated.' });
     setTimeout(() => setSaved(false), 3000);
+  };
+
+  const saveBanner = () => {
+    setTopBanner(bannerForm);
+    setBannerSaved(true);
+    sonnerToast.success('Top banner saved!', { description: 'Banner settings updated live.' });
+    setTimeout(() => setBannerSaved(false), 3000);
+  };
+
+  const handleVideoFile = (file: File) => {
+    if (!file.type.startsWith('video/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const url = e.target?.result as string;
+      setForm(f => ({ ...f, videoUrl: url }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeVideo = () => {
+    setForm(f => ({ ...f, videoUrl: '', posterUrl: '' }));
+    sonnerToast.success('Video removed', { description: 'The promo video has been cleared.' });
   };
 
   return (
     <div>
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Home Content</h1>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>Control the promo video shown on the home page hero section.</p>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#475569', marginBottom: '20px' }}>
-        ✅ Paste a <strong style={{ color: '#ff6666' }}>YouTube link</strong> (youtu.be/... or youtube.com/watch?v=...), an <strong style={{ color: '#ff6666' }}>Instagram reel link</strong>, or a <strong style={{ color: '#ff6666' }}>direct video URL</strong>. All are supported.
-      </p>
+      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Manage the top banner and promo video on the home page.</p>
 
-      <div style={{ ...card, padding: '20px', maxWidth: '760px' }}>
-        {/* Video URL — plain text input that accepts any link */}
-        <div style={{ marginBottom: '14px' }}>
-          <div style={{ ...label, marginBottom: '6px' }}>PROMO VIDEO URL</div>
-          <input
-            style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
-            value={form.videoUrl}
-            onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value.trim() }))}
-            placeholder="https://youtu.be/dQw4w9WgXcQ  or  https://www.instagram.com/reel/xxx  or direct .mp4 URL"
-          />
-          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '5px' }}>
-            YouTube · Instagram Reels · Direct video file (.mp4 / .webm) — all supported
+      {/* TOP BANNER SECTION */}
+      <div style={{ ...card, padding: '20px', maxWidth: '760px', marginBottom: '24px', border: '1px solid rgba(255,165,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>📢 Top Announcement Banner</div>
+            <div style={{ ...label, marginTop: '2px' }}>Customise the scrolling banner at the top of all pages</div>
+          </div>
+          <button onClick={() => setBannerForm(f => ({ ...f, enabled: !f.enabled }))}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 14px', borderRadius: '8px', border: `1px solid ${bannerForm.enabled ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`, background: bannerForm.enabled ? 'rgba(74,222,128,0.08)' : 'rgba(255,255,255,0.04)', color: bannerForm.enabled ? '#4ade80' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+            {bannerForm.enabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>BACKGROUND COLOR</div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input type="color" value={bannerForm.bgColor} onChange={e => setBannerForm(f => ({ ...f, bgColor: e.target.value }))}
+                style={{ width: '48px', height: '38px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'transparent' }} />
+              <input style={{ ...inputStyle, flex: 1 }} value={bannerForm.bgColor} onChange={e => setBannerForm(f => ({ ...f, bgColor: e.target.value }))} placeholder="#ff0000" />
+            </div>
+          </div>
+          <div>
+            <div style={{ ...label, marginBottom: '6px' }}>TEXT COLOR</div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input type="color" value={bannerForm.textColor} onChange={e => setBannerForm(f => ({ ...f, textColor: e.target.value }))}
+                style={{ width: '48px', height: '38px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'transparent' }} />
+              <input style={{ ...inputStyle, flex: 1 }} value={bannerForm.textColor} onChange={e => setBannerForm(f => ({ ...f, textColor: e.target.value }))} placeholder="#ffffff" />
+            </div>
           </div>
         </div>
 
-        <ImageDropzone value={form.posterUrl || ''} onChange={v => setForm(f => ({ ...f, posterUrl: v }))} label="POSTER IMAGE (shown before video loads — URL or upload)" />
+        {/* Preview */}
+        <div style={{ marginBottom: '14px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ height: '32px', background: bannerForm.bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, color: bannerForm.textColor, letterSpacing: '0.03em' }}>
+            {bannerForm.messages[0] || 'Preview message here'}
+          </div>
+        </div>
+
+        <div style={{ ...label, marginBottom: '8px' }}>BANNER MESSAGES (rotate automatically)</div>
+        {bannerForm.messages.map((msg, i) => (
+          <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
+            <input style={{ ...inputStyle, flex: 1 }} value={msg}
+              onChange={e => { const msgs = [...bannerForm.messages]; msgs[i] = e.target.value; setBannerForm(f => ({ ...f, messages: msgs })); }}
+              placeholder="Message text..." />
+            <button onClick={() => { const msgs = bannerForm.messages.filter((_, idx) => idx !== i); setBannerForm(f => ({ ...f, messages: msgs })); }}
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171', flexShrink: 0 }}>
+              <X size={12} />
+            </button>
+          </div>
+        ))}
+        <button onClick={() => setBannerForm(f => ({ ...f, messages: [...f.messages, ''] }))}
+          style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', marginTop: '4px', marginBottom: '16px' }}>
+          + Add message
+        </button>
+
+        <button onClick={saveBanner}
+          style={{ padding: '10px 18px', borderRadius: '8px', border: 'none', background: bannerSaved ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.25s' }}>
+          <Save size={13} /> {bannerSaved ? '✓ Banner Saved!' : 'Save Banner Settings'}
+        </button>
+      </div>
+
+      {/* PROMO VIDEO SECTION */}
+      <div style={{ ...card, padding: '20px', maxWidth: '760px' }}>
+        <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9', marginBottom: '4px' }}>🎬 Home Page Promo Video</div>
+        <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#475569', marginBottom: '16px' }}>
+          Supports YouTube links, Instagram Reel links, or uploaded video files (.mp4 / .webm).
+        </p>
+
+        <div style={{ ...label, marginBottom: '8px' }}>VIDEO SOURCE</div>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+          {(['url', 'upload'] as const).map(t => (
+            <button key={t} onClick={() => setVideoTab(t)}
+              style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontFamily: 'Roboto, sans-serif', background: videoTab === t ? '#ff0000' : 'rgba(255,255,255,0.06)', color: videoTab === t ? 'white' : '#64748b', transition: 'all 0.15s' }}>
+              {t === 'url' ? 'URL (YouTube / Instagram / Direct)' : 'Upload Video File'}
+            </button>
+          ))}
+        </div>
+
+        {videoTab === 'url' ? (
+          <div style={{ marginBottom: '14px' }}>
+            <input
+              style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
+              value={form.videoUrl.startsWith('data:') ? '' : form.videoUrl}
+              onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value.trim() }))}
+              placeholder="https://youtu.be/... or instagram.com/reel/... or direct .mp4"
+            />
+            <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '5px' }}>
+              YouTube · Instagram Reels · Direct video file (.mp4 / .webm) — all supported
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginBottom: '14px' }}>
+            <div onClick={() => fileRef.current?.click()}
+              style={{ border: '2px dashed rgba(255,255,255,0.12)', borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', marginBottom: '8px' }}>
+              <Upload size={20} style={{ color: '#475569', marginBottom: '8px' }} />
+              <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Click to upload video file</div>
+              <div style={{ fontSize: '11px', color: '#334155' }}>MP4, WebM, MOV supported</div>
+              <input ref={fileRef} type="file" accept="video/*" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
+            </div>
+            {form.videoUrl.startsWith('data:video') && (
+              <div style={{ fontSize: '11px', color: '#4ade80' }}>✓ Video file uploaded successfully</div>
+            )}
+          </div>
+        )}
+
+        {form.videoUrl && (
+          <button onClick={removeVideo}
+            style={{ marginBottom: '14px', padding: '7px 14px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Trash2 size={12} /> Remove Current Video / Banner
+          </button>
+        )}
+
+        <ImageDropzone value={form.posterUrl || ''} onChange={v => setForm(f => ({ ...f, posterUrl: v }))} label="POSTER IMAGE (shown before video loads)" />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
           <div>
@@ -1070,11 +1194,159 @@ const HomeContentTab = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button onClick={save} style={{ padding: '11px 20px', borderRadius: '8px', border: 'none', background: saved ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.25s' }}>
+          <button onClick={save}
+            style={{ padding: '11px 20px', borderRadius: '8px', border: 'none', background: saved ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.25s' }}>
             <Save size={14} /> {saved ? '✓ Saved!' : 'Save Home Content'}
           </button>
           {saved && <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#4ade80' }}>Changes live on homepage ✓</span>}
         </div>
+      </div>
+    </div>
+  );
+};
+
+// ── COUPONS TAB ──────────────────────────────────────
+const CouponsTab = () => {
+  const { coupons, setCoupons } = useStore();
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<Partial<DiscountCoupon>>({ code: '', type: 'percentage', value: 10, active: true, description: '' });
+
+  const resetForm = () => { setForm({ code: '', type: 'percentage', value: 10, active: true, description: '' }); setEditingId(null); setShowForm(false); };
+
+  const handleSave = () => {
+    if (!form.code?.trim()) { sonnerToast.error('Coupon code is required'); return; }
+    if (!form.value || form.value <= 0) { sonnerToast.error('Value must be greater than 0'); return; }
+    const coupon: DiscountCoupon = {
+      id: editingId || 'c' + Date.now(),
+      code: form.code.trim().toUpperCase(),
+      type: form.type || 'percentage',
+      value: Number(form.value),
+      active: form.active !== false,
+      description: form.description || '',
+    };
+    if (editingId) setCoupons(coupons.map(c => c.id === editingId ? coupon : c));
+    else setCoupons([...coupons, coupon]);
+    sonnerToast.success(editingId ? 'Coupon updated!' : 'Coupon created!', { description: coupon.code + ' is now ' + (coupon.active ? 'active' : 'inactive') });
+    resetForm();
+  };
+
+  const toggleActive = (id: string) => setCoupons(coupons.map(c => c.id === id ? { ...c, active: !c.active } : c));
+
+  const deleteCoupon = (id: string) => {
+    if (!confirm('Delete this coupon?')) return;
+    setCoupons(coupons.filter(c => c.id !== id));
+    sonnerToast.success('Coupon deleted');
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Discount Coupons</h1>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Create and manage coupon codes used at checkout. Supports % or fixed ₹ discounts.</p>
+        </div>
+        <button onClick={() => { resetForm(); setShowForm(true); }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+          <Plus size={14} /> New Coupon
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{ ...card, padding: '20px', marginBottom: '20px', border: '1px solid rgba(255,0,0,0.2)' }}>
+          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9', marginBottom: '16px' }}>
+            {editingId ? 'Edit Coupon' : 'New Coupon'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <div style={{ ...label, marginBottom: '6px' }}>COUPON CODE *</div>
+              <input style={{ ...inputStyle, fontFamily: 'monospace', textTransform: 'uppercase' as const }}
+                value={form.code || ''}
+                onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase().replace(/\s/g, '') }))}
+                placeholder="YOUTUPIA10" />
+            </div>
+            <div>
+              <div style={{ ...label, marginBottom: '6px' }}>DISCOUNT TYPE</div>
+              <select value={form.type || 'percentage'} onChange={e => setForm(f => ({ ...f, type: e.target.value as any }))} style={inputStyle}>
+                <option value="percentage">Percentage (e.g. 10%)</option>
+                <option value="fixed">Fixed Amount (e.g. Rs.100)</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <div style={{ ...label, marginBottom: '6px' }}>{form.type === 'fixed' ? 'AMOUNT (Rs.)' : 'PERCENTAGE (%)'}</div>
+              <input type="number" min="0" max={form.type === 'percentage' ? '100' : undefined}
+                style={inputStyle} value={form.value || ''}
+                onChange={e => setForm(f => ({ ...f, value: Number(e.target.value) }))}
+                placeholder={form.type === 'fixed' ? '100' : '10'} />
+            </div>
+            <div>
+              <div style={{ ...label, marginBottom: '6px' }}>DESCRIPTION (optional)</div>
+              <input style={inputStyle} value={form.description || ''}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="e.g. 10% off for Youtupia fans" />
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+            <button onClick={() => setForm(f => ({ ...f, active: !f.active }))}
+              style={{ width: '38px', height: '22px', borderRadius: '11px', background: form.active ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: form.active ? '18px' : '2px', transition: 'left 0.2s' }} />
+            </button>
+            <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: form.active ? '#4ade80' : '#64748b' }}>
+              {form.active ? 'Active — customers can use this code' : 'Inactive — code will not work'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={handleSave}
+              style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Save size={13} /> {editingId ? 'Update Coupon' : 'Create Coupon'}
+            </button>
+            <button onClick={resetForm}
+              style={{ padding: '9px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {coupons.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif', fontSize: '13px' }}>No coupons yet. Create your first one!</div>
+        )}
+        {coupons.map(c => (
+          <div key={c.id} style={{ ...card, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: c.active ? 'rgba(255,0,0,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${c.active ? 'rgba(255,0,0,0.2)' : 'rgba(255,255,255,0.06)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Tag size={18} style={{ color: c.active ? '#ff6666' : '#475569' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '3px' }}>
+                <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '15px', color: '#f1f5f9', letterSpacing: '0.05em' }}>{c.code}</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: c.type === 'percentage' ? 'rgba(96,165,250,0.1)' : 'rgba(251,191,36,0.1)', color: c.type === 'percentage' ? '#60a5fa' : '#fbbf24' }}>
+                  {c.type === 'percentage' ? `${c.value}% OFF` : `Rs.${c.value} OFF`}
+                </span>
+                <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: c.active ? 'rgba(74,222,128,0.1)' : 'rgba(239,68,68,0.08)', color: c.active ? '#4ade80' : '#f87171' }}>
+                  {c.active ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+              </div>
+              {c.description && <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b' }}>{c.description}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <button onClick={() => toggleActive(c.id)}
+                style={{ padding: '6px 12px', borderRadius: '7px', border: `1px solid ${c.active ? 'rgba(239,68,68,0.2)' : 'rgba(74,222,128,0.2)'}`, background: c.active ? 'rgba(239,68,68,0.06)' : 'rgba(74,222,128,0.06)', color: c.active ? '#f87171' : '#4ade80', cursor: 'pointer', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 600 }}>
+                {c.active ? 'Deactivate' : 'Activate'}
+              </button>
+              <button onClick={() => { setForm({ ...c }); setEditingId(c.id); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
+                <Edit2 size={12} /> Edit
+              </button>
+              <button onClick={() => deleteCoupon(c.id)}
+                style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
+                <Trash2 size={12} /> Delete
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1100,6 +1372,7 @@ const AdminDashboard = () => {
         {tab === 'creators' && <CreatorsTab />}
         {tab === 'drops' && <DropControlTab />}
         {tab === 'homepage' && <HomeContentTab />}
+        {tab === 'coupons' && <CouponsTab />}
       </main>
     </div>
   );
