@@ -15,7 +15,7 @@ const WishlistPage = () => {
   };
 
   return (
-    <div style={{ paddingTop: '80px', maxWidth: '1280px', margin: '0 auto', padding: '80px 24px 64px' }}>
+    <div style={{ paddingTop: '16px', maxWidth: '1280px', margin: '0 auto', padding: '80px 24px 64px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
         <Heart size={24} style={{ color: '#ff0000' }} />
         <h1 style={{ fontSize: '26px', fontWeight: 800, margin: 0 }}>Wishlist</h1>
