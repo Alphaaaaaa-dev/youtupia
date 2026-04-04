@@ -23,7 +23,7 @@ const DropsPage = () => {
   const isDark = theme === 'dark';
 
   return (
-    <div style={{ paddingTop: '56px', position: 'relative', zIndex: 1 }}>
+    <div style={{ paddingTop: '0px', position: 'relative', zIndex: 1 }}>
       <div style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))', borderBottom: '1px solid hsl(var(--border))', padding: '40px 24px 32px' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
           <div style={{ fontSize: '11px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>Drops</div>
