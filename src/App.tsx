@@ -13,6 +13,7 @@ import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
 import ProtectedRoute from './components/ProtectedRoute';
 import PromoBanner from './components/PromoBanner';
+import StoreSidebar from './components/StoreSidebar';
 
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
@@ -33,6 +34,7 @@ import CreatorPage from './pages/CreatorPage';
 import DropsPage from './pages/DropsPage';
 import WishlistPage from './pages/WishlistPage';
 import TrackOrderPage from './pages/TrackOrderPage';
+import { useStore } from './contexts/StoreContext';
 
 const queryClient = new QueryClient();
 
@@ -71,8 +73,21 @@ export const useReveal = () => {
   });
 };
 
+// Pages that DON'T show the sidebar
+const NO_SIDEBAR_PATHS = ['/login', '/admin', '/order-success'];
+
 const StoreLayout = () => {
   const [cartOpen, setCartOpen] = useState(false);
+  const location = useLocation();
+  const { topBanner } = useStore();
+
+  const showSidebar = !NO_SIDEBAR_PATHS.some(p => location.pathname.startsWith(p));
+
+  // Top offset: 32px banner + 56px navbar
+  const bannerHeight = topBanner.enabled ? 32 : 0;
+  const navbarHeight = 56;
+  const topOffset = bannerHeight + navbarHeight;
+
   return (
     <>
       <div className="orb orb-1" />
@@ -80,42 +95,52 @@ const StoreLayout = () => {
       <PromoBanner />
       <Navbar onCartOpen={() => setCartOpen(true)} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
-      <PageWrapper>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/shop" element={<ShopPage />} />
-          <Route path="/product/:id" element={<ProductPage />} />
-          <Route path="/catalogue" element={<CataloguePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/faq" element={<FAQPage />} />
-          <Route path="/policy" element={<PolicyPage />} />
-          <Route path="/contact" element={<ContactSupportPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/creator/:handle" element={<CreatorPage />} />
-          <Route path="/drops" element={<DropsPage />} />
 
-          {/* 🔒 Protected routes — require login */}
-          <Route path="/checkout" element={
-            <ProtectedRoute><CheckoutPage /></ProtectedRoute>
-          } />
-          <Route path="/order-success" element={
-            <ProtectedRoute><OrderSuccessPage /></ProtectedRoute>
-          } />
-          <Route path="/orders" element={
-            <ProtectedRoute><OrdersPage /></ProtectedRoute>
-          } />
-          <Route path="/wishlist" element={
-            <ProtectedRoute><WishlistPage /></ProtectedRoute>
-          } />
-          <Route path="/track-order" element={
-            <ProtectedRoute><TrackOrderPage /></ProtectedRoute>
-          } />
+      {/* Main layout: content + optional sidebar */}
+      <div style={{
+        display: 'flex',
+        minHeight: `calc(100vh - ${topOffset}px)`,
+        marginTop: `${topOffset}px`,
+        position: 'relative',
+      }}>
+        {/* Page content */}
+        <div style={{ flex: 1, minWidth: 0, overflowX: 'hidden' }}>
+          <PageWrapper>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/shop" element={<ShopPage />} />
+              <Route path="/product/:id" element={<ProductPage />} />
+              <Route path="/catalogue" element={<CataloguePage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/faq" element={<FAQPage />} />
+              <Route path="/policy" element={<PolicyPage />} />
+              <Route path="/contact" element={<ContactSupportPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/creator/:handle" element={<CreatorPage />} />
+              <Route path="/drops" element={<DropsPage />} />
+              <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+              <Route path="/order-success" element={<ProtectedRoute><OrderSuccessPage /></ProtectedRoute>} />
+              <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
+              <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
+              <Route path="/track-order" element={<ProtectedRoute><TrackOrderPage /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </PageWrapper>
+        </div>
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </PageWrapper>
+        {/* Sidebar */}
+        {showSidebar && (
+          <div style={{
+            position: 'sticky',
+            top: 0,
+            height: `calc(100vh - ${topOffset}px)`,
+            flexShrink: 0,
+          }}>
+            <StoreSidebar />
+          </div>
+        )}
+      </div>
     </>
   );
 };
