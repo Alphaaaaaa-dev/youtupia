@@ -24,7 +24,7 @@ const sections = [
 ];
 
 const PolicyPage = () => (
-  <div style={{ paddingTop: '56px', maxWidth: '800px', margin: '0 auto', padding: '72px 24px 48px' }}>
+  <div style={{ paddingTop: '0px', maxWidth: '800px', margin: '0 auto', padding: '72px 24px 48px' }}>
     <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '8px' }}>Policies</h1>
     <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '40px' }}>Read our policies carefully before placing an order.</p>
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
