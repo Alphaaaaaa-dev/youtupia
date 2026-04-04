@@ -65,7 +65,7 @@ const ContactSupportPage = () => {
   ];
 
   return (
-    <div style={{ paddingTop: '56px' }}>
+    <div style={{ paddingTop: '0px' }}>
       {/* Header */}
       <div style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))', borderBottom: '1px solid hsl(var(--border))', padding: '48px 24px 0', textAlign: 'center' }}>
         <div className="page-enter">
