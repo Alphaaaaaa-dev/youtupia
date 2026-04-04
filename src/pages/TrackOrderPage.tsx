@@ -22,7 +22,7 @@ const TrackOrderPage = () => {
   const currentStep = found ? STATUS_STEPS.indexOf(found.status) : -1;
 
   return (
-    <div style={{ paddingTop: '80px', maxWidth: '680px', margin: '0 auto', padding: '80px 24px 64px' }}>
+    <div style={{ paddingTop: '16px', maxWidth: '680px', margin: '0 auto', padding: '80px 24px 64px' }}>
       <div style={{ textAlign: 'center', marginBottom: '40px' }}>
         <div style={{ width: '60px', height: '60px', background: 'rgba(255,0,0,0.08)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
           <Package size={28} style={{ color: '#ff0000' }} />
