@@ -10,7 +10,7 @@ const CataloguePage = () => {
   const heights = ['200px','280px','180px','320px','240px','200px','300px','180px','260px','220px','200px','280px'];
 
   return (
-    <div style={{ paddingTop: '56px' }}>
+    <div style={{ paddingTop: '0px' }}>
       <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '24px 16px 48px' }}>
         <div style={{ marginBottom: '24px' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0 }}>Catalogue</h1>
