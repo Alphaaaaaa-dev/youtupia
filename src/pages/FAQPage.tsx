@@ -30,7 +30,7 @@ const FAQPage = () => {
   });
 
   return (
-    <div style={{ paddingTop: '56px' }}>
+    <div style={{ paddingTop: '0px' }}>
       {/* Header */}
       <div style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))', borderBottom: '1px solid hsl(var(--border))', padding: '56px 24px', textAlign: 'center' }}>
         <div className="page-enter">
