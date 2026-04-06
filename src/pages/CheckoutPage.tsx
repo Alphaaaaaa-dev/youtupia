@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Shield, Lock, Truck, CreditCard, Banknote, Info } from 'lucide-react';
 import { Order } from '../contexts/StoreContext';
@@ -11,6 +12,7 @@ type PaymentMethod = 'razorpay' | 'cod';
 
 const CheckoutPage = () => {
   const { cart, cartTotal, clearCart, addOrder, validateDiscountCode } = useStore();
+  const { user } = useAuth();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
@@ -83,6 +85,20 @@ const CheckoutPage = () => {
     createdAt: new Date().toISOString(),
   });
 
+  // ── Save order to Supabase + send email ──────────────────────────────────
+  const persistOrder = async (order: Order) => {
+    try {
+      await fetch('/api/save-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order, userId: user?.id || null }),
+      });
+    } catch (err) {
+      // Non-blocking — order is already in local state, DB save is best-effort
+      console.error('Failed to persist order:', err);
+    }
+  };
+
   const handleRazorpay = () => {
     if (!validate()) { sonnerToast.error('Please fix the form errors'); return; }
     setLoading(true);
@@ -100,9 +116,11 @@ const CheckoutPage = () => {
         prefill: { name: form.name, email: form.email, contact: form.phone.replace(/\D/g, '') },
         notes: { address: form.address, city: form.city, pincode: form.pincode },
         theme: { color: '#ff0000' }, modal: { escape: true, backdropclose: false },
-        handler: (response: any) => {
+        handler: async (response: any) => {
           const order = buildOrder(response.razorpay_payment_id);
-          addOrder(order); clearCart();
+          addOrder(order);
+          await persistOrder(order); // ← save to Supabase + send email
+          clearCart();
           sonnerToast.success('Payment successful!', { description: 'Order ID: ' + order.id });
           navigate('/order-success?id=' + order.id);
         },
@@ -117,9 +135,11 @@ const CheckoutPage = () => {
   const handleCOD = () => {
     if (!validate()) { sonnerToast.error('Please fix the form errors'); return; }
     setLoading(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       const order = buildOrder(undefined);
-      addOrder(order); clearCart();
+      addOrder(order);
+      await persistOrder(order); // ← save to Supabase + send email
+      clearCart();
       sonnerToast.success('Order placed!', { description: 'Pay ₹' + total + ' cash on delivery.' });
       navigate('/order-success?id=' + order.id);
       setLoading(false);
