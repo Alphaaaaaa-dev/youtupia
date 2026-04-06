@@ -8,22 +8,44 @@ const ContactSupportPage = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<TabId>('support');
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [form, setForm] = useState({ name: '', email: '', category: 'GENERAL INQUIRY', subject: '', message: '' });
   const [collabForm, setCollabForm] = useState({ name: '', channel: '', subscribers: '', email: '', pitch: '' });
   const [sent, setSent] = useState(false);
   const [collabSent, setCollabSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [email, setEmail] = useState('');
   const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    await new Promise(r => setTimeout(r, 800));
-    setSent(true);
+    setSubmitError('');
+    try {
+      const res = await fetch('/api/submit-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          category: form.category,
+          subject: form.subject.trim(),
+          message: form.message.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSubmitError(data.error || 'Something went wrong. Please try again.');
+        setLoading(false);
+        return;
+      }
+      setSent(true);
+      setForm({ name: '', email: '', category: 'GENERAL INQUIRY', subject: '', message: '' });
+      setTimeout(() => setSent(false), 6000);
+    } catch {
+      setSubmitError('Connection error. Please check your internet and try again.');
+    }
     setLoading(false);
-    setForm({ name: '', email: '', subject: '', message: '' });
-    setTimeout(() => setSent(false), 5000);
   };
 
   const handleCollabSubmit = async (e: React.FormEvent) => {
@@ -162,6 +184,18 @@ const ContactSupportPage = () => {
                     ))}
                   </div>
                   <div style={{ marginBottom: '14px' }}>
+                    <label style={labelStyle}>Category</label>
+                    <select
+                      value={form.category}
+                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                      style={{ ...inputStyle, cursor: 'pointer' }}
+                    >
+                      {['GENERAL INQUIRY', 'ORDER ISSUE', 'RETURN / REFUND', 'PAYMENT ISSUE', 'PRODUCT FEEDBACK', 'OTHER'].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: '14px' }}>
                     <label style={labelStyle}>Subject</label>
                     <input type="text" required placeholder="Order inquiry..." value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
                       style={inputStyle} onFocus={e => (e.target.style.borderColor = '#ff0000')} onBlur={e => (e.target.style.borderColor = 'hsl(var(--border))')} />
@@ -177,6 +211,11 @@ const ContactSupportPage = () => {
                     <Send size={15} />
                     {sent ? '✓ Message Sent!' : loading ? 'Sending...' : 'Send Message'}
                   </button>
+                  {submitError && (
+                    <div style={{ marginTop: '10px', fontSize: '13px', color: '#f87171', textAlign: 'center' }}>
+                      {submitError}
+                    </div>
+                  )}
                 </form>
               </div>
             </div>
