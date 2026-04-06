@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Package, MapPin, Truck, CreditCard, Banknote, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -13,19 +14,48 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string }> 
 const STEPS = ['processing', 'confirmed', 'shipped', 'delivered'];
 
 const OrdersPage = () => {
-  const { orders } = useStore();
+  const { orders, addOrder } = useStore();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [syncing, setSyncing] = useState(false);
+
+  // ── On mount: sync orders from Supabase into local state ─────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    setSyncing(true);
+    fetch(`/api/get-orders?userId=${user.id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.orders && Array.isArray(data.orders)) {
+          // Merge: add any DB orders not already in local state
+          data.orders.forEach((dbOrder: any) => {
+            const exists = orders.find(o => o.id === dbOrder.id);
+            if (!exists) addOrder(dbOrder);
+          });
+        }
+      })
+      .catch(err => console.error('Failed to sync orders:', err))
+      .finally(() => setSyncing(false));
+  }, [user?.id]);
 
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
-  if (orders.length === 0) return (
+  if (orders.length === 0 && !syncing) return (
     <div style={{ paddingTop: '0px', textAlign: 'center', padding: '40px 24px' }}>
       <Package size={52} style={{ margin: '0 auto 20px', opacity: 0.2 }} />
       <h2 style={{ fontWeight: 700, marginBottom: '12px' }}>No orders yet</h2>
       <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '24px', fontSize: '14px' }}>Your orders will appear here after you shop.</p>
       <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none', borderRadius: '10px' }}>Start Shopping</Link>
+    </div>
+  );
+
+  if (syncing && orders.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+      <div style={{ width: '32px', height: '32px', border: '3px solid rgba(255,0,0,0.2)', borderTopColor: '#ff0000', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+      <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '14px' }}>Loading your orders...</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
@@ -58,137 +88,106 @@ const OrdersPage = () => {
           <div style={{ textAlign: 'center', padding: '48px', background: 'hsl(var(--card))', borderRadius: '16px', border: '1px solid hsl(var(--border))' }}>
             <p style={{ color: 'hsl(var(--muted-foreground))' }}>No {filter} orders.</p>
           </div>
-        ) : filtered.map(o => {
-          const meta = STATUS_META[o.status] || STATUS_META.processing;
-          const isOpen = expanded === o.id;
-          const isCOD = o.paymentMethod === 'cod';
-          const stepIdx = STEPS.indexOf(o.status);
+        ) : filtered.map(order => {
+          const meta = STATUS_META[order.status] || STATUS_META.processing;
+          const isExpanded = expanded === order.id;
+          const stepIdx = STEPS.indexOf(order.status);
+          const isCOD = order.paymentMethod === 'cod';
 
           return (
-            <div key={o.id} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', overflow: 'hidden', transition: 'border-color 0.2s' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(255,0,0,0.2)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'hsl(var(--border))')}>
-
-              {/* Order header — always visible */}
-              <div style={{ padding: '18px 20px', cursor: 'pointer' }} onClick={() => setExpanded(isOpen ? null : o.id)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 800, fontSize: '13px', fontFamily: 'monospace' }}>{o.id}</span>
-                      <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.color}30`, borderRadius: '20px', padding: '3px 10px', fontSize: '11px', fontWeight: 700, textTransform: 'capitalize' }}>{meta.label}</span>
-                      <span style={{ background: isCOD ? 'rgba(34,197,94,0.08)' : 'rgba(255,0,0,0.06)', color: isCOD ? '#22c55e' : '#ff6666', borderRadius: '20px', padding: '3px 9px', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {isCOD ? <Banknote size={10} /> : <CreditCard size={10} />}
-                        {isCOD ? 'COD' : 'PAID'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>
-                      {new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      {' · '}{o.items.length} item{o.items.length !== 1 ? 's' : ''}
-                    </div>
+            <div key={order.id} style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', overflow: 'hidden', transition: 'box-shadow 0.2s' }}>
+              {/* Order header */}
+              <div style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 700 }}>{order.id}</span>
+                    <span style={{ padding: '3px 10px', borderRadius: '20px', background: meta.bg, color: meta.color, fontSize: '11px', fontWeight: 700 }}>{meta.label}</span>
+                    {isCOD && <span style={{ padding: '3px 8px', borderRadius: '20px', background: 'rgba(34,197,94,0.08)', color: '#22c55e', fontSize: '11px', fontWeight: 600 }}>COD</span>}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                    <span style={{ fontWeight: 900, fontSize: '16px', color: '#ff0000' }}>₹{o.total.toLocaleString()}</span>
-                    {isOpen ? <ChevronUp size={16} style={{ color: 'hsl(var(--muted-foreground))' }} /> : <ChevronDown size={16} style={{ color: 'hsl(var(--muted-foreground))' }} />}
+                  <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>
+                    {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · {order.items.length} item{order.items.length !== 1 ? 's' : ''} · <strong style={{ color: '#ff0000' }}>₹{order.total.toLocaleString()}</strong>
                   </div>
                 </div>
-
-                {/* Progress bar — compact */}
-                <div style={{ display: 'flex', gap: '4px', marginTop: '12px' }}>
-                  {STEPS.map((step, i) => (
-                    <div key={step} style={{ flex: 1, height: '3px', borderRadius: '2px', background: i <= stepIdx ? '#ff0000' : 'hsl(var(--border))', transition: 'background 0.3s' }} />
-                  ))}
-                </div>
+                <button onClick={() => setExpanded(isExpanded ? null : order.id)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', background: 'none', border: '1px solid hsl(var(--border))', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', color: 'hsl(var(--muted-foreground))', fontFamily: 'Roboto, sans-serif' }}>
+                  {isExpanded ? <><ChevronUp size={13} /> Hide</> : <><ChevronDown size={13} /> Details</>}
+                </button>
               </div>
 
-              {/* Expanded detail */}
-              {isOpen && (
-                <div style={{ borderTop: '1px solid hsl(var(--border))', padding: '18px 20px' }}>
-                  {/* Tracking info */}
-                  {o.trackingId && (
-                    <div style={{ padding: '12px 14px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                      <div>
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#a78bfa', letterSpacing: '0.08em', marginBottom: '4px' }}>DELHIVERY TRACKING</div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'monospace' }}>{o.trackingId}</div>
-                      </div>
-                      <a
-                        href={o.trackingUrl || `https://www.delhivery.com/track/package/${o.trackingId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#8b5cf6', color: 'white', textDecoration: 'none', padding: '7px 13px', borderRadius: '8px', fontSize: '12px', fontWeight: 600 }}>
-                        <ExternalLink size={12} /> Track on Delhivery
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Status steps */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                    {STEPS.map((step, i) => {
-                      const done = i <= stepIdx;
-                      const active = i === stepIdx;
-                      const stepMeta = STATUS_META[step];
-                      return (
-                        <div key={step} style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
-                          {i > 0 && <div style={{ position: 'absolute', top: '14px', right: '50%', left: '-50%', height: '2px', background: i <= stepIdx ? '#ff0000' : 'hsl(var(--border))' }} />}
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: done ? '#ff0000' : 'hsl(var(--secondary))', border: `2px solid ${done ? '#ff0000' : 'hsl(var(--border))'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 6px', position: 'relative', zIndex: 1, boxShadow: active ? '0 0 12px rgba(255,0,0,0.4)' : 'none', transition: 'all 0.3s' }}>
-                            {done ? <span style={{ color: 'white', fontSize: '10px', fontWeight: 900 }}>✓</span> : <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'hsl(var(--border))', display: 'block' }} />}
+              {/* Expanded content */}
+              {isExpanded && (
+                <div style={{ borderTop: '1px solid hsl(var(--border))', padding: '20px' }}>
+                  {/* Progress bar */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      {STEPS.map((step, i) => (
+                        <div key={step} style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ width: '20px', height: '20px', borderRadius: '50%', margin: '0 auto 4px', background: i <= stepIdx ? '#ff0000' : 'hsl(var(--secondary))', border: `2px solid ${i <= stepIdx ? '#ff0000' : 'hsl(var(--border))'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {i < stepIdx && <span style={{ color: 'white', fontSize: '10px' }}>✓</span>}
+                            {i === stepIdx && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />}
                           </div>
-                          <div style={{ fontSize: '9px', fontWeight: done ? 700 : 400, color: done ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))', textTransform: 'capitalize' }}>{step}</div>
+                          <div style={{ fontSize: '10px', color: i <= stepIdx ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))', textTransform: 'capitalize', fontWeight: i === stepIdx ? 700 : 400 }}>{step}</div>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                    <div style={{ height: '3px', background: 'hsl(var(--secondary))', borderRadius: '2px', position: 'relative', marginTop: '4px' }}>
+                      <div style={{ height: '100%', background: '#ff0000', borderRadius: '2px', width: `${(stepIdx / (STEPS.length - 1)) * 100}%`, transition: 'width 0.5s' }} />
+                    </div>
                   </div>
 
                   {/* Items */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
-                    {o.items.map(item => (
-                      <div key={`${item.productId}-${item.size}`}
-                        onClick={() => navigate(`/product/${item.productId}`)}
-                        style={{ display: 'flex', gap: '10px', alignItems: 'center', padding: '10px', background: 'hsl(var(--secondary))', borderRadius: '10px', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--card-elevated))')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'hsl(var(--secondary))')}>
-                        <img src={item.product.images[0]} alt={item.product.name} style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '7px', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-                        <div style={{ flex: 1 }}>
+                  <div style={{ marginBottom: '16px' }}>
+                    {order.items.map(item => (
+                      <div key={`${item.productId}-${item.size}`} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+                        <img src={item.product.images[0]} alt={item.product.name} style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '8px', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: '13px', fontWeight: 600 }}>{item.product.name}</div>
-                          <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>Size: {item.size} · Qty: {item.quantity}</div>
+                          <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>Size: {item.size} · ×{item.quantity}</div>
                         </div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#ff0000', flexShrink: 0 }}>₹{(item.product.price * item.quantity).toLocaleString()}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#ff0000' }}>₹{(item.product.price * item.quantity).toLocaleString()}</div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Order meta */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                    <div style={{ padding: '8px 12px', background: 'hsl(var(--secondary))', borderRadius: '8px' }}>
-                      <div style={{ fontSize: '9px', color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '3px' }}>PAYMENT</div>
-                      <div style={{ fontWeight: 600 }}>{isCOD ? '💵 Cash on Delivery' : `💳 Razorpay · ${o.paymentId?.slice(0, 14)}...`}</div>
+                  {/* Address & payment */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ padding: '10px 12px', background: 'hsl(var(--secondary))', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 700, color: 'hsl(var(--muted-foreground))', letterSpacing: '0.1em', marginBottom: '4px' }}>DELIVERING TO</div>
+                      <div style={{ fontSize: '12px' }}>{order.customerName}</div>
+                      <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', marginTop: '2px', lineHeight: 1.5 }}>{order.address}</div>
                     </div>
-                    <div style={{ padding: '8px 12px', background: 'hsl(var(--secondary))', borderRadius: '8px' }}>
-                      <div style={{ fontSize: '9px', color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '3px' }}>TOTAL</div>
-                      <div style={{ fontWeight: 700, color: '#ff0000' }}>₹{o.total.toLocaleString()}</div>
-                    </div>
-                    <div style={{ padding: '8px 12px', background: 'hsl(var(--secondary))', borderRadius: '8px', gridColumn: 'span 2' }}>
-                      <div style={{ fontSize: '9px', color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '3px' }}>DELIVERY ADDRESS</div>
-                      <div style={{ fontWeight: 500 }}>{o.customerName} · {o.address}</div>
-                    </div>
-                    {o.discountCode && (
-                      <div style={{ padding: '8px 12px', background: 'rgba(34,197,94,0.06)', borderRadius: '8px', border: '1px solid rgba(34,197,94,0.15)' }}>
-                        <div style={{ fontSize: '9px', color: '#22c55e', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '3px' }}>DISCOUNT APPLIED</div>
-                        <div style={{ fontWeight: 600, color: '#22c55e' }}>{o.discountCode} (−₹{o.discountAmount?.toLocaleString()})</div>
+                    <div style={{ padding: '10px 12px', background: 'hsl(var(--secondary))', borderRadius: '8px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 700, color: 'hsl(var(--muted-foreground))', letterSpacing: '0.1em', marginBottom: '4px' }}>PAYMENT</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                        {isCOD ? <Banknote size={13} style={{ color: '#22c55e' }} /> : <CreditCard size={13} style={{ color: '#3b82f6' }} />}
+                        {isCOD ? 'Cash on Delivery' : 'Razorpay'}
                       </div>
-                    )}
-                    {o.notes && (
-                      <div style={{ padding: '8px 12px', background: 'hsl(var(--secondary))', borderRadius: '8px' }}>
-                        <div style={{ fontSize: '9px', color: 'hsl(var(--muted-foreground))', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '3px' }}>NOTES</div>
-                        <div style={{ fontSize: '12px' }}>{o.notes}</div>
-                      </div>
-                    )}
+                      {order.paymentId && <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))', fontFamily: 'monospace', marginTop: '3px' }}>{order.paymentId}</div>}
+                    </div>
                   </div>
+
+                  {/* Tracking */}
+                  {order.trackingId && (
+                    <div style={{ padding: '12px', background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#8b5cf6', marginBottom: '2px' }}>TRACKING ID</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '13px' }}>{order.trackingId}</div>
+                      </div>
+                      {order.trackingUrl && (
+                        <a href={order.trackingUrl} target="_blank" rel="noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: '#8b5cf6', textDecoration: 'none', fontWeight: 600 }}>
+                          <ExternalLink size={13} /> Track
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           );
         })}
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };
