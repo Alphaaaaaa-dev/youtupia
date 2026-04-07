@@ -134,9 +134,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_metadata: { name: name || '', phone: phone || '' },
       });
 
-      if (createData.error || createData.msg) {
-        const msg = (createData.msg || createData.error_description || createData.error || '').toLowerCase();
-        if (msg.includes('already') || msg.includes('duplicate') || msg.includes('unique'))
+      // Supabase Admin API returns { message: '...' } on error (not 'error' or 'msg')
+      const hasError = createData.error || createData.msg || createData.message || !createData.id;
+      if (hasError) {
+        const raw = (createData.message || createData.msg || createData.error_description || createData.error || '').toLowerCase();
+        console.error('Supabase signup error:', JSON.stringify(createData));
+        if (raw.includes('already') || raw.includes('duplicate') || raw.includes('unique') || raw.includes('registered'))
           return res.status(400).json({ error: 'This email is already registered. Please sign in instead.' });
         return res.status(400).json({ error: 'Signup failed. Please try again.' });
       }
@@ -150,6 +153,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_metadata: { name: name || '', phone: phone || '', otp_code: otp, otp_expiry: expiry },
       });
 
+      // RESEND_API_KEY must be set
+      if (!RESEND_API_KEY) {
+        await sbAdmin(`/admin/users/${uid}`, 'DELETE');
+        return res.status(500).json({ error: 'Email service not configured. Please contact support.' });
+      }
+
       // Send branded OTP email
       const emailResult = await sendEmail(
         email,
@@ -157,10 +166,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         otpEmail(name || email.split('@')[0], otp, 'Verify your email address')
       );
 
-      if (emailResult?.statusCode >= 400 || emailResult?.name === 'validation_error') {
+      // Resend returns { id: '...' } on success; { statusCode, name, message } on error
+      const emailFailed = !emailResult?.id || emailResult?.statusCode >= 400 || emailResult?.name === 'validation_error';
+      if (emailFailed) {
+        console.error('Resend error:', JSON.stringify(emailResult));
         // Clean up user if email fails
         await sbAdmin(`/admin/users/${uid}`, 'DELETE');
-        return res.status(500).json({ error: 'Could not send verification email. Please try again.' });
+        return res.status(500).json({ error: 'Could not send verification email. Please check the email address and try again.' });
       }
 
       return res.status(200).json({ needsOTP: true, userId: uid });
