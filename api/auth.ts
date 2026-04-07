@@ -196,6 +196,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_metadata: { name: meta.name, phone: meta.phone, otp_code: null, otp_expiry: null },
       });
 
+      // ── Write to profiles table ──────────────────────────────────────────
+      await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_SERVICE_KEY!,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          'Prefer': 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify({
+          id: userId,
+          email: userData.email,
+          name: meta.name || '',
+          phone: meta.phone || '',
+          role: 'user',
+        }),
+      });
+
       return res.status(200).json({ success: true });
     }
 
