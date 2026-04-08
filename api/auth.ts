@@ -4,17 +4,35 @@ const SUPABASE_URL        = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY   = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const RESEND_API_KEY      = process.env.RESEND_API_KEY;
-const FROM_EMAIL          = process.env.FROM_EMAIL || 'Youtupia <noreply@youtupia.in>';
+
+// ── IMPORTANT: FROM_EMAIL must be a domain verified in your Resend account.
+// If you haven't verified a custom domain yet, use Resend's test domain:
+//   "Youtupia <onboarding@resend.dev>"  — works for sending to YOUR OWN email only.
+// Once you verify youtupia.in in Resend dashboard, change to:
+//   "Youtupia <noreply@youtupia.in>"
+const FROM_EMAIL = process.env.FROM_EMAIL || 'Youtupia <onboarding@resend.dev>';
 
 // ── Email sender ─────────────────────────────────────────────────────────────
 async function sendEmail(to: string, subject: string, html: string) {
-  if (!RESEND_API_KEY) { console.warn('RESEND_API_KEY not set — skipping email'); return { id: 'skipped' }; }
+  if (!RESEND_API_KEY) {
+    console.warn('RESEND_API_KEY not set — skipping email send');
+    return { id: 'skipped' };
+  }
+
+  console.log(`Sending email to ${to} from ${FROM_EMAIL}`);
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+    },
     body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
   });
-  return res.json();
+
+  const data = await res.json();
+  console.log('Resend response:', JSON.stringify(data));
+  return data;
 }
 
 // ── Youtupia OTP email template ──────────────────────────────────────────────
@@ -25,9 +43,7 @@ const otpEmail = (name: string, code: string, purpose: string) => `
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 16px;">
   <tr><td align="center">
     <table width="520" cellpadding="0" cellspacing="0" style="background:#111;border-radius:18px;overflow:hidden;border:1px solid #222;">
-      <!-- Red top stripe -->
       <tr><td style="background:linear-gradient(90deg,#ff0000,#cc0000);height:4px;"></td></tr>
-      <!-- Header -->
       <tr>
         <td style="padding:32px 36px 24px;text-align:center;border-bottom:1px solid #1a1a1a;">
           <div style="display:inline-flex;align-items:center;gap:10px;">
@@ -39,14 +55,12 @@ const otpEmail = (name: string, code: string, purpose: string) => `
           <p style="color:#475569;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:8px 0 0;">WEAR THE CULTURE</p>
         </td>
       </tr>
-      <!-- Body -->
       <tr>
         <td style="padding:36px 36px 28px;">
           <h2 style="color:#f1f5f9;font-size:20px;font-weight:800;margin:0 0 10px;text-align:center;">${purpose}</h2>
           <p style="color:#64748b;font-size:14px;line-height:1.8;margin:0 0 28px;text-align:center;">
             Hey ${name}! Use the code below to verify your account.
           </p>
-          <!-- OTP Box -->
           <div style="background:#0a0a0a;border:2px solid #ff0000;border-radius:14px;padding:28px;text-align:center;margin-bottom:24px;">
             <p style="color:#64748b;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:0 0 12px;font-weight:700;">YOUR OTP CODE</p>
             <div style="font-size:52px;font-weight:900;letter-spacing:0.22em;color:#ff0000;font-family:'Courier New',monospace;line-height:1;">${code}</div>
@@ -57,7 +71,6 @@ const otpEmail = (name: string, code: string, purpose: string) => `
           </p>
         </td>
       </tr>
-      <!-- Footer -->
       <tr>
         <td style="background:#0a0a0a;padding:20px 36px;text-align:center;border-top:1px solid #1a1a1a;">
           <p style="color:#1e293b;font-size:11px;margin:0 0 4px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">YOUTUPIA · WEAR THE CULTURE</p>
@@ -90,10 +103,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_KEY)
-    return res.status(500).json({ error: 'Server configuration error — missing env vars' });
 
-  const { action, email, password, name, phone, code, userId, newPassword, token } = req.body || {};
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_KEY) {
+    console.error('Missing env vars:', {
+      SUPABASE_URL: !!SUPABASE_URL,
+      SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_KEY: !!SUPABASE_SERVICE_KEY,
+    });
+    return res.status(500).json({ error: 'Server configuration error — missing env vars' });
+  }
+
+  const { action, email, password, name, phone, code, userId, newPassword } = req.body || {};
 
   try {
 
@@ -106,8 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }).then(r => r.json());
 
       if (data.error || data.error_code) {
-        const msg = data.error_description || data.msg || '';
-        if (msg.toLowerCase().includes('email not confirmed'))
+        const msg = (data.error_description || data.msg || '').toLowerCase();
+        if (msg.includes('email not confirmed'))
           return res.status(400).json({ error: 'Please verify your email first. Check your inbox for the OTP.' });
         return res.status(400).json({ error: 'Invalid email or password.' });
       }
@@ -126,7 +146,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── SIGNUP ────────────────────────────────────────────────────────────
     if (action === 'signup') {
-      // Create user via admin (email_confirm: false so we handle it)
+      console.log('Signup attempt for:', email);
+
+      // Check if RESEND_API_KEY is set before even creating the user
+      if (!RESEND_API_KEY) {
+        console.error('RESEND_API_KEY is not set in environment variables');
+        return res.status(500).json({
+          error: 'Email service not configured. Please contact support or set RESEND_API_KEY in Vercel environment variables.',
+        });
+      }
+
+      // Create user via admin
       const createData = await sbAdmin('/admin/users', 'POST', {
         email,
         password,
@@ -134,30 +164,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_metadata: { name: name || '', phone: phone || '' },
       });
 
-      // Supabase Admin API returns { message: '...' } on error (not 'error' or 'msg')
+      console.log('Supabase create user response:', JSON.stringify(createData));
+
       const hasError = createData.error || createData.msg || createData.message || !createData.id;
       if (hasError) {
         const raw = (createData.message || createData.msg || createData.error_description || createData.error || '').toLowerCase();
         console.error('Supabase signup error:', JSON.stringify(createData));
         if (raw.includes('already') || raw.includes('duplicate') || raw.includes('unique') || raw.includes('registered'))
           return res.status(400).json({ error: 'This email is already registered. Please sign in instead.' });
-        return res.status(400).json({ error: 'Signup failed. Please try again.' });
+        return res.status(400).json({ error: `Signup failed: ${createData.message || createData.error || 'Unknown error'}` });
       }
 
       const uid = createData.id;
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiry = Date.now() + 15 * 60 * 1000;
 
+      console.log(`Generated OTP ${otp} for user ${uid}`);
+
       // Store OTP in user metadata
       await sbAdmin(`/admin/users/${uid}`, 'PUT', {
         user_metadata: { name: name || '', phone: phone || '', otp_code: otp, otp_expiry: expiry },
       });
-
-      // RESEND_API_KEY must be set
-      if (!RESEND_API_KEY) {
-        await sbAdmin(`/admin/users/${uid}`, 'DELETE');
-        return res.status(500).json({ error: 'Email service not configured. Please contact support.' });
-      }
 
       // Send branded OTP email
       const emailResult = await sendEmail(
@@ -166,15 +193,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         otpEmail(name || email.split('@')[0], otp, 'Verify your email address')
       );
 
-      // Resend returns { id: '...' } on success; { statusCode, name, message } on error
+      // Check for Resend errors
       const emailFailed = !emailResult?.id || emailResult?.statusCode >= 400 || emailResult?.name === 'validation_error';
       if (emailFailed) {
-        console.error('Resend error:', JSON.stringify(emailResult));
+        console.error('Resend email send failed:', JSON.stringify(emailResult));
+
         // Clean up user if email fails
         await sbAdmin(`/admin/users/${uid}`, 'DELETE');
-        return res.status(500).json({ error: 'Could not send verification email. Please check the email address and try again.' });
+
+        // Provide a helpful error message about FROM_EMAIL domain verification
+        if (emailResult?.name === 'validation_error' || emailResult?.message?.includes('domain')) {
+          return res.status(500).json({
+            error: 'Email sending failed: The FROM_EMAIL domain is not verified in Resend. Please verify your domain at resend.com/domains or set FROM_EMAIL to "Youtupia <onboarding@resend.dev>" in Vercel environment variables.',
+          });
+        }
+
+        return res.status(500).json({
+          error: `Could not send verification email: ${emailResult?.message || 'Unknown error'}. Please check your RESEND_API_KEY and FROM_EMAIL settings.`,
+        });
       }
 
+      console.log('OTP email sent successfully, id:', emailResult.id);
       return res.status(200).json({ needsOTP: true, userId: uid });
     }
 
@@ -190,13 +229,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (meta.otp_code !== code)
         return res.status(400).json({ error: 'Incorrect OTP. Please check your email and try again.' });
 
-      // Confirm email + clear OTP from metadata
+      // Confirm email + clear OTP
       await sbAdmin(`/admin/users/${userId}`, 'PUT', {
         email_confirm: true,
         user_metadata: { name: meta.name, phone: meta.phone, otp_code: null, otp_expiry: null },
       });
 
-      // ── Write to profiles table ──────────────────────────────────────────
+      // Write to profiles table
       await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
         method: 'POST',
         headers: {
@@ -259,7 +298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Invalid action' });
 
   } catch (err) {
-    console.error('Auth error:', err);
+    console.error('Auth handler error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
   }
 }
