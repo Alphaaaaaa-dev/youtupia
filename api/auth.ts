@@ -166,16 +166,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log('Supabase create user response:', JSON.stringify(createData));
 
-      const hasError = createData.error || createData.msg || createData.message || !createData.id;
+      // Different GoTrue versions may return the created user either as the
+      // response object itself OR nested under `user`.
+      const createdUser = createData?.user || createData;
+      const createError = createData?.error || createData?.msg || createData?.message || createData?.error_description;
+      const hasError = Boolean(createError) || !createdUser?.id;
       if (hasError) {
-        const raw = (createData.message || createData.msg || createData.error_description || createData.error || '').toLowerCase();
+        const raw = String(createError || '').toLowerCase();
         console.error('Supabase signup error:', JSON.stringify(createData));
         if (raw.includes('already') || raw.includes('duplicate') || raw.includes('unique') || raw.includes('registered'))
           return res.status(400).json({ error: 'This email is already registered. Please sign in instead.' });
-        return res.status(400).json({ error: `Signup failed: ${createData.message || createData.error || 'Unknown error'}` });
+        return res.status(400).json({ error: `Signup failed: ${createError || 'Unknown error'}` });
       }
 
-      const uid = createData.id;
+      const uid = createdUser.id;
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiry = Date.now() + 15 * 60 * 1000;
 
