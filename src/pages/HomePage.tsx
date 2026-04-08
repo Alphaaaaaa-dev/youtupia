@@ -116,10 +116,10 @@ const HomePage = () => {
             </div>
 
             <h1 style={{ fontSize: 'clamp(40px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '6px' }}>
-              Wear the
+              Wear you
             </h1>
             <h1 className="gradient-text" style={{ fontSize: 'clamp(40px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '24px' }}>
-              Culture.
+              Dreams!!!!.
             </h1>
 
             <p style={{ fontSize: '17px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.75, marginBottom: '36px', maxWidth: '440px' }}>
