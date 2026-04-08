@@ -286,9 +286,9 @@ const HomePage = () => {
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0' }}>
           {[
             { icon: Truck, label: 'Free Delivery', sub: 'On Every order!!!!' },
+       { icon: Sparkles, label: 'Unique Design', sub: 'Unique all over internet' },
             { icon: Shield, label: 'Secure Payments', sub: 'Razorpay encrypted' }
             { icon: Star, label: 'Premium Quality', sub: '220+gsm fabrics' },
-      { icon: Sparkles, label: 'Unique Design', sub: 'Unique all over internet' },
           ].map(({ icon: Icon, label, sub }, i) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderRight: i < 3 ? '1px solid hsl(var(--border))' : 'none' }}>
               <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(255,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'transform 0.3s' }}
