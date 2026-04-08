@@ -119,7 +119,7 @@ const HomePage = () => {
               Wear you
             </h1>
             <h1 className="gradient-text" style={{ fontSize: 'clamp(40px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '24px' }}>
-              Dreams!!!!.
+              Dreams.
             </h1>
 
             <p style={{ fontSize: '17px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.75, marginBottom: '36px', maxWidth: '440px' }}>
@@ -160,7 +160,7 @@ const HomePage = () => {
 
             {/* Tags */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '36px' }}>
-              {['Limited Drops', '240gsm+', 'Free Returns', 'Streetwear'].map(tag => (
+              {['Limited Drops', '220gsm+', 'Free Delivery', 'Streetwear'].map(tag => (
                 <span key={tag} style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', letterSpacing: '0.03em', border: '1px solid hsl(var(--border))' }}>{tag}</span>
               ))}
             </div>
@@ -285,10 +285,9 @@ const HomePage = () => {
       <div style={{ borderTop: '1px solid hsl(var(--border))', borderBottom: '1px solid hsl(var(--border))', background: isDark ? 'hsl(0 0% 7%)' : 'hsl(var(--secondary))' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0' }}>
           {[
-            { icon: Truck, label: 'Free Delivery', sub: 'On orders above ₹999' },
-            { icon: Shield, label: 'Secure Payments', sub: 'Razorpay encrypted' },
-            { icon: RefreshCw, label: '7-Day Returns', sub: 'No questions asked' },
-            { icon: Star, label: 'Premium Quality', sub: '240–380gsm fabrics' },
+            { icon: Truck, label: 'Free Delivery', sub: 'On Every order!!!!' },
+            { icon: Shield, label: 'Secure Payments', sub: 'Razorpay encrypted' }
+            { icon: Star, label: 'Premium Quality', sub: '220+gsm fabrics' },
           ].map(({ icon: Icon, label, sub }, i) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', borderRight: i < 3 ? '1px solid hsl(var(--border))' : 'none' }}>
               <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'rgba(255,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'transform 0.3s' }}
