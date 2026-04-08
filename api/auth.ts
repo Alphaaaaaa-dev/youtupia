@@ -156,20 +156,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Create user via admin
-      const createData = await sbAdmin('/admin/users', 'POST', {
+      // Create user via admin first (lets us keep email unconfirmed + custom OTP flow)
+      let createData = await sbAdmin('/admin/users', 'POST', {
         email,
         password,
         email_confirm: false,
-        user_metadata: { name: name || '', phone: phone || '' },
+        user_metadata: {
+          name: name || '',
+          full_name: name || '',
+          phone: phone || '',
+          role: 'user',
+        },
       });
 
       console.log('Supabase create user response:', JSON.stringify(createData));
 
       // Different GoTrue versions may return the created user either as the
       // response object itself OR nested under `user`.
-      const createdUser = createData?.user || createData;
-      const createError = createData?.error || createData?.msg || createData?.message || createData?.error_description;
+      let createdUser = createData?.user || createData;
+      let createError = createData?.error || createData?.msg || createData?.message || createData?.error_description;
+
+      // Some Supabase projects with profile triggers fail through admin create-user
+      // but succeed through the public signup endpoint. Retry once via /signup.
+      if (!createdUser?.id && String(createError || '').toLowerCase().includes('database error creating new user')) {
+        console.warn('Admin create user failed with DB error; retrying via /auth/v1/signup');
+        const signupResponse = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            data: {
+              name: name || '',
+              full_name: name || '',
+              phone: phone || '',
+              role: 'user',
+            },
+          }),
+        });
+        const signupData = await signupResponse.json();
+        console.log('Supabase fallback signup response:', JSON.stringify(signupData));
+
+        createData = signupData;
+        createdUser = signupData?.user || signupData;
+        createError = signupData?.error || signupData?.msg || signupData?.message || signupData?.error_description;
+      }
+
       const hasError = Boolean(createError) || !createdUser?.id;
       if (hasError) {
         const raw = String(createError || '').toLowerCase();
