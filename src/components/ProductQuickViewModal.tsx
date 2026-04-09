@@ -44,7 +44,8 @@ const ProductQuickViewModal = ({ open, product, onClose }: Props) => {
   const defaultSize = useMemo(() => {
     if (!variants.length) return '';
     const inStock = variants.find((v) => v.stock > 0);
-    return inStock?.size || variants[0].size;
+    if (inStock) return inStock.size;
+    return product?.preorder ? variants[0].size : '';
   }, [variants]);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ const ProductQuickViewModal = ({ open, product, onClose }: Props) => {
 
   if (!open || !product) return null;
 
-  const canAdd = Boolean(selectedSize) && totalStock > 0;
+  const canAdd = Boolean(selectedSize) && (totalStock > 0 || Boolean(product.preorder));
   const isWishlisted = wishlist.includes(product.id);
 
   return (
@@ -169,6 +170,11 @@ const ProductQuickViewModal = ({ open, product, onClose }: Props) => {
                   LIMITED
                 </div>
               )}
+              {product.preorder && (
+                <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(30,64,175,0.8)', color: '#bfdbfe', fontSize: 10, fontWeight: 900, padding: '6px 10px', borderRadius: 8 }}>
+                  PREORDER
+                </div>
+              )}
 
               {product.images.length > 1 && (
                 <>
@@ -249,16 +255,16 @@ const ProductQuickViewModal = ({ open, product, onClose }: Props) => {
                   {variants.map((v) => (
                     <button
                       key={v.size}
-                      disabled={v.stock === 0}
+                      disabled={v.stock === 0 && !product.preorder}
                       onClick={() => setSelectedSize(v.size)}
                       style={{
                         padding: '8px 14px',
                         borderRadius: 12,
                         border: `2px solid ${selectedSize === v.size ? '#ff0000' : 'hsl(var(--border))'}`,
                         background: selectedSize === v.size ? 'rgba(255,0,0,0.08)' : 'transparent',
-                        color: v.stock === 0 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))',
-                        cursor: v.stock === 0 ? 'not-allowed' : 'pointer',
-                        opacity: v.stock === 0 ? 0.55 : 1,
+                        color: v.stock === 0 && !product.preorder ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))',
+                        cursor: v.stock === 0 && !product.preorder ? 'not-allowed' : 'pointer',
+                        opacity: v.stock === 0 && !product.preorder ? 0.55 : 1,
                         fontWeight: selectedSize === v.size ? 900 : 500,
                         fontSize: 13,
                       }}
@@ -286,7 +292,7 @@ const ProductQuickViewModal = ({ open, product, onClose }: Props) => {
                   }}
                 >
                   <ShoppingCart size={16} />
-                  Add
+                  {product.preorder && totalStock === 0 ? 'Preorder' : 'Add'}
                 </button>
                 <Link
                   to={`/product/${product.id}`}
@@ -298,9 +304,13 @@ const ProductQuickViewModal = ({ open, product, onClose }: Props) => {
                 </Link>
               </div>
 
-              {totalStock === 0 ? (
+              {totalStock === 0 && !product.preorder ? (
                 <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 14, padding: 12, color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.6 }}>
                   Out of stock. Use “Notify me” on the product page to be first when it’s back.
+                </div>
+              ) : product.preorder && totalStock === 0 ? (
+                <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 14, padding: 12, color: '#bfdbfe', fontSize: 13, lineHeight: 1.6 }}>
+                  Preorder is live for this item. Your order will be fulfilled when stock arrives.
                 </div>
               ) : (
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13, lineHeight: 1.6 }}>
