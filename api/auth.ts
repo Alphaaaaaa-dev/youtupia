@@ -1,21 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const SUPABASE_URL        = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY   = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const RESEND_API_KEY      = process.env.RESEND_API_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-// ── IMPORTANT: FROM_EMAIL must be a domain verified in your Resend account.
+// IMPORTANT: FROM_EMAIL must be a domain verified in your Resend account.
 // If you haven't verified a custom domain yet, use Resend's test domain:
-//   "Youtupia <onboarding@resend.dev>"  — works for sending to YOUR OWN email only.
+//   "Youtupia <onboarding@resend.dev>" - works for sending to YOUR OWN email only.
 // Once you verify youtupia.in in Resend dashboard, change to:
 //   "Youtupia <noreply@youtupia.in>"
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Youtupia <onboarding@resend.dev>';
 
-// ── Email sender ─────────────────────────────────────────────────────────────
 async function sendEmail(to: string, subject: string, html: string) {
   if (!RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — skipping email send');
+    console.warn('RESEND_API_KEY not set - skipping email send');
     return { id: 'skipped' };
   }
 
@@ -25,17 +24,16 @@ async function sendEmail(to: string, subject: string, html: string) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      Authorization: `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
   });
 
   const data = await res.json();
   console.log('Resend response:', JSON.stringify(data));
-  return data;
+  return data; 
 }
 
-// ── Youtupia OTP email template ──────────────────────────────────────────────
 const otpEmail = (name: string, code: string, purpose: string) => `
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -84,19 +82,17 @@ const otpEmail = (name: string, code: string, purpose: string) => `
 </table>
 </body></html>`;
 
-// ── Supabase Admin helpers ────────────────────────────────────────────────────
 const sbAdmin = (path: string, method = 'GET', body?: object) =>
   fetch(`${SUPABASE_URL}/auth/v1${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      'apikey': SUPABASE_SERVICE_KEY!,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+      apikey: SUPABASE_SERVICE_KEY!,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   }).then(r => r.json());
 
-// ── Main handler ─────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -110,18 +106,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
       SUPABASE_SERVICE_KEY: !!SUPABASE_SERVICE_KEY,
     });
-    return res.status(500).json({ error: 'Server configuration error — missing env vars' });
+    return res.status(500).json({ error: 'Server configuration error - missing env vars' });
   }
 
   const { action, email, password, name, phone, code, userId, newPassword } = req.body || {};
 
   try {
-
-    // ── LOGIN ─────────────────────────────────────────────────────────────
     if (action === 'login') {
       const data = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
         body: JSON.stringify({ email, password }),
       }).then(r => r.json());
 
@@ -144,11 +138,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // ── SIGNUP ────────────────────────────────────────────────────────────
     if (action === 'signup') {
       console.log('Signup attempt for:', email);
 
-      // Check if RESEND_API_KEY is set before even creating the user
       if (!RESEND_API_KEY) {
         console.error('RESEND_API_KEY is not set in environment variables');
         return res.status(500).json({
@@ -156,7 +148,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Create user via admin first (lets us keep email unconfirmed + custom OTP flow)
       let createData = await sbAdmin('/admin/users', 'POST', {
         email,
         password,
@@ -171,20 +162,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log('Supabase create user response:', JSON.stringify(createData));
 
-      // Different GoTrue versions may return the created user either as the
-      // response object itself OR nested under `user`.
       let createdUser = createData?.user || createData;
       let createError = createData?.error || createData?.msg || createData?.message || createData?.error_description;
 
-      // Some Supabase projects with profile triggers fail through admin create-user
-      // but succeed through the public signup endpoint. Retry once via /signup.
       if (!createdUser?.id && String(createError || '').toLowerCase().includes('database error creating new user')) {
         console.warn('Admin create user failed with DB error; retrying via /auth/v1/signup');
         const signupResponse = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON_KEY,
+            apikey: SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
             email,
@@ -220,27 +207,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`Generated OTP ${otp} for user ${uid}`);
 
-      // Store OTP in user metadata
       await sbAdmin(`/admin/users/${uid}`, 'PUT', {
         user_metadata: { name: name || '', phone: phone || '', otp_code: otp, otp_expiry: expiry },
       });
 
-      // Send branded OTP email
       const emailResult = await sendEmail(
         email,
         'Your Youtupia verification code',
         otpEmail(name || email.split('@')[0], otp, 'Verify your email address')
       );
 
-      // Check for Resend errors
       const emailFailed = !emailResult?.id || emailResult?.statusCode >= 400 || emailResult?.name === 'validation_error';
       if (emailFailed) {
         console.error('Resend email send failed:', JSON.stringify(emailResult));
-
-        // Clean up user if email fails
         await sbAdmin(`/admin/users/${uid}`, 'DELETE');
 
-        // Provide a helpful error message about FROM_EMAIL domain verification
         if (emailResult?.name === 'validation_error' || emailResult?.message?.includes('domain')) {
           return res.status(500).json({
             error: 'Email sending failed: The FROM_EMAIL domain is not verified in Resend. Please verify your domain at resend.com/domains or set FROM_EMAIL to "Youtupia <onboarding@resend.dev>" in Vercel environment variables.',
@@ -256,32 +237,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ needsOTP: true, userId: uid });
     }
 
-    // ── VERIFY OTP ────────────────────────────────────────────────────────
     if (action === 'verify_code') {
       const userData = await sbAdmin(`/admin/users/${userId}`);
       const meta = userData?.user_metadata || {};
 
-      if (!meta.otp_code)
-        return res.status(400).json({ error: 'No OTP found. Please sign up again.' });
-      if (Date.now() > meta.otp_expiry)
-        return res.status(400).json({ error: 'OTP expired. Click "Resend OTP" to get a new one.' });
-      if (meta.otp_code !== code)
-        return res.status(400).json({ error: 'Incorrect OTP. Please check your email and try again.' });
+      if (!meta.otp_code) return res.status(400).json({ error: 'No OTP found. Please sign up again.' });
+      if (Date.now() > meta.otp_expiry) return res.status(400).json({ error: 'OTP expired. Click "Resend OTP" to get a new one.' });
+      if (meta.otp_code !== code) return res.status(400).json({ error: 'Incorrect OTP. Please check your email and try again.' });
 
-      // Confirm email + clear OTP
       await sbAdmin(`/admin/users/${userId}`, 'PUT', {
         email_confirm: true,
         user_metadata: { name: meta.name, phone: meta.phone, otp_code: null, otp_expiry: null },
       });
 
-      // Write to profiles table
       await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_KEY!,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Prefer': 'resolution=merge-duplicates',
+          apikey: SUPABASE_SERVICE_KEY!,
+          Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+          Prefer: 'resolution=merge-duplicates',
         },
         body: JSON.stringify({
           id: userId,
@@ -295,11 +270,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true });
     }
 
-    // ── FORGOT PASSWORD ───────────────────────────────────────────────────
     if (action === 'forgot_password') {
       const listData = await sbAdmin('/admin/users?page=1&per_page=1000');
       const found = (listData?.users || []).find((u: any) => u.email === email);
-      // Always return success (don't reveal if email exists)
       if (!found) return res.status(200).json({ success: true });
 
       const resetOtp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -318,7 +291,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, userId: found.id });
     }
 
-    // ── RESET PASSWORD ────────────────────────────────────────────────────
     if (action === 'reset_password') {
       const userData = await sbAdmin(`/admin/users/${userId}`);
       const meta = userData?.user_metadata || {};
@@ -335,7 +307,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(400).json({ error: 'Invalid action' });
-
   } catch (err) {
     console.error('Auth handler error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
