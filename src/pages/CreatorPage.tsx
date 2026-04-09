@@ -47,7 +47,9 @@ const CreatorPage = () => {
 
   const handleAdd = (p: any, e: React.MouseEvent) => {
     e.preventDefault();
-    addToCart(p, p.variants[0]?.size || 'M');
+    const firstAvailable = p.variants.find((v: any) => v.stock > 0) || (p.preorder ? p.variants[0] : undefined);
+    if (!firstAvailable) return;
+    addToCart(p, firstAvailable.size || 'M');
     setAddedId(p.id);
     setTimeout(() => setAddedId(null), 1800);
   };
