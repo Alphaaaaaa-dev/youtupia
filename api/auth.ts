@@ -5,11 +5,6 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
-// IMPORTANT: FROM_EMAIL must be a domain verified in your Resend account.
-// If you haven't verified a custom domain yet, use Resend's test domain:
-//   "Youtupia <onboarding@resend.dev>" - works for sending to YOUR OWN email only.
-// Once you verify youtupia.in in Resend dashboard, change to:
-//   "Youtupia <noreply@youtupia.in>"
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Youtupia <onboarding@resend.dev>';
 
 async function sendEmail(to: string, subject: string, html: string) {
@@ -31,7 +26,7 @@ async function sendEmail(to: string, subject: string, html: string) {
 
   const data = await res.json();
   console.log('Resend response:', JSON.stringify(data));
-  return data; 
+  return data;
 }
 
 const otpEmail = (name: string, code: string, purpose: string) => `
@@ -112,6 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { action, email, password, name, phone, code, userId, newPassword } = req.body || {};
 
   try {
+    // ── LOGIN ──────────────────────────────────────────────────────────────
     if (action === 'login') {
       const data = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
@@ -138,6 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // ── SIGNUP ─────────────────────────────────────────────────────────────
     if (action === 'signup') {
       console.log('Signup attempt for:', email);
 
@@ -237,6 +234,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ needsOTP: true, userId: uid });
     }
 
+    // ── VERIFY OTP ─────────────────────────────────────────────────────────
     if (action === 'verify_code') {
       const userData = await sbAdmin(`/admin/users/${userId}`);
       const meta = userData?.user_metadata || {};
@@ -250,26 +248,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_metadata: { name: meta.name, phone: meta.phone, otp_code: null, otp_expiry: null },
       });
 
-      await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_SERVICE_KEY!,
-          Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-          Prefer: 'resolution=merge-duplicates',
-        },
-        body: JSON.stringify({
-          id: userId,
-          email: userData.email,
-          name: meta.name || '',
-          phone: meta.phone || '',
-          role: 'user',
-        }),
-      });
+      // Non-blocking profile insert — won't crash signup if profiles table missing or has issues
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_SERVICE_KEY!,
+            Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+            Prefer: 'resolution=merge-duplicates',
+          },
+          body: JSON.stringify({
+            id: userId,
+            email: userData.email,
+            name: meta.name || '',
+            phone: meta.phone || '',
+            role: 'user',
+          }),
+        });
+      } catch (profileErr) {
+        console.warn('Profile insert failed (non-blocking):', profileErr);
+      }
 
       return res.status(200).json({ success: true });
     }
 
+    // ── FORGOT PASSWORD ────────────────────────────────────────────────────
     if (action === 'forgot_password') {
       const listData = await sbAdmin('/admin/users?page=1&per_page=1000');
       const found = (listData?.users || []).find((u: any) => u.email === email);
@@ -291,6 +295,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, userId: found.id });
     }
 
+    // ── RESET PASSWORD ─────────────────────────────────────────────────────
     if (action === 'reset_password') {
       const userData = await sbAdmin(`/admin/users/${userId}`);
       const meta = userData?.user_metadata || {};
