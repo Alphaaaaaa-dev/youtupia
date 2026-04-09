@@ -113,6 +113,7 @@ const ProductPage = () => {
   const reviews = product.reviews || [];
   const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
   const totalStock = product.variants.reduce((s, v) => s + v.stock, 0);
+  const canPurchase = totalStock > 0 || Boolean(product.preorder);
   const isWishlisted = wishlist.includes(product.id);
 
   return (
@@ -193,6 +194,7 @@ const ProductPage = () => {
             {/* Stock / urgency indicators */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
               {totalStock <= 5 && totalStock > 0 && <span style={{ fontSize: '12px', color: '#f97316', fontWeight: 600, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '20px', padding: '4px 12px' }}>⚡ Only {totalStock} left!</span>}
+              {product.preorder && <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: 600, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '20px', padding: '4px 12px' }}>📦 Preorder open</span>}
               {product.limitedEdition && <span style={{ fontSize: '12px', color: '#ff0000', fontWeight: 600, background: 'rgba(255,0,0,0.06)', border: '1px solid rgba(255,0,0,0.15)', borderRadius: '20px', padding: '4px 12px' }}>🔥 Limited Drop — Never Restocking</span>}
               {product.tags.includes('bestseller') && <span style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600, background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.15)', borderRadius: '20px', padding: '4px 12px' }}>🏆 Bestseller</span>}
             </div>
@@ -207,14 +209,14 @@ const ProductPage = () => {
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {product.variants.map(v => (
-                  <button key={v.size} onClick={() => v.stock > 0 && setSelectedSize(v.size)} disabled={v.stock === 0}
+                  <button key={v.size} onClick={() => (v.stock > 0 || product.preorder) && setSelectedSize(v.size)} disabled={v.stock === 0 && !product.preorder}
                     style={{ padding: '8px 18px', borderRadius: '8px', border: `2px solid ${selectedSize === v.size ? '#ff0000' : 'hsl(var(--border))'}`, background: selectedSize === v.size ? 'rgba(255,0,0,0.08)' : 'none', color: v.stock === 0 ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))', fontWeight: selectedSize === v.size ? 700 : 400, cursor: v.stock === 0 ? 'not-allowed' : 'pointer', opacity: v.stock === 0 ? 0.4 : 1, fontSize: '14px', transition: 'all 0.15s', fontFamily: 'Roboto, sans-serif', position: 'relative' }}>
                     {v.size}
                     {v.stock <= 3 && v.stock > 0 && <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#f97316', color: 'white', fontSize: '8px', fontWeight: 800, width: '16px', height: '16px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{v.stock}</span>}
                   </button>
                 ))}
               </div>
-              {totalStock === 0 && (
+              {totalStock === 0 && !product.preorder && (
                 <div style={{ marginTop: '16px' }}>
                   <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginBottom: '10px' }}>Out of stock — get notified when it's back:</p>
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -251,11 +253,11 @@ const ProductPage = () => {
 
             {/* Actions */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-              <button onClick={handleBuyNow} className="btn-yt" style={{ flex: 1, padding: '14px', borderRadius: '10px', fontSize: '15px', fontWeight: 600, justifyContent: 'center', gap: '8px' }} disabled={totalStock === 0}>
-                <Zap size={16} /> Buy Now
+              <button onClick={handleBuyNow} className="btn-yt" style={{ flex: 1, padding: '14px', borderRadius: '10px', fontSize: '15px', fontWeight: 600, justifyContent: 'center', gap: '8px' }} disabled={!canPurchase}>
+                <Zap size={16} /> {product.preorder && totalStock === 0 ? 'Preorder Now' : 'Buy Now'}
               </button>
-              <button onClick={handleAddToCart} className="btn-ghost" style={{ flex: 1, padding: '14px', borderRadius: '10px', fontSize: '15px', justifyContent: 'center', gap: '8px' }} disabled={totalStock === 0}>
-                <ShoppingCart size={16} /> {added ? '✓ Added!' : 'Add to Cart'}
+              <button onClick={handleAddToCart} className="btn-ghost" style={{ flex: 1, padding: '14px', borderRadius: '10px', fontSize: '15px', justifyContent: 'center', gap: '8px' }} disabled={!canPurchase}>
+                <ShoppingCart size={16} /> {added ? '✓ Added!' : product.preorder && totalStock === 0 ? 'Add Preorder' : 'Add to Cart'}
               </button>
               <button onClick={() => toggleWishlist(product.id)} style={{ padding: '14px', borderRadius: '10px', border: `1px solid ${isWishlisted ? 'rgba(255,0,0,0.4)' : 'hsl(var(--border))'}`, background: isWishlisted ? 'rgba(255,0,0,0.06)' : 'none', cursor: 'pointer', color: isWishlisted ? '#ff0000' : 'hsl(var(--muted-foreground))', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Heart size={18} fill={isWishlisted ? '#ff0000' : 'none'} />
