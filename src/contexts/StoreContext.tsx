@@ -7,7 +7,7 @@ export interface Product {
   id: string; name: string; series: string; seriesId: string; creatorId?: string; dropId?: string;
   price: number; originalPrice?: number; description: string; images: string[];
   variants: ProductVariant[]; tags: string[]; featured: boolean; createdAt: string;
-  reviews?: Review[]; viewerCount?: number; limitedEdition?: boolean; dropEndsAt?: string;
+  reviews?: Review[]; viewerCount?: number; limitedEdition?: boolean; dropEndsAt?: string; preorder?: boolean;
 }
 export interface Series { id: string; name: string; description: string; logo: string; banner: string; color: string; }
 export interface Creator {
@@ -147,18 +147,19 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const addToCart = (product: Product, size: string, qty = 1) => {
     const variant = product.variants.find(v => v.size === size);
     const variantStock = variant?.stock ?? 0;
-    if (variantStock <= 0) { sonnerToast.message('Out of stock', { description: `${product.name} (${size}) is unavailable.` }); return; }
+    const isPreorder = Boolean(product.preorder);
+    if (!isPreorder && variantStock <= 0) { sonnerToast.message('Out of stock', { description: `${product.name} (${size}) is unavailable.` }); return; }
     setCart(prev => {
       const ex = prev.find(i => i.productId === product.id && i.size === size);
       if (ex) {
         const nextQty = ex.quantity + qty;
-        if (nextQty > variantStock) { sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left for ${product.name} (${size}).` }); return prev; }
+        if (!isPreorder && nextQty > variantStock) { sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left for ${product.name} (${size}).` }); return prev; }
         return prev.map(i => i.productId === product.id && i.size === size ? { ...i, quantity: nextQty } : i);
       }
-      if (qty > variantStock) { sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left for ${product.name} (${size}).` }); return prev; }
+      if (!isPreorder && qty > variantStock) { sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left for ${product.name} (${size}).` }); return prev; }
       return [...prev, { productId: product.id, size, quantity: qty, product }];
     });
-    sonnerToast.success('Added to cart', { description: `${product.name} · ${size}` });
+    sonnerToast.success('Added to cart', { description: `${product.name} · ${size}${isPreorder ? ' (Preorder)' : ''}` });
   };
   const removeFromCart = (productId: string, size: string) => setCart(prev => prev.filter(i => !(i.productId === productId && i.size === size)));
   const updateCartQty = (productId: string, size: string, qty: number) => {
@@ -167,6 +168,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       if (!(i.productId === productId && i.size === size)) return i;
       const liveProduct = products.find(p => p.id === productId);
       const liveVariant = liveProduct?.variants.find(v => v.size === size);
+      if (liveProduct?.preorder) return { ...i, quantity: qty };
       const maxStock = liveVariant?.stock ?? i.quantity;
       if (qty > maxStock) { sonnerToast.message('Stock limit reached', { description: `Only ${maxStock} left for ${i.product.name} (${size}).` }); return { ...i, quantity: maxStock }; }
       return { ...i, quantity: qty };
