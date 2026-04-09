@@ -382,7 +382,11 @@ const HomePage = () => {
                   </div>
                 </Link>
                 <div style={{ padding: '6px 12px 12px' }}>
-                  <button onClick={() => addToCart(p, p.variants[0]?.size || 'M')} className="btn-yt ripple" style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600 }}>
+                  <button onClick={() => {
+                    const firstAvailable = p.variants.find(v => v.stock > 0) || (p.preorder ? p.variants[0] : undefined);
+                    if (!firstAvailable) return;
+                    addToCart(p, firstAvailable.size || 'M');
+                  }} className="btn-yt ripple" style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600 }}>
                     Add to Cart
                   </button>
                 </div>
