@@ -476,7 +476,7 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
   const [form, setForm] = useState<Partial<Product>>(product || {
     name: '', series: '', seriesId: '', price: 0, description: '',
     images: [''], variants: [{ size: 'S', stock: 10 }, { size: 'M', stock: 10 }, { size: 'L', stock: 10 }],
-    tags: [], featured: false, limitedEdition: false, createdAt: new Date().toISOString(),
+    tags: [], featured: false, limitedEdition: false, preorder: false, createdAt: new Date().toISOString(),
   });
 
   const setField = (k: keyof Product, v: any) => setForm(f => ({ ...f, [k]: v }));
@@ -556,8 +556,8 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
           <button onClick={() => setField('variants', [...(form.variants || []), { size: '', stock: 10 }])} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}>+ Add size</button>
         </div>
 
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
-          {[['featured', 'Featured product'], ['limitedEdition', 'Limited Edition']].map(([key, lbl]) => (
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          {[['featured', 'Featured product'], ['limitedEdition', 'Limited Edition'], ['preorder', 'Preorder enabled']].map(([key, lbl]) => (
             <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button onClick={() => setField(key as keyof Product, !(form as any)[key])} style={{ width: '36px', height: '20px', borderRadius: '10px', background: (form as any)[key] ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
                 <div style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: (form as any)[key] ? '18px' : '2px', transition: 'left 0.2s' }} />
@@ -613,6 +613,7 @@ const ProductsTab = () => {
                 {p.name}
                 {p.featured && <span style={{ background: 'rgba(255,0,0,0.12)', color: '#ff6666', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>FEATURED</span>}
                 {p.limitedEdition && <span style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>LIMITED</span>}
+                {p.preorder && <span style={{ background: 'rgba(59,130,246,0.14)', color: '#60a5fa', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>PREORDER</span>}
               </div>
               <div style={{ ...label, marginBottom: '4px' }}>{p.series} · {p.variants.map(v => v.size).join(', ')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
