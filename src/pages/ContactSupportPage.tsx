@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Mail, Phone, Instagram, MessageSquare, Send, Clock, MapPin, Youtube, Twitter, ExternalLink, Handshake } from 'lucide-react';
+import { Mail, Instagram, MessageSquare, Send, Clock, ExternalLink, Handshake, Twitter } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 type TabId = 'support' | 'social' | 'collab';
@@ -77,13 +77,11 @@ const ContactSupportPage = () => {
     { id: 'collab', label: 'Creator Collab', emoji: '🤝' },
   ];
 
+  // Social links — only Instagram and Twitter/X shown
   const socialLinks = [
     { icon: Instagram, label: 'Instagram', handle: '@_youtupia_', sub: 'Follow for drops & behind the scenes', href: 'https://www.instagram.com/_youtupia_', color: '#E1306C', bg: 'rgba(225,48,108,0.1)' },
-    { icon: Youtube, label: 'YouTube', handle: '@Youtupia', sub: 'Watch drop reveals & collab videos', href: 'https://youtube.com/@youtupia', color: '#FF0000', bg: 'rgba(255,0,0,0.1)' },
-    { icon: Twitter, label: 'Twitter / X', handle: '@youtupia_', sub: 'Latest news, restocks & announcements', href: 'https://twitter.com/youtupia_', color: '#1DA1F2', bg: 'rgba(29,161,242,0.1)' },
-    { icon: MessageSquare, label: 'WhatsApp', handle: '+91 00000 00000', sub: 'Mon–Sat, 10am–8pm IST', href: 'https://wa.me/910000000000', color: '#25D366', bg: 'rgba(37,211,102,0.1)' },
+    { icon: Twitter, label: 'Twitter / X', handle: '@_youtupia_', sub: 'Latest news, restocks & announcements', href: 'https://twitter.com/_youtupia_', color: '#1DA1F2', bg: 'rgba(29,161,242,0.1)' },
     { icon: Mail, label: 'Email Support', handle: 'youtupiastore@gmail.com', sub: 'Response within 24 hrs', href: 'mailto:youtupiastore@gmail.com', color: '#ff0000', bg: 'rgba(255,0,0,0.1)' },
-    { icon: Clock, label: 'Support Hours', handle: '10am – 8pm IST', sub: 'Monday to Saturday', href: '#', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
   ];
 
   return (
@@ -112,11 +110,10 @@ const ContactSupportPage = () => {
         {/* ── SUPPORT TAB ── */}
         {activeTab === 'support' && (
           <div className="fade-in">
-            {/* Contact cards */}
+            {/* Contact cards — no WhatsApp */}
             <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '48px' }}>
               {[
                 { icon: Mail, label: 'Email Us', value: 'youtupiastore@gmail.com', sub: 'Response within 24 hrs', href: 'mailto:youtupiastore@gmail.com', color: '#ff0000' },
-                { icon: Phone, label: 'WhatsApp', value: '+91 00000 00000', sub: 'Mon–Sat, 10am–8pm IST', href: 'https://wa.me/910000000000', color: '#25D366' },
                 { icon: Instagram, label: 'Instagram', value: '@_youtupia_', sub: 'DMs open for support', href: 'https://www.instagram.com/_youtupia_', color: '#E1306C' },
                 { icon: Clock, label: 'Support Hours', value: '10am – 8pm', sub: 'Monday to Saturday', href: '#', color: '#f59e0b' },
               ].map(({ icon: Icon, label, value, sub, href, color }) => (
@@ -253,14 +250,15 @@ const ContactSupportPage = () => {
               <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
               <div>
                 <h3 style={{ color: 'white', fontWeight: 900, fontSize: '22px', marginBottom: '8px' }}>Join the Youtupia Community</h3>
-                <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', maxWidth: '400px', lineHeight: 1.6 }}>10,000+ fans already following. Be part of the movement — get early access to drops, vote on next collections, and rep the culture.</p>
+                <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', maxWidth: '400px', lineHeight: 1.6 }}>Be part of the movement — get early access to drops, vote on next collections, and rep the culture.</p>
               </div>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', position: 'relative' }}>
                 <a href="https://www.instagram.com/_youtupia_" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', color: '#E1306C', textDecoration: 'none', padding: '12px 20px', borderRadius: '10px', fontWeight: 700, fontSize: '14px' }}>
                   <Instagram size={16} /> Instagram
                 </a>
-                <a href="https://wa.me/910000000000" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.2)', color: 'white', textDecoration: 'none', padding: '12px 20px', borderRadius: '10px', fontWeight: 700, fontSize: '14px', border: '1px solid rgba(255,255,255,0.3)' }}>
-                  <MessageSquare size={16} /> WhatsApp
+                <a href="https://twitter.com/_youtupia_" target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.2)', color: 'white', textDecoration: 'none', padding: '12px 20px', borderRadius: '10px', fontWeight: 700, fontSize: '14px', border: '1px solid rgba(255,255,255,0.3)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                  X / Twitter
                 </a>
               </div>
             </div>
@@ -299,7 +297,7 @@ const ContactSupportPage = () => {
                 ))}
 
                 <div style={{ padding: '16px 20px', background: 'rgba(255,0,0,0.05)', border: '1px solid rgba(255,0,0,0.12)', borderRadius: '12px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
-                  📧 For urgent collab enquiries: <a href="mailto:collab@youtupia.com" style={{ color: '#ff0000', textDecoration: 'none', fontWeight: 700 }}>collab@youtupia.com</a>
+                  📧 For urgent collab enquiries: <a href="mailto:connectyoutupia@gmail.com" style={{ color: '#ff0000', textDecoration: 'none', fontWeight: 700 }}>connectyoutupia@gmail.com</a>
                 </div>
               </div>
 
