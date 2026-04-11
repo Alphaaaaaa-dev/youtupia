@@ -21,7 +21,7 @@ export interface Drop {
 export interface CartItem { productId: string; size: string; quantity: number; product: Product; }
 export interface Order {
   id: string; items: CartItem[]; total: number;
-  status: 'processing' | 'confirmed' | 'shipped' | 'delivered';
+  status: 'processing' | 'preorder_confirmed' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
   customerName: string; customerEmail: string; customerPhone: string; address: string;
   paymentId?: string; createdAt: string; discountCode?: string; discountAmount?: number;
   paymentMethod: 'razorpay' | 'cod';
@@ -29,6 +29,7 @@ export interface Order {
   trackingId?: string;
   trackingUrl?: string;
   notes?: string;
+  cancelReason?: string;
 }
 export interface HomePromo {
   videoUrl: string;
