@@ -74,8 +74,9 @@ const CheckoutPage = () => {
     return Object.keys(e).length === 0;
   };
 
+  const hasPreorder = cart.some(item => item.product.preorder);
   const buildOrder = (paymentId?: string): Order => ({
-    id: 'YTP-' + Date.now(), items: cart, total, status: 'processing',
+    id: 'YTP-' + Date.now(), items: cart, total, status: hasPreorder ? 'preorder_confirmed' : 'processing',
     customerName: form.name.trim(), customerEmail: form.email.trim(), customerPhone: form.phone.trim(),
     address: [form.address, form.landmark, form.city, form.state, form.pincode].filter(Boolean).join(', '),
     paymentId, paymentMethod,
