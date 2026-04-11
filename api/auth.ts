@@ -40,12 +40,10 @@ const otpEmail = (name: string, code: string, purpose: string) => `
       <tr>
         <td style="padding:32px 36px 24px;text-align:center;border-bottom:1px solid #1a1a1a;">
           <div style="display:inline-flex;align-items:center;gap:10px;">
-            <div style="width:42px;height:42px;background:#ff0000;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;">
-              <span style="font-size:18px;">▶</span>
-            </div>
+            <img src="https://youtupia.in/favicon.ico" width="42" height="42" style="border-radius:10px;display:block;" alt="Youtupia" />
             <span style="color:#f1f5f9;font-size:24px;font-weight:900;letter-spacing:-0.5px;">Youtupia</span>
           </div>
-          <p style="color:#475569;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:8px 0 0;">WEAR THE CULTURE</p>
+          <p style="color:#475569;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:8px 0 0;">WEAR YOUR DREAMS</p>
         </td>
       </tr>
       <tr>
@@ -66,7 +64,7 @@ const otpEmail = (name: string, code: string, purpose: string) => `
       </tr>
       <tr>
         <td style="background:#0a0a0a;padding:20px 36px;text-align:center;border-top:1px solid #1a1a1a;">
-          <p style="color:#1e293b;font-size:11px;margin:0 0 4px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">YOUTUPIA · WEAR THE CULTURE</p>
+          <p style="color:#1e293b;font-size:11px;margin:0 0 4px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">YOUTUPIA · WEAR YOUR DREAMS</p>
           <p style="color:#334155;font-size:11px;margin:0;">
             Questions? <a href="mailto:support@youtupia.in" style="color:#ff0000;text-decoration:none;">support@youtupia.in</a>
           </p>
