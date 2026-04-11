@@ -20,10 +20,8 @@ const AboutPage = () => {
   useReveal();
 
   const milestones = [
-    { year: '2024', event: 'Youtupia is born — first 50 tees sold out in 6 hours.' },
-    { year: 'Early 2025', event: 'Street Series launched. 200+ orders in the first week.' },
-    { year: 'Mid 2025', event: 'Introduced heavyweight hoodies. Community voted on the colourways.' },
-    { year: '2026', event: 'Over 2,400 pieces sold. 12 drops and counting.' },
+    { year: '2025', event: 'A Realisation is Hit, A Concept Was Born.' },
+    { year: '2026', event: 'Birth of YouTupia — We Launched Official Website with our first series.' },
   ];
 
   return (
@@ -38,7 +36,7 @@ const AboutPage = () => {
           </div>
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '14px' }}>Our Story</div>
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 52px)', fontWeight: 900, lineHeight: 1.1, marginBottom: '20px', letterSpacing: '-0.02em' }}>
-            Born from the Culture.<br />Built for the Culture.
+            Born from the Community.<br />Built for the Community.
           </h1>
           <p style={{ fontSize: '17px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.8, marginBottom: '32px' }}>
             Youtupia isn't just a merch brand. It's a statement. Every piece we drop reflects something real — a moment, a feeling, a community. No fast fashion. No shortcuts.
@@ -65,9 +63,9 @@ const AboutPage = () => {
       {/* Story sections */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '64px 24px' }}>
         {[
-          { icon: Heart, title: 'Why We Started', color: '#ff0000', text: 'Youtupia started with a simple frustration — the merch available for creators and communities felt generic, cheap, and disposable. We wanted something better. A hoodie that actually fit. A tee that didn\'t shrink. A brand that gave a damn. So we built it.' },
+          { icon: Heart, title: 'Why We Started', color: '#ff0000', text: 'Youtupia started with a simple Realisation — As fans, we always wanted a way to show real support for the creators we admire, but meaningful merch was missing. That realization led us to build Youtupia — a platform dedicated to bringing creative, fan-driven YouTuber merchandise to life.' },
           { icon: Zap, title: 'How Drops Work', color: '#ff0000', text: 'Every series has a concept. We design around it, source the right blanks, get samples made, and only release when we\'re happy with every detail. Drops are always limited — we don\'t believe in endless restocks. When it\'s gone, it captures that moment in time.' },
-          { icon: Package, title: 'Our Quality Promise', color: '#ff0000', text: 'We use 240gsm cotton for tees — that\'s heavier than most high street brands. Our hoodies are 380gsm fleece. We inspect every garment before it ships. If you ever receive something that doesn\'t meet the standard, we\'ll sort it, no questions asked.' },
+          { icon: Package, title: 'Our Quality Promise', color: '#ff0000', text: 'We use 220gsm cotton for tees — that\'s heavier than most high street brands. We inspect every garment before it ships. If you ever receive something that doesn\'t meet the standard, we\'ll sort it, no questions asked.' },
         ].map(({ icon: Icon, title, color, text }, i) => (
           <div key={title} className="reveal" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '48px', alignItems: 'center', marginBottom: '56px', direction: i % 2 === 1 ? 'rtl' : 'ltr' }}>
             <div style={{ direction: 'ltr' }}>
