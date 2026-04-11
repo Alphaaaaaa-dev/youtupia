@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, RefreshCw } from 'lucide-react';
 
-type Step = 'login' | 'signup' | 'confirm';
+type Step = 'login' | 'signup' | 'otp';
 
 const LoginPage = () => {
-  const { login, signup, user } = useAuth() as any;
+  const { login, signup, verifyOtp, user } = useAuth() as any;
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
@@ -16,12 +16,23 @@ const LoginPage = () => {
 
   const [step, setStep] = useState<Step>(params.get('mode') === 'signup' ? 'signup' : 'login');
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [userId, setUserId] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
 
   useEffect(() => { if (user) navigate(redirectTo, { replace: true }); }, [user]);
+
+  // Countdown timer for OTP resend
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const t = setTimeout(() => setResendTimer(r => r - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendTimer]);
 
   const set = (k: string, v: string) => { setForm(f => ({ ...f, [k]: v })); setError(''); };
 
@@ -40,6 +51,33 @@ const LoginPage = () => {
     </div>
   );
 
+  // ── OTP input boxes ──────────────────────────────────────────────────────
+  const handleOtpChange = (i: number, val: string) => {
+    if (!/^\d*$/.test(val)) return;
+    const next = [...otp];
+    next[i] = val.slice(-1);
+    setOtp(next);
+    setError('');
+    if (val && i < 5) {
+      const el = document.getElementById(`otp-${i + 1}`);
+      el?.focus();
+    }
+  };
+  const handleOtpKeyDown = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[i] && i > 0) {
+      document.getElementById(`otp-${i - 1}`)?.focus();
+    }
+  };
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) {
+      setOtp(pasted.split(''));
+      document.getElementById('otp-5')?.focus();
+    }
+    e.preventDefault();
+  };
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleLogin = async () => {
     if (!form.email || !form.password) { setError('Please fill in all fields.'); return; }
     setLoading(true); setError('');
@@ -59,7 +97,31 @@ const LoginPage = () => {
     setLoading(true); setError('');
     const res = await signup(form.email, form.password, form.name, form.phone);
     if (res?.error) { setError(res.error); setLoading(false); return; }
-    setStep('confirm');
+    if (res?.needsOTP) {
+      setUserId(res.userId);
+      setStep('otp');
+      setSuccess(`OTP sent to ${form.email}`);
+      setResendTimer(60);
+    }
+    setLoading(false);
+  };
+
+  const handleVerifyOtp = async () => {
+    const code = otp.join('');
+    if (code.length !== 6) { setError('Please enter the complete 6-digit OTP.'); return; }
+    setLoading(true); setError('');
+    const res = await verifyOtp(userId, code, form.email, form.password);
+    if (res?.error) { setError(res.error); setLoading(false); return; }
+    navigate(redirectTo, { replace: true });
+    setLoading(false);
+  };
+
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    setLoading(true); setError(''); setSuccess('');
+    const res = await signup(form.email, form.password, form.name, form.phone);
+    if (res?.error) { setError(res.error); }
+    else { setSuccess('New OTP sent to your email.'); setResendTimer(60); setOtp(['', '', '', '', '', '']); }
     setLoading(false);
   };
 
@@ -77,12 +139,12 @@ const LoginPage = () => {
             <span style={{ fontWeight: 900, fontSize: '22px', color: 'hsl(var(--foreground))', letterSpacing: '-0.5px' }}>Youtupia</span>
           </Link>
           <h1 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 6px', color: 'hsl(var(--foreground))' }}>
-            {step === 'login' ? 'Welcome back 👋' : step === 'signup' ? 'Join the culture 🔥' : 'Check your email 📧'}
+            {step === 'login' ? 'Welcome back 👋' : step === 'signup' ? 'Join the culture 🔥' : 'Verify your email 📧'}
           </h1>
           <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '13px', margin: 0 }}>
             {step === 'login' ? 'Sign in to your account to continue'
               : step === 'signup' ? 'Create an account to shop & track orders'
-              : `We sent a confirmation link to ${form.email}`}
+              : `Enter the 6-digit code sent to ${form.email}`}
           </p>
           {params.get('redirect')?.includes('checkout') && (
             <div style={{ marginTop: '14px', background: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.3)', borderRadius: '10px', padding: '10px 14px', fontSize: '13px', color: '#f59e0b' }}>
@@ -153,7 +215,7 @@ const LoginPage = () => {
                 </button>
               )}
 
-              {/* Password strength */}
+              {/* Password strength indicator */}
               {form.password.length > 0 && (
                 <div style={{ marginBottom: '14px', marginTop: '-8px' }}>
                   <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
@@ -183,31 +245,70 @@ const LoginPage = () => {
             </>
           )}
 
-          {/* ── EMAIL CONFIRMATION ── */}
-          {step === 'confirm' && (
-            <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ width: '64px', height: '64px', background: 'rgba(34,197,94,0.1)', border: '2px solid rgba(34,197,94,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                <CheckCircle size={28} style={{ color: '#22c55e' }} />
+          {/* ── OTP VERIFICATION ── */}
+          {step === 'otp' && (
+            <>
+              {/* Email badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderRadius: '12px', marginBottom: '24px', border: '1px solid hsl(var(--border))' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,0,0,0.1)', border: '2px solid rgba(255,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Mail size={16} style={{ color: '#ff0000' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>OTP sent to</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'hsl(var(--foreground))' }}>{form.email}</div>
+                </div>
               </div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '10px', color: 'hsl(var(--foreground))' }}>Account created!</h3>
-              <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.7, marginBottom: '8px' }}>
-                We sent a confirmation link to
-              </p>
-              <p style={{ fontSize: '14px', fontWeight: 700, color: '#ff0000', marginBottom: '20px' }}>{form.email}</p>
-              <p style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.7, marginBottom: '24px' }}>
-                Click the link in the email to activate your account, then come back and sign in.
-              </p>
-              <button onClick={() => { setStep('login'); setError(''); }}
-                style={{ ...btnPrimary, marginTop: 0 }}>
-                <ArrowRight size={16} /> Go to Sign In
+
+              {/* 6-box OTP input */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '24px' }} onPaste={handleOtpPaste}>
+                {otp.map((digit, i) => (
+                  <input
+                    key={i}
+                    id={`otp-${i}`}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={e => handleOtpChange(i, e.target.value)}
+                    onKeyDown={e => handleOtpKeyDown(i, e)}
+                    style={{
+                      width: '48px', height: '56px', textAlign: 'center', fontSize: '22px', fontWeight: 800,
+                      background: isDark ? 'hsl(0 0% 8%)' : 'hsl(var(--secondary))',
+                      border: `2px solid ${digit ? '#ff0000' : 'hsl(var(--border))'}`,
+                      borderRadius: '12px', color: 'hsl(var(--foreground))',
+                      outline: 'none', fontFamily: 'monospace', transition: 'border-color 0.15s, box-shadow 0.15s',
+                      boxShadow: digit ? '0 0 0 3px rgba(255,0,0,0.1)' : 'none',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = '#ff0000'; e.target.style.boxShadow = '0 0 0 3px rgba(255,0,0,0.12)'; }}
+                    onBlur={e => { if (!digit) { e.target.style.borderColor = 'hsl(var(--border))'; e.target.style.boxShadow = 'none'; } }}
+                  />
+                ))}
+              </div>
+
+              {error && <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', fontSize: '13px', color: '#ef4444' }}>⚠️ {error}</div>}
+              {success && <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', fontSize: '13px', color: '#16a34a' }}>✅ {success}</div>}
+
+              <button onClick={handleVerifyOtp} disabled={loading || otp.join('').length < 6} style={{ ...btnPrimary, opacity: (loading || otp.join('').length < 6) ? 0.6 : 1 }}>
+                {loading ? 'Verifying...' : <><ArrowRight size={16} /> Verify & Create Account</>}
               </button>
-              <p style={{ fontSize: '11px', color: '#475569', marginTop: '14px', lineHeight: 1.6 }}>
-                Didn't receive it? Check your spam folder, or{' '}
-                <button onClick={() => { setStep('signup'); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff0000', fontWeight: 600, fontSize: '11px', padding: 0 }}>
-                  try again
-                </button>
-              </p>
-            </div>
+
+              {/* Resend */}
+              <div style={{ textAlign: 'center', marginTop: '18px' }}>
+                {resendTimer > 0 ? (
+                  <div style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
+                    Resend OTP in <span style={{ color: '#ff0000', fontWeight: 700 }}>{resendTimer}s</span>
+                  </div>
+                ) : (
+                  <button onClick={handleResend} disabled={loading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff0000', fontWeight: 700, fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                    <RefreshCw size={13} /> Resend OTP
+                  </button>
+                )}
+              </div>
+
+              <button onClick={() => { setStep('signup'); setOtp(['', '', '', '', '', '']); setError(''); }} style={{ width: '100%', marginTop: '10px', padding: '9px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'hsl(var(--muted-foreground))', fontFamily: 'Roboto, sans-serif' }}>
+                ← Back to sign up
+              </button>
+            </>
           )}
         </div>
 
