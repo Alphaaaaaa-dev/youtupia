@@ -37,33 +37,33 @@ import { useStore } from './contexts/StoreContext';
 
 const queryClient = new QueryClient();
 
+// FIX: PageWrapper now only animates the container — it does NOT try to freeze/swap children.
+// The old approach stored `children` in state and swapped them after a delay, which caused
+// the product page to be blank because <Routes> returns a new JSX object every render,
+// making the stale `displayed` state show the old page while the URL had already changed.
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const [displayed, setDisplayed] = useState(children);
-  const [phase, setPhase] = useState<'idle' | 'exit' | 'enter'>('idle');
+  const [visible, setVisible] = useState(true);
   const prevPath = useRef(location.pathname);
 
   useEffect(() => {
-    // Use full pathname (includes params like /product/p1 vs /product/p2)
-    if (location.pathname === prevPath.current) {
-      // Same path but children may have updated (e.g. same route pattern, new params)
-      setDisplayed(children);
-      return;
-    }
+    if (location.pathname === prevPath.current) return;
     prevPath.current = location.pathname;
-    setPhase('exit');
-    const t1 = setTimeout(() => { setDisplayed(children); setPhase('enter'); window.scrollTo({ top: 0, behavior: 'instant' }); }, 220);
-    const t2 = setTimeout(() => setPhase('idle'), 520);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [location.pathname, children]);
+    setVisible(false);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    const t = setTimeout(() => setVisible(true), 80);
+    return () => clearTimeout(t);
+  }, [location.pathname]);
 
   const style: React.CSSProperties = {
-    opacity: phase === 'exit' ? 0 : 1,
-    transform: phase === 'exit' ? 'translateY(-8px)' : phase === 'enter' ? 'translateY(0)' : 'none',
-    transition: phase === 'exit' ? 'opacity 0.22s ease, transform 0.22s ease' : 'opacity 0.35s cubic-bezier(0.22,1,0.36,1), transform 0.35s cubic-bezier(0.22,1,0.36,1)',
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(6px)',
+    transition: visible
+      ? 'opacity 0.3s cubic-bezier(0.22,1,0.36,1), transform 0.3s cubic-bezier(0.22,1,0.36,1)'
+      : 'opacity 0.08s ease, transform 0.08s ease',
   };
 
-  return <div style={style}>{displayed}</div>;
+  return <div style={style}>{children}</div>;
 };
 
 export const useReveal = () => {
