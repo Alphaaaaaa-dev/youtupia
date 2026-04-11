@@ -22,8 +22,12 @@ const OrderSuccessPage = () => {
           </h1>
           <p style={{ color: 'hsl(var(--muted-foreground))', lineHeight: 1.7, fontSize: '14px' }}>
             {isCOD
-              ? <>Your order is confirmed. Please keep <strong>₹{order?.total?.toLocaleString()}</strong> ready when the delivery arrives.</>
-              : <>Payment confirmed! We'll email <strong>{order?.customerEmail}</strong> with tracking details.</>
+              ? order?.status === 'preorder_confirmed'
+                ? <>Your preorder is confirmed! We'll notify you at <strong>{order?.customerEmail}</strong> as soon as stock arrives.</>
+                : <>Your order is confirmed. Please keep <strong>₹{order?.total?.toLocaleString()}</strong> ready when the delivery arrives.</>
+              : order?.status === 'preorder_confirmed'
+                ? <>Your preorder is confirmed! We'll notify you at <strong>{order?.customerEmail}</strong> as soon as stock arrives.</>
+                : <>Payment confirmed! We'll email <strong>{order?.customerEmail}</strong> with tracking details.</>
             }
           </p>
         </div>
