@@ -44,7 +44,12 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   const prevPath = useRef(location.pathname);
 
   useEffect(() => {
-    if (location.pathname === prevPath.current) return;
+    // Use full pathname (includes params like /product/p1 vs /product/p2)
+    if (location.pathname === prevPath.current) {
+      // Same path but children may have updated (e.g. same route pattern, new params)
+      setDisplayed(children);
+      return;
+    }
     prevPath.current = location.pathname;
     setPhase('exit');
     const t1 = setTimeout(() => { setDisplayed(children); setPhase('enter'); window.scrollTo({ top: 0, behavior: 'instant' }); }, 220);
