@@ -1,21 +1,15 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 
 /**
  * PromoBanner — dynamic scrolling ticker at the very top of the site.
  * Messages and colors are controlled from the Admin > Home Content tab.
+ * Close button removed to prevent layout gap glitch.
  */
 const PromoBanner = () => {
   const { topBanner } = useStore();
-  const [visible, setVisible] = useState(true);
   const [idx, setIdx] = useState(0);
   const [fade, setFade] = useState(true);
-
-  useEffect(() => {
-    const dismissed = sessionStorage.getItem('promo_dismissed');
-    if (dismissed) setVisible(false);
-  }, []);
 
   useEffect(() => {
     if (!topBanner.messages.length) return;
@@ -26,12 +20,7 @@ const PromoBanner = () => {
     return () => clearInterval(t);
   }, [topBanner.messages.length]);
 
-  const dismiss = () => {
-    setVisible(false);
-    sessionStorage.setItem('promo_dismissed', '1');
-  };
-
-  if (!topBanner.enabled || !visible || !topBanner.messages.length) return null;
+  if (!topBanner.enabled || !topBanner.messages.length) return null;
 
   return (
     <div style={{
@@ -44,9 +33,6 @@ const PromoBanner = () => {
       <span style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.3s ease', pointerEvents: 'none' }}>
         {topBanner.messages[idx]}
       </span>
-      <button onClick={dismiss} style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.8)', display: 'flex', padding: '4px' }}>
-        <X size={12} />
-      </button>
     </div>
   );
 };
