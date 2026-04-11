@@ -61,8 +61,9 @@ const ProductPage = () => {
   const [notified, setNotified] = useState(false);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
     if (product) addRecentlyViewed(product.id);
-  }, [product?.id]);
+  }, [id]); // depend on `id` from useParams, not product?.id
 
   useEffect(() => {
     if (!product) return;
@@ -78,9 +79,13 @@ const ProductPage = () => {
   }, [product?.id]);
 
   if (!product) return (
-    <div style={{ paddingTop: '0px', textAlign: 'center', padding: '40px 24px' }}>
-      <h2 style={{ marginBottom: '16px' }}>Product not found</h2>
-      <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none' }}>Back to Shop</Link>
+    <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
+      <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔍</div>
+      <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>Product not found</h2>
+      <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '24px', fontSize: '14px' }}>
+        This product may have been removed or the link is broken.
+      </p>
+      <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none' }}>← Back to Shop</Link>
     </div>
   );
 
