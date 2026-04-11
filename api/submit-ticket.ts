@@ -16,7 +16,7 @@ const ticketConfirmHtml = (name: string, ticketId: string, subject: string) => `
       <tr>
         <td style="padding:32px 36px 24px;text-align:center;border-bottom:1px solid #1a1a1a;">
           <span style="color:#f1f5f9;font-size:24px;font-weight:900;letter-spacing:-0.5px;">Youtupia</span>
-          <p style="color:#475569;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:8px 0 0;">WEAR THE CULTURE</p>
+          <p style="color:#475569;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:8px 0 0;">WEAR YOUR DREAMS</p>
         </td>
       </tr>
       <tr>
@@ -37,7 +37,7 @@ const ticketConfirmHtml = (name: string, ticketId: string, subject: string) => `
       </tr>
       <tr>
         <td style="background:#0a0a0a;padding:20px 36px;text-align:center;border-top:1px solid #1a1a1a;">
-          <p style="color:#334155;font-size:11px;margin:0;">YOUTUPIA · WEAR THE CULTURE</p>
+          <p style="color:#334155;font-size:11px;margin:0;">YOUTUPIA · WEAR YOUR DREAMS</p>
         </td>
       </tr>
     </table>
