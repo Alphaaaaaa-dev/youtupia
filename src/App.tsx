@@ -1,150 +1,134 @@
-import { useState, useEffect, useRef } from 'react';
-import { Toaster } from '@/components/ui/toaster';
-import { Toaster as Sonner } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { StoreProvider } from './contexts/StoreContext';
-import { AdminAuthProvider } from './contexts/AdminAuthContext';
-import { AuthProvider } from './contexts/AuthContext';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-import Navbar from './components/Navbar';
-import CartDrawer from './components/CartDrawer';
-import ProtectedRoute from './components/ProtectedRoute';
-import PromoBanner from './components/PromoBanner';
+const SUPABASE_URL         = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY    = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-import HomePage from './pages/HomePage';
-import ShopPage from './pages/ShopPage';
-import ProductPage from './pages/ProductPage';
-import CataloguePage from './pages/CataloguePage';
-import CheckoutPage from './pages/CheckoutPage';
-import OrderSuccessPage from './pages/OrderSuccessPage';
-import OrdersPage from './pages/OrdersPage';
-import AboutPage from './pages/AboutPage';
-import FAQPage from './pages/FAQPage';
-import PolicyPage from './pages/PolicyPage';
-import ContactSupportPage from './pages/ContactSupportPage';
-import LoginPage from './pages/LoginPage';
-import AdminLoginPage from './pages/AdminLoginPage';
-import AdminDashboard from './pages/AdminDashboard';
-import NotFound from './pages/NotFound';
-import CreatorPage from './pages/CreatorPage';
-import DropsPage from './pages/DropsPage';
-import WishlistPage from './pages/WishlistPage';
-import TrackOrderPage from './pages/TrackOrderPage';
-import { useStore } from './contexts/StoreContext';
+// ── Supabase admin helper ──────────────────────────────────────────────────
+const sbAdmin = (path: string, method = 'GET', body?: object) =>
+  fetch(`${SUPABASE_URL}/auth/v1${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_SERVICE_KEY!,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  }).then(r => r.json());
 
-const queryClient = new QueryClient();
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-// FIX: PageWrapper now only animates the container — it does NOT try to freeze/swap children.
-// The old approach stored `children` in state and swapped them after a delay, which caused
-// the product page to be blank because <Routes> returns a new JSX object every render,
-// making the stale `displayed` state show the old page while the URL had already changed.
-const PageWrapper = ({ children }: { children: React.ReactNode }) => {
-  const location = useLocation();
-  const [visible, setVisible] = useState(true);
-  const prevPath = useRef(location.pathname);
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_KEY) {
+    console.error('Missing env vars:', {
+      SUPABASE_URL: !!SUPABASE_URL,
+      SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
+      SUPABASE_SERVICE_KEY: !!SUPABASE_SERVICE_KEY,
+    });
+    return res.status(500).json({ error: 'Server configuration error — missing env vars' });
+  }
 
-  useEffect(() => {
-    if (location.pathname === prevPath.current) return;
-    prevPath.current = location.pathname;
-    setVisible(false);
-    window.scrollTo({ top: 0, behavior: 'instant' });
-    const t = setTimeout(() => setVisible(true), 80);
-    return () => clearTimeout(t);
-  }, [location.pathname]);
+  const { action, email, password, name, phone, userId, newPassword, code } = req.body || {};
 
-  const style: React.CSSProperties = {
-    opacity: visible ? 1 : 0,
-    transform: visible ? 'translateY(0)' : 'translateY(6px)',
-    transition: visible
-      ? 'opacity 0.3s cubic-bezier(0.22,1,0.36,1), transform 0.3s cubic-bezier(0.22,1,0.36,1)'
-      : 'opacity 0.08s ease, transform 0.08s ease',
-  };
+  try {
+    // ── LOGIN ──────────────────────────────────────────────────────────────
+    if (action === 'login') {
+      const data = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email, password }),
+      }).then(r => r.json());
 
-  return <div style={style}>{children}</div>;
-};
+      if (data.error || data.error_code) {
+        const msg = (data.error_description || data.msg || '').toLowerCase();
+        if (msg.includes('email not confirmed'))
+          return res.status(400).json({ error: 'Please verify your email first. Check your inbox for the confirmation link.' });
+        return res.status(400).json({ error: 'Invalid email or password.' });
+      }
 
-export const useReveal = () => {
-  useEffect(() => {
-    const els = document.querySelectorAll('.reveal');
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-    }, { threshold: 0.12 });
-    els.forEach(el => obs.observe(el));
-    return () => obs.disconnect();
-  });
-};
+      return res.status(200).json({
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.name || email.split('@')[0],
+          phone: data.user.user_metadata?.phone || '',
+        },
+        access_token: data.access_token,
+        expires_in: data.expires_in || 3600,
+      });
+    }
 
-const StoreLayout = () => {
-  const [cartOpen, setCartOpen] = useState(false);
-  const { topBanner } = useStore();
+    // ── SIGNUP — uses Supabase built-in email confirmation (no Resend) ─────
+    if (action === 'signup') {
+      console.log('Signup attempt for:', email);
 
-  const bannerHeight = topBanner.enabled ? 32 : 0;
-  // Navbar has two rows: top bar (58px) + nav links bar (~40px) = ~98px total
-  const navbarHeight = 98;
-  const topOffset = bannerHeight + navbarHeight;
+      const signupRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          data: {
+            name:      name  || '',
+            full_name: name  || '',
+            phone:     phone || '',
+            role:      'user',
+          },
+        }),
+      });
 
-  return (
-    <>
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
-      <PromoBanner />
-      <Navbar onCartOpen={() => setCartOpen(true)} />
-      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
+      const signupData = await signupRes.json();
+      console.log('Supabase signup response:', JSON.stringify(signupData));
 
-      {/* Page content — offset from fixed navbar */}
-      <div style={{ marginTop: `${topOffset}px` }}>
-        <PageWrapper>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/shop" element={<ShopPage />} />
-            <Route path="/product/:id" element={<ProductPage />} />
-            <Route path="/catalogue" element={<CataloguePage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/faq" element={<FAQPage />} />
-            <Route path="/policy" element={<PolicyPage />} />
-            <Route path="/contact" element={<ContactSupportPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/creator/:handle" element={<CreatorPage />} />
-            <Route path="/drops" element={<DropsPage />} />
-            <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
-            <Route path="/order-success" element={<ProtectedRoute><OrderSuccessPage /></ProtectedRoute>} />
-            <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
-            <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
-            <Route path="/track-order" element={<ProtectedRoute><TrackOrderPage /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </PageWrapper>
-      </div>
-    </>
-  );
-};
+      if (signupData?.error) {
+        const raw = String(signupData.error?.message || signupData.msg || '').toLowerCase();
+        if (raw.includes('already') || raw.includes('registered') || raw.includes('duplicate'))
+          return res.status(400).json({ error: 'This email is already registered. Please sign in instead.' });
+        return res.status(400).json({ error: `Signup failed: ${signupData.error?.message || signupData.msg || 'Unknown error'}` });
+      }
 
-const App = () => (
-  <ThemeProvider>
-    <AuthProvider>
-      <AdminAuthProvider>
-        <StoreProvider>
-          <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/admin" element={<AdminLoginPage />} />
-                  <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                  <Route path="/*" element={<StoreLayout />} />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </QueryClientProvider>
-        </StoreProvider>
-      </AdminAuthProvider>
-    </AuthProvider>
-  </ThemeProvider>
-);
+      return res.status(200).json({ success: true, needsEmailConfirmation: true });
+    }
 
-export default App;
+    // ── FORGOT PASSWORD ────────────────────────────────────────────────────
+    if (action === 'forgot_password') {
+      await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email }),
+      });
+      return res.status(200).json({ success: true });
+    }
+
+    // ── RESET PASSWORD ─────────────────────────────────────────────────────
+    if (action === 'reset_password') {
+      const data = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${code}`,
+        },
+        body: JSON.stringify({ password: newPassword }),
+      }).then(r => r.json());
+
+      if (data.error)
+        return res.status(400).json({ error: data.error?.message || 'Password reset failed.' });
+
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(400).json({ error: 'Invalid action' });
+
+  } catch (err) {
+    console.error('Auth handler error:', err);
+    return res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+}
