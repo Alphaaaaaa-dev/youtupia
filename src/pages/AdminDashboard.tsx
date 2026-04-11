@@ -303,8 +303,10 @@ const OrdersTab = () => {
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
   const [notesInputs, setNotesInputs] = useState<Record<string, string>>({});
   const [savedTracking, setSavedTracking] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+  const [cancelRemarkInput, setCancelRemarkInput] = useState('');
 
-  const STATUS_COLOR: Record<string, string> = { processing: '#fbbf24', confirmed: '#60a5fa', shipped: '#a78bfa', delivered: '#4ade80' };
+  const STATUS_COLOR: Record<string, string> = { processing: '#fbbf24', preorder_confirmed: '#a78bfa', confirmed: '#60a5fa', shipped: '#8b5cf6', delivered: '#4ade80', cancelled: '#ef4444' };
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
   const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
   const codCount = orders.filter(o => (o as any).paymentMethod === 'cod').length;
@@ -351,9 +353,9 @@ const OrdersTab = () => {
 
       {/* Filter */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {['all','processing','confirmed','shipped','delivered'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
-            {f === 'all' ? `All (${orders.length})` : `${f.charAt(0).toUpperCase()+f.slice(1)} (${orders.filter(o=>o.status===f).length})`}
+        {['all','processing','preorder_confirmed','confirmed','shipped','delivered','cancelled'].map(f => (
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : STATUS_COLOR[f] || '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
+            {f === 'all' ? `All (${orders.length})` : `${f.replace('_',' ').charAt(0).toUpperCase()+f.replace('_',' ').slice(1)} (${orders.filter(o=>o.status===f).length})`}
           </button>
         ))}
       </div>
@@ -407,10 +409,44 @@ const OrdersTab = () => {
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ ...label, marginBottom: '8px' }}>UPDATE STATUS</div>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {(['processing','confirmed','shipped','delivered'] as const).map(s => (
+                      {/* Quick action buttons: Confirm or Cancel with remark */}
+                      {o.status === 'processing' && (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', padding: '12px', background: 'rgba(255,165,0,0.06)', border: '1px solid rgba(255,165,0,0.15)', borderRadius: '8px' }}>
+                          <div style={{ ...label, marginBottom: '8px', color: '#fbbf24', fontSize: '10px' }}>NEW ORDER — ACTION REQUIRED</div>
+                          <button onClick={() => { updateOrderStatus(o.id, 'confirmed'); sonnerToast.success('Order confirmed!', { description: o.id }); }}
+                            style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.3)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                            ✓ Confirm Order
+                          </button>
+                          <button onClick={() => { setCancelTarget(o.id); setCancelRemarkInput(''); }}
+                            style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                            ✕ Cancel Order
+                          </button>
+                        </div>
+                      )}
+                      {/* Cancel remark input — shows inline when cancel is clicked */}
+                      {cancelTarget === o.id && (
+                        <div style={{ padding: '12px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', marginBottom: '10px' }}>
+                          <div style={{ ...label, marginBottom: '6px', color: '#f87171' }}>CANCELLATION REASON (shown to customer)</div>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input value={cancelRemarkInput} onChange={e => setCancelRemarkInput(e.target.value)}
+                              placeholder="e.g. Item out of stock, payment not received..."
+                              style={{ ...inputStyle, flex: 1 }} />
+                            <button onClick={() => { updateOrder(o.id, { status: 'cancelled', cancelReason: cancelRemarkInput || 'Cancelled by seller' }); setCancelTarget(null); sonnerToast.success('Order cancelled', { description: o.id }); }}
+                              style={{ padding: '9px 14px', borderRadius: '8px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                              Confirm Cancel
+                            </button>
+                            <button onClick={() => setCancelTarget(null)}
+                              style={{ padding: '9px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {/* All status buttons */}
+                      {(['processing','preorder_confirmed','confirmed','shipped','delivered','cancelled'] as const).map(s => (
                         <button key={s} onClick={() => { updateOrderStatus(o.id, s); sonnerToast.success('Status updated', { description: o.id + ' → ' + s }); }} disabled={o.status === s}
                           style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${o.status === s ? STATUS_COLOR[s] : 'rgba(255,255,255,0.1)'}`, background: o.status === s ? STATUS_COLOR[s] + '18' : 'rgba(255,255,255,0.03)', color: o.status === s ? STATUS_COLOR[s] : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: o.status === s ? 'default' : 'pointer', textTransform: 'capitalize', transition: 'all 0.15s', fontWeight: o.status === s ? 700 : 400 }}>
-                          {o.status === s ? '● ' : ''}{s}
+                          {o.status === s ? '● ' : ''}{s.replace('_',' ')}
                         </button>
                       ))}
                     </div>
