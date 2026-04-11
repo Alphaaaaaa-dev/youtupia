@@ -259,10 +259,10 @@ const ProductPage = () => {
             {/* Actions */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
               <button onClick={handleBuyNow} className="btn-yt" style={{ flex: 1, padding: '14px', borderRadius: '10px', fontSize: '15px', fontWeight: 600, justifyContent: 'center', gap: '8px' }} disabled={!canPurchase}>
-                <Zap size={16} /> {product.preorder && totalStock === 0 ? 'Preorder Now' : 'Buy Now'}
+                <Zap size={16} /> {product.preorder ? 'Preorder Now' : 'Buy Now'}
               </button>
               <button onClick={handleAddToCart} className="btn-ghost" style={{ flex: 1, padding: '14px', borderRadius: '10px', fontSize: '15px', justifyContent: 'center', gap: '8px' }} disabled={!canPurchase}>
-                <ShoppingCart size={16} /> {added ? '✓ Added!' : product.preorder && totalStock === 0 ? 'Add Preorder' : 'Add to Cart'}
+                <ShoppingCart size={16} /> {added ? '✓ Added!' : product.preorder ? 'Add Preorder' : 'Add to Cart'}
               </button>
               <button onClick={() => toggleWishlist(product.id)} style={{ padding: '14px', borderRadius: '10px', border: `1px solid ${isWishlisted ? 'rgba(255,0,0,0.4)' : 'hsl(var(--border))'}`, background: isWishlisted ? 'rgba(255,0,0,0.06)' : 'none', cursor: 'pointer', color: isWishlisted ? '#ff0000' : 'hsl(var(--muted-foreground))', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Heart size={18} fill={isWishlisted ? '#ff0000' : 'none'} />
