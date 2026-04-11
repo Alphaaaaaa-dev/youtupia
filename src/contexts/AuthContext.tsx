@@ -13,7 +13,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ error?: string }>;
-  signup: (email: string, password: string, name: string, phone?: string) => Promise<{ error?: string; needsEmailConfirmation?: boolean }>;
+  signup: (email: string, password: string, name: string, phone?: string) => Promise<{ error?: string; needsOTP?: boolean; userId?: string }>;
+  verifyOtp: (userId: string, code: string, email: string, password: string) => Promise<{ error?: string }>;
   logout: () => void;
   signOut: () => void;
   updateUser: (updates: Partial<User>) => void;
@@ -68,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signup = async (email: string, password: string, name: string, phone?: string): Promise<{ error?: string; needsEmailConfirmation?: boolean }> => {
+  const signup = async (email: string, password: string, name: string, phone?: string): Promise<{ error?: string; needsOTP?: boolean; userId?: string }> => {
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
@@ -77,9 +78,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       const data = await res.json();
       if (!res.ok) return { error: data.error || 'Signup failed. Please try again.' };
-      return { needsEmailConfirmation: true };
+      if (data.needsOTP) return { needsOTP: true, userId: data.userId };
+      return {};
     } catch {
       return { error: 'Connection error. Please check your internet and try again.' };
+    }
+  };
+
+  const verifyOtp = async (userId: string, code: string, email: string, password: string): Promise<{ error?: string }> => {
+    try {
+      // Step 1: verify the OTP
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify_code', userId, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: data.error || 'Invalid OTP. Please try again.' };
+
+      // Step 2: auto-login after verification
+      const loginRes = await login(email, password);
+      if (loginRes.error) return { error: 'Account verified! Please sign in to continue.' };
+      return {};
+    } catch {
+      return { error: 'Connection error. Please try again.' };
     }
   };
 
@@ -100,7 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => { sessionStorage.removeItem(SESSION_KEY); setUser(null); };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, signOut: logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, verifyOtp, logout, signOut: logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
