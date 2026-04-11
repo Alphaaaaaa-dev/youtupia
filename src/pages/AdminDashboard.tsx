@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Package, ShoppingBag, Clock, TrendingUp, Plus, Edit2, Trash2,
   X, Save, Image as ImageIcon, BarChart2, Settings, CheckCircle, Users,
-  Upload, Link as LinkIcon, Youtube, Zap, Tag, ToggleLeft, ToggleRight, Palette
+  Upload, Link as LinkIcon, Youtube, Zap, Tag, ToggleLeft, ToggleRight, Palette, MessageSquare, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { Product, Series, Creator, HomePromo, DiscountCoupon, TopBanner } from '../contexts/StoreContext';
 
@@ -15,7 +15,7 @@ const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage' | 'coupons';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage' | 'coupons' | 'tickets';
 
 // ── IMAGE UPLOAD DROPZONE ──────────────────────────
 const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
@@ -207,6 +207,7 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'drops', icon: Zap, label: 'Drop Control' },
     { id: 'homepage', icon: Youtube, label: 'Home Content' },
     { id: 'coupons', icon: Tag, label: 'Coupons' },
+    { id: 'tickets', icon: MessageSquare, label: 'Support Tickets' },
   ];
   return (
     <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 6%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
@@ -1353,6 +1354,158 @@ const CouponsTab = () => {
   );
 };
 
+
+// ── SUPPORT TICKETS TAB ────────────────────────────
+const SupportTicketsTab = () => {
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all');
+  const [selected, setSelected] = useState<any | null>(null);
+  const [updating, setUpdating] = useState('');
+
+  const fetchTickets = async () => {
+    setLoading(true); setError('');
+    try {
+      const res = await fetch('/api/admin-tickets');
+      if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed to load tickets'); setLoading(false); return; }
+      const data = await res.json();
+      setTickets(data.tickets || []);
+    } catch { setError('Connection error'); }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchTickets(); }, []);
+
+  const updateStatus = async (ticketId: string, status: string) => {
+    setUpdating(ticketId);
+    try {
+      await fetch('/api/admin-tickets', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ticketId, status }),
+      });
+      setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status } : t));
+      if (selected?.id === ticketId) setSelected((s: any) => ({ ...s, status }));
+    } catch {}
+    setUpdating('');
+  };
+
+  const filtered = filter === 'all' ? tickets : tickets.filter(t => t.status === filter);
+  const counts = {
+    all: tickets.length,
+    open: tickets.filter(t => t.status === 'open').length,
+    in_progress: tickets.filter(t => t.status === 'in_progress').length,
+    resolved: tickets.filter(t => t.status === 'resolved').length,
+  };
+  const statusColor = (s: string) => s === 'open' ? '#f97316' : s === 'in_progress' ? '#60a5fa' : '#22c55e';
+  const statusBg   = (s: string) => s === 'open' ? 'rgba(249,115,22,0.1)' : s === 'in_progress' ? 'rgba(96,165,250,0.1)' : 'rgba(34,197,94,0.1)';
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div>
+          <h2 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '20px', marginBottom: '4px' }}>Support Tickets</h2>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Messages submitted via the Contact Support page</p>
+        </div>
+        <button onClick={fetchTickets} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#94a3b8', cursor: 'pointer', fontSize: '12px', fontFamily: 'Roboto, sans-serif' }}>
+          <RefreshCw size={13} /> Refresh
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+        {(['all', 'open', 'in_progress', 'resolved'] as const).map(s => (
+          <button key={s} onClick={() => setFilter(s)}
+            style={{ ...card, padding: '14px', border: filter === s ? '1px solid #ff0000' : '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', textAlign: 'left', background: filter === s ? 'rgba(255,0,0,0.06)' : 'hsl(0 0% 11%)' }}>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: s === 'all' ? '#f1f5f9' : statusColor(s) }}>{counts[s]}</div>
+            <div style={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace', letterSpacing: '0.08em', marginTop: '2px', textTransform: 'uppercase' }}>{s.replace('_', ' ')}</div>
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', padding: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', color: '#ef4444', fontSize: '13px', fontFamily: 'Roboto, sans-serif' }}>
+          <AlertCircle size={16} /> {error} — make sure the <code>tickets</code> table exists in Supabase and <code>/api/admin-tickets</code> is deployed.
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif', fontSize: '14px' }}>Loading tickets...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ ...card, padding: '48px', textAlign: 'center', color: '#475569', fontFamily: 'Roboto, sans-serif', fontSize: '14px' }}>
+          <MessageSquare size={32} style={{ color: '#1e293b', marginBottom: '12px' }} />
+          <div>No {filter !== 'all' ? filter.replace('_', ' ') : ''} tickets yet.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 380px' : '1fr', gap: '16px', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {filtered.map(t => (
+              <div key={t.id} onClick={() => setSelected(selected?.id === t.id ? null : t)}
+                style={{ ...card, padding: '16px 20px', cursor: 'pointer', border: selected?.id === t.id ? '1px solid #ff0000' : '1px solid rgba(255,255,255,0.07)', background: selected?.id === t.id ? 'rgba(255,0,0,0.04)' : 'hsl(0 0% 11%)', transition: 'border-color 0.15s' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.subject}</span>
+                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: statusBg(t.status), color: statusColor(t.status), flexShrink: 0, fontFamily: 'Roboto, sans-serif', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.status?.replace('_', ' ')}</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748b', fontFamily: 'Roboto, sans-serif' }}>{t.name} · {t.email}</div>
+                    <div style={{ fontSize: '12px', color: '#475569', fontFamily: 'Roboto, sans-serif', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.message}</div>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#334155', flexShrink: 0, fontFamily: 'Roboto, sans-serif' }}>
+                    {new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {selected && (
+            <div style={{ ...card, padding: '20px', position: 'sticky', top: '0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <span style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#f1f5f9' }}>Ticket Detail</span>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex' }}><X size={16} /></button>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ fontSize: '10px', color: '#475569', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: '3px', textTransform: 'uppercase' }}>Subject</div>
+                <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>{selected.subject}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                {[
+                  { label: 'FROM', value: selected.name },
+                  { label: 'EMAIL', value: selected.email },
+                  { label: 'CATEGORY', value: selected.category || 'General' },
+                  { label: 'DATE', value: new Date(selected.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
+                ].map(({ label: l, value: v }) => (
+                  <div key={l}>
+                    <div style={{ fontSize: '9px', color: '#475569', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: '2px', textTransform: 'uppercase' }}>{l}</div>
+                    <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#94a3b8', wordBreak: 'break-all' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '10px', color: '#475569', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: '6px', textTransform: 'uppercase' }}>Message</div>
+                <div style={{ background: 'hsl(0 0% 7%)', borderRadius: '8px', padding: '12px', fontSize: '13px', color: '#cbd5e1', fontFamily: 'Roboto, sans-serif', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{selected.message}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', color: '#475569', fontFamily: 'monospace', letterSpacing: '0.08em', marginBottom: '8px', textTransform: 'uppercase' }}>Update Status</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {(['open', 'in_progress', 'resolved'] as const).map(s => (
+                    <button key={s} onClick={() => updateStatus(selected.id, s)} disabled={updating === selected.id || selected.status === s}
+                      style={{ padding: '8px 12px', borderRadius: '8px', border: selected.status === s ? `1px solid ${statusColor(s)}` : '1px solid rgba(255,255,255,0.08)', background: selected.status === s ? statusBg(s) : 'transparent', color: selected.status === s ? statusColor(s) : '#64748b', cursor: selected.status === s ? 'default' : 'pointer', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: selected.status === s ? 700 : 400, textAlign: 'left', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
+                      {selected.status === s && <CheckCircle size={12} />} {s.replace('_', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── MAIN ADMIN ─────────────────────────────────────
 const AdminDashboard = () => {
   const { isAdmin, logout } = useAdminAuth();
@@ -1374,6 +1527,7 @@ const AdminDashboard = () => {
         {tab === 'drops' && <DropControlTab />}
         {tab === 'homepage' && <HomeContentTab />}
         {tab === 'coupons' && <CouponsTab />}
+        {tab === 'tickets' && <SupportTicketsTab />}
       </main>
     </div>
   );
