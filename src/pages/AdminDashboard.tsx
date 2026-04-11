@@ -241,37 +241,126 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
 // ── OVERVIEW TAB ───────────────────────────────────
 const OverviewTab = () => {
   const { orders, products } = useStore();
-  const totalSold = orders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + i.quantity, 0), 0);
-  const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
-  const ordersLeft = orders.filter(o => ['processing','confirmed','shipped'].includes(o.status)).length;
-  const processing = orders.filter(o => o.status === 'processing').length;
-  const delivered = orders.filter(o => o.status === 'delivered').length;
-  const stats = [
-    { label: 'TOTAL ITEMS SOLD', value: totalSold, color: '#ff6666', icon: TrendingUp },
-    { label: 'ORDERS TO DELIVER', value: ordersLeft, color: '#fbbf24', icon: Clock },
-    { label: 'PROCESSING', value: processing, color: '#60a5fa', icon: Package },
-    { label: 'DELIVERED', value: delivered, color: '#4ade80', icon: CheckCircle },
-  ];
+
+  // ── Revenue buckets ───────────────────────────────
+  const pendingOrders    = orders.filter(o => ['processing', 'preorder_confirmed', 'confirmed', 'shipped'].includes(o.status));
+  const deliveredOrders  = orders.filter(o => o.status === 'delivered');
+  const cancelledOrders  = orders.filter(o => o.status === 'cancelled');
+
+  const pendingRevenue   = pendingOrders.reduce((s, o) => s + o.total, 0);
+  const earnedRevenue    = deliveredOrders.reduce((s, o) => s + o.total, 0);
+  const cancelledValue   = cancelledOrders.reduce((s, o) => s + o.total, 0);
+
+  const totalSold        = deliveredOrders.reduce((s, o) => s + o.items.reduce((ss, i) => ss + i.quantity, 0), 0);
+  const activeOrders     = pendingOrders.length;
+
+  const STATUS_COLOR_MAP: Record<string, string> = {
+    processing: '#fbbf24', preorder_confirmed: '#a78bfa', confirmed: '#60a5fa',
+    shipped: '#8b5cf6', delivered: '#4ade80', cancelled: '#ef4444',
+  };
+
   return (
     <div>
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', letterSpacing: '-0.02em', margin: '0 0 6px' }}>Store Overview</h1>
       <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Real-time snapshot of your merch store.</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '24px' }}>
-        {stats.map(s => (
-          <div key={s.label} style={{ ...card, padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-              <div style={{ ...label }}>{s.label}</div>
-              <s.icon size={14} style={{ color: s.color, opacity: 0.7 }} />
+
+      {/* ── Revenue breakdown ── */}
+      <div style={{ ...card, padding: '22px', marginBottom: '16px', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ ...label, marginBottom: '16px', fontSize: '11px' }}>REVENUE BREAKDOWN</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0', position: 'relative' }}>
+
+          {/* Earned (delivered) */}
+          <div style={{ padding: '0 20px 0 0', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
+              <span style={{ ...label, color: '#4ade80' }}>EARNED REVENUE</span>
             </div>
-            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '32px', color: s.color, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 900, fontSize: '30px', color: '#4ade80', lineHeight: 1, letterSpacing: '-0.02em' }}>
+              ₹{earnedRevenue.toLocaleString()}
+            </div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#334155', marginTop: '5px' }}>
+              {deliveredOrders.length} delivered order{deliveredOrders.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+
+          {/* Pending */}
+          <div style={{ padding: '0 20px', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24', flexShrink: 0 }} />
+              <span style={{ ...label, color: '#fbbf24' }}>PENDING / IN TRANSIT</span>
+            </div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 900, fontSize: '30px', color: '#fbbf24', lineHeight: 1, letterSpacing: '-0.02em' }}>
+              ₹{pendingRevenue.toLocaleString()}
+            </div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#334155', marginTop: '5px' }}>
+              {activeOrders} active order{activeOrders !== 1 ? 's' : ''}
+            </div>
+          </div>
+
+          {/* Cancelled */}
+          <div style={{ padding: '0 0 0 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+              <span style={{ ...label, color: '#ef4444' }}>CANCELLED / LOST</span>
+            </div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 900, fontSize: '30px', color: '#ef4444', lineHeight: 1, letterSpacing: '-0.02em' }}>
+              ₹{cancelledValue.toLocaleString()}
+            </div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#334155', marginTop: '5px' }}>
+              {cancelledOrders.length} cancelled order{cancelledOrders.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+
+        {/* Progress bar — pending vs earned vs cancelled */}
+        {orders.length > 0 && (() => {
+          const total = earnedRevenue + pendingRevenue + cancelledValue || 1;
+          const earnedPct   = Math.round((earnedRevenue  / total) * 100);
+          const pendingPct  = Math.round((pendingRevenue / total) * 100);
+          const cancelledPct = 100 - earnedPct - pendingPct;
+          return (
+            <div style={{ marginTop: '18px' }}>
+              <div style={{ display: 'flex', height: '6px', borderRadius: '4px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)' }}>
+                {earnedPct   > 0 && <div style={{ width: earnedPct   + '%', background: '#4ade80', transition: 'width 0.5s' }} />}
+                {pendingPct  > 0 && <div style={{ width: pendingPct  + '%', background: '#fbbf24', transition: 'width 0.5s' }} />}
+                {cancelledPct > 0 && <div style={{ width: cancelledPct + '%', background: '#ef4444', transition: 'width 0.5s' }} />}
+              </div>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                {[
+                  { label: 'Earned', pct: earnedPct, color: '#4ade80' },
+                  { label: 'Pending', pct: pendingPct, color: '#fbbf24' },
+                  { label: 'Cancelled', pct: cancelledPct, color: '#ef4444' },
+                ].map(({ label: l, pct, color }) => (
+                  <div key={l} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: color }} />
+                    <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '11px', color: '#475569' }}>{l} {pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* ── Order count stats ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+        {[
+          { label: 'ITEMS SOLD', value: totalSold, color: '#ff6666', icon: TrendingUp },
+          { label: 'ACTIVE ORDERS', value: activeOrders, color: '#fbbf24', icon: Clock },
+          { label: 'DELIVERED', value: deliveredOrders.length, color: '#4ade80', icon: CheckCircle },
+          { label: 'CANCELLED', value: cancelledOrders.length, color: '#ef4444', icon: Package },
+        ].map(s => (
+          <div key={s.label} style={{ ...card, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+              <div style={{ ...label }}>{s.label}</div>
+              <s.icon size={13} style={{ color: s.color, opacity: 0.7 }} />
+            </div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '28px', color: s.color, lineHeight: 1 }}>{s.value}</div>
           </div>
         ))}
       </div>
-      <div style={{ ...card, padding: '20px', marginBottom: '16px' }}>
-        <div style={{ ...label, marginBottom: '6px' }}>TOTAL REVENUE</div>
-        <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '36px', color: '#f1f5f9' }}>₹{totalRevenue.toLocaleString()}</div>
-        <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b', marginTop: '4px' }}>From {orders.length} total orders</div>
-      </div>
+
+      {/* ── Recent orders ── */}
       <div style={{ ...card, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>Recent Orders</span>
@@ -280,12 +369,16 @@ const OverviewTab = () => {
         {orders.slice(0, 5).map((o, i) => (
           <div key={o.id} style={{ padding: '12px 20px', borderBottom: i < Math.min(4, orders.length - 1) ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
             <div>
-              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 600, fontSize: '13px', color: '#f1f5f9' }}>{o.customerName}</div>
+              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 600, fontSize: '13px', color: o.status === 'cancelled' ? '#64748b' : '#f1f5f9', textDecoration: o.status === 'cancelled' ? 'line-through' : 'none' }}>{o.customerName}</div>
               <div style={{ ...label, marginTop: '2px' }}>{o.id} · {o.items.length} item(s)</div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
-              <span style={{ background: o.status === 'delivered' ? 'rgba(74,222,128,0.1)' : o.status === 'shipped' ? 'rgba(139,92,246,0.1)' : 'rgba(251,191,36,0.1)', color: o.status === 'delivered' ? '#4ade80' : o.status === 'shipped' ? '#a78bfa' : '#fbbf24', borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace', textTransform: 'capitalize' }}>{o.status}</span>
+              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: o.status === 'cancelled' ? '#ef4444' : o.status === 'delivered' ? '#4ade80' : '#fbbf24', textDecoration: o.status === 'cancelled' ? 'line-through' : 'none' }}>
+                {o.status === 'cancelled' ? '-' : ''}₹{o.total.toLocaleString()}
+              </div>
+              <span style={{ background: (STATUS_COLOR_MAP[o.status] || '#fbbf24') + '18', color: STATUS_COLOR_MAP[o.status] || '#fbbf24', borderRadius: '20px', padding: '2px 8px', fontSize: '10px', fontFamily: 'monospace', textTransform: 'capitalize' }}>
+                {o.status.replace('_', ' ')}
+              </span>
             </div>
           </div>
         ))}
