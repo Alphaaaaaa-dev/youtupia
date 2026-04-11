@@ -6,11 +6,11 @@ import { useTheme } from '../contexts/ThemeContext';
 const FAQS = [
   { cat: 'Orders', q: 'What sizes are available?', a: 'Most products come in S, M, L, XL, and XXL. Some accessories are one size. Always check the individual product page — sizes with low or zero stock are clearly marked.' },
   { cat: 'Orders', q: 'How do I track my order?', a: 'Once your order is shipped, you\'ll get a tracking link via email. You can also check your order status in My Orders after signing in.' },
-  { cat: 'Orders', q: 'Can I cancel my order?', a: 'Orders can be cancelled within 2 hours of placing them. After that the order goes into processing and cannot be cancelled. Email us ASAP at hello@youtupia.com.' },
-  { cat: 'Shipping', q: 'How long does delivery take?', a: 'Standard delivery takes 5–7 business days across India. Orders are dispatched within 1–2 business days of payment.' },
-  { cat: 'Shipping', q: 'Do you offer free shipping?', a: 'Yes! Free shipping on all orders above ₹999. Orders below ₹999 have a flat ₹60 shipping fee.' },
+  { cat: 'Orders', q: 'Can I cancel my order?', a: 'Orders can be cancelled within 2 hours of placing them. After that the order goes into processing and cannot be cancelled. Email us ASAP at youtupiastore@gmail.com.' },
+  { cat: 'Shipping', q: 'How long does delivery take?', a: 'Standard delivery takes 8–14 business days across India. Orders are dispatched within 1–2 business days of payment.' },
+  { cat: 'Shipping', q: 'Do you offer free shipping?', a: 'Yes! We offer free shipping on all orders.' },
   { cat: 'Shipping', q: 'Do you ship internationally?', a: 'Currently India only. International shipping is on the roadmap — follow our Instagram for updates.' },
-  { cat: 'Returns', q: 'What is your return policy?', a: 'Returns accepted within 7 days of delivery. Items must be unworn, unwashed, in original packaging. Initiate at hello@youtupia.com with your order ID. Refunds process in 5–7 business days.' },
+  { cat: 'Returns', q: 'What is your return policy?', a: 'Returns are accepted only in case of genuine errors from our side (like damaged or incorrect products). For any issues, contact us at youtupiastore@gmail.com.' },
   { cat: 'Payments', q: 'Is my payment secure?', a: 'Yes — we use Razorpay, one of India\'s most trusted gateways. We never store your card details. All transactions are encrypted.' },
   { cat: 'Products', q: 'Are the products limited edition?', a: 'Yes, every drop is limited. We don\'t do restocks — when a size is gone, it\'s gone. That\'s kind of the whole point.' },
 ];
