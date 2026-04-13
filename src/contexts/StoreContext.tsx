@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 
 export interface ProductVariant { size: string; stock: number; }
@@ -54,6 +54,7 @@ export interface TopBanner {
   textColor: string;
 }
 
+// ── DEFAULT DATA ──────────────────────────────────────────────────────────────
 const DEFAULT_CREATORS: Creator[] = [
   { id: 'creator1', name: 'Carry Minati', handle: 'carryminati', bio: "India's biggest YouTuber.", avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face', banner: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=1200&h=400&fit=crop', subscribers: '41M', productIds: ['p1', 'p3'], dropCountdownEnd: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString() },
   { id: 'creator2', name: 'Techno Gamerz', handle: 'technogamerz', bio: 'Gaming king of India.', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&h=200&fit=crop&crop=face', banner: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200&h=400&fit=crop', subscribers: '36M', productIds: ['p2', 'p6'], dropCountdownEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() },
@@ -74,15 +75,12 @@ const DEFAULT_PRODUCTS: Product[] = [
   { id: 'p5', name: 'OG Sticker Pack', series: 'Classic Drop', seriesId: 'classic', dropId: 'drop001', price: 199, description: 'Pack of 6 vinyl stickers. Waterproof.', images: ['https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&h=700&fit=crop'], variants: [{ size: 'Pack of 6', stock: 50 }], tags: ['sticker', 'accessory'], featured: false, createdAt: '2026-02-20', viewerCount: 3 },
   { id: 'p6', name: 'Street Bomber Jacket', series: 'Street Series', seriesId: 'streetwear', creatorId: 'creator2', dropId: 'drop002', price: 2999, originalPrice: 3499, description: 'Premium bomber jacket. Satin shell. Embroidered patches.', images: ['https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&h=700&fit=crop'], variants: [{ size: 'S', stock: 3 }, { size: 'M', stock: 5 }, { size: 'L', stock: 4 }, { size: 'XL', stock: 2 }], tags: ['jacket', 'street', 'limited'], featured: true, createdAt: '2026-03-01', viewerCount: 31, limitedEdition: true, dropEndsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString() },
 ];
-
 const DEFAULT_COUPONS: DiscountCoupon[] = [
   { id: 'c1', code: 'YOUTUPIA10', type: 'percentage', value: 10, active: true, description: '10% off for Youtupia community' },
 ];
-
 const DEFAULT_HOME_PROMO: HomePromo = {
   videoUrl: '', posterUrl: '', title: 'Promotion Video', subtitle: 'Creator drop preview', ctaText: 'Watch Drop', ctaLink: '/drops',
 };
-
 const DEFAULT_TOP_BANNER: TopBanner = {
   enabled: true,
   messages: [
@@ -95,11 +93,49 @@ const DEFAULT_TOP_BANNER: TopBanner = {
   textColor: '#ffffff',
 };
 
+// ── API HELPERS ───────────────────────────────────────────────────────────────
+type TableName = 'yt_products' | 'yt_series' | 'yt_drops' | 'yt_creators';
+
+async function dbLoad<T>(table: TableName): Promise<T[] | null> {
+  try {
+    const res = await fetch(`/api/store-data?table=${table}`);
+    if (!res.ok) return null;
+    const { data } = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+    // Each row has an `id` and a `payload` JSON column
+    return data.map((row: any) => row.payload ?? row) as T[];
+  } catch {
+    return null;
+  }
+}
+
+async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[]): Promise<void> {
+  try {
+    const rows = items.map(item => ({ id: item.id, payload: item }));
+    await fetch(`/api/store-data?table=${table}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
+    });
+  } catch (e) {
+    console.error(`dbSaveAll(${table}) failed:`, e);
+  }
+}
+
+// ── LOCAL STORAGE HELPERS ─────────────────────────────────────────────────────
+function lsGet<T>(key: string, fallback: T): T {
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch { return fallback; }
+}
+function lsSet(key: string, val: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
+// ── CONTEXT TYPE ──────────────────────────────────────────────────────────────
 interface StoreContextType {
   products: Product[]; series: Series[]; creators: Creator[]; drops: Drop[];
   cart: CartItem[]; orders: Order[]; wishlist: string[]; recentlyViewed: string[];
   homePromo: HomePromo; coupons: DiscountCoupon[]; topBanner: TopBanner;
-  hydrating: boolean;
+  hydrating: boolean; dbLoading: boolean;
   setProducts: (p: Product[]) => void; setSeries: (s: Series[]) => void;
   setCreators: (c: Creator[]) => void; setDrops: (d: Drop[]) => void;
   setHomePromo: (p: HomePromo) => void; setCoupons: (c: DiscountCoupon[]) => void; setTopBanner: (b: TopBanner) => void;
@@ -118,33 +154,100 @@ const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [hydrating, setHydrating] = useState(true);
-  useEffect(() => { const t = setTimeout(() => setHydrating(false), 520); return () => clearTimeout(t); }, []);
+  const [dbLoading, setDbLoading] = useState(true);
 
-  const [products, setProductsState] = useState<Product[]>(() => { try { const s = localStorage.getItem('youtupia_products'); return s ? JSON.parse(s) : DEFAULT_PRODUCTS; } catch { return DEFAULT_PRODUCTS; } });
-  const [series, setSeriesState] = useState<Series[]>(() => { try { const s = localStorage.getItem('youtupia_series'); return s ? JSON.parse(s) : DEFAULT_SERIES; } catch { return DEFAULT_SERIES; } });
-  const [creators, setCreatorsState] = useState<Creator[]>(() => { try { const s = localStorage.getItem('youtupia_creators'); return s ? JSON.parse(s) : DEFAULT_CREATORS; } catch { return DEFAULT_CREATORS; } });
-  const [drops, setDropsState] = useState<Drop[]>(() => { try { const s = localStorage.getItem('youtupia_drops'); return s ? JSON.parse(s) : DEFAULT_DROPS; } catch { return DEFAULT_DROPS; } });
-  const [cart, setCart] = useState<CartItem[]>(() => { try { const s = localStorage.getItem('youtupia_cart'); return s ? JSON.parse(s) : []; } catch { return []; } });
-  const [orders, setOrders] = useState<Order[]>(() => { try { const s = localStorage.getItem('youtupia_orders'); return s ? JSON.parse(s) : []; } catch { return []; } });
-  const [wishlist, setWishlist] = useState<string[]>(() => { try { const s = localStorage.getItem('youtupia_wishlist'); return s ? JSON.parse(s) : []; } catch { return []; } });
-  const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => { try { const s = localStorage.getItem('youtupia_recent'); return s ? JSON.parse(s) : []; } catch { return []; } });
-  const [homePromo, setHomePromoState] = useState<HomePromo>(() => { try { const s = localStorage.getItem('youtupia_home_promo'); return s ? JSON.parse(s) : DEFAULT_HOME_PROMO; } catch { return DEFAULT_HOME_PROMO; } });
-  const [coupons, setCouponsState] = useState<DiscountCoupon[]>(() => { try { const s = localStorage.getItem('youtupia_coupons'); return s ? JSON.parse(s) : DEFAULT_COUPONS; } catch { return DEFAULT_COUPONS; } });
-  const [topBanner, setTopBannerState] = useState<TopBanner>(() => { try { const s = localStorage.getItem('youtupia_top_banner'); return s ? JSON.parse(s) : DEFAULT_TOP_BANNER; } catch { return DEFAULT_TOP_BANNER; } });
+  // ── Persistent store state — starts from localStorage as cache, then syncs from DB ──
+  const [products, setProductsState] = useState<Product[]>(() => lsGet('youtupia_products', DEFAULT_PRODUCTS));
+  const [series, setSeriesState] = useState<Series[]>(() => lsGet('youtupia_series', DEFAULT_SERIES));
+  const [creators, setCreatorsState] = useState<Creator[]>(() => lsGet('youtupia_creators', DEFAULT_CREATORS));
+  const [drops, setDropsState] = useState<Drop[]>(() => lsGet('youtupia_drops', DEFAULT_DROPS));
 
-  const setProducts = (p: Product[]) => { setProductsState(p); localStorage.setItem('youtupia_products', JSON.stringify(p)); };
-  const setSeries = (s: Series[]) => { setSeriesState(s); localStorage.setItem('youtupia_series', JSON.stringify(s)); };
-  const setCreators = (c: Creator[]) => { setCreatorsState(c); localStorage.setItem('youtupia_creators', JSON.stringify(c)); };
-  const setDrops = (d: Drop[]) => { setDropsState(d); localStorage.setItem('youtupia_drops', JSON.stringify(d)); };
-  const setHomePromo = (p: HomePromo) => { setHomePromoState(p); localStorage.setItem('youtupia_home_promo', JSON.stringify(p)); };
-  const setCoupons = (c: DiscountCoupon[]) => { setCouponsState(c); localStorage.setItem('youtupia_coupons', JSON.stringify(c)); };
-  const setTopBanner = (b: TopBanner) => { setTopBannerState(b); localStorage.setItem('youtupia_top_banner', JSON.stringify(b)); };
+  // ── Local-only state (orders, cart, wishlist stay in localStorage) ──
+  const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
+  const [orders, setOrders] = useState<Order[]>(() => lsGet('youtupia_orders', []));
+  const [wishlist, setWishlist] = useState<string[]>(() => lsGet('youtupia_wishlist', []));
+  const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => lsGet('youtupia_recent', []));
+  const [homePromo, setHomePromoState] = useState<HomePromo>(() => lsGet('youtupia_home_promo', DEFAULT_HOME_PROMO));
+  const [coupons, setCouponsState] = useState<DiscountCoupon[]>(() => lsGet('youtupia_coupons', DEFAULT_COUPONS));
+  const [topBanner, setTopBannerState] = useState<TopBanner>(() => lsGet('youtupia_top_banner', DEFAULT_TOP_BANNER));
 
-  useEffect(() => { localStorage.setItem('youtupia_cart', JSON.stringify(cart)); }, [cart]);
-  useEffect(() => { localStorage.setItem('youtupia_orders', JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem('youtupia_wishlist', JSON.stringify(wishlist)); }, [wishlist]);
-  useEffect(() => { localStorage.setItem('youtupia_recent', JSON.stringify(recentlyViewed)); }, [recentlyViewed]);
+  // ── Load from Supabase on mount ───────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const loadFromDb = async () => {
+      setDbLoading(true);
+      try {
+        const [dbProducts, dbSeries, dbDrops, dbCreators] = await Promise.all([
+          dbLoad<Product>('yt_products'),
+          dbLoad<Series>('yt_series'),
+          dbLoad<Drop>('yt_drops'),
+          dbLoad<Creator>('yt_creators'),
+        ]);
+        if (cancelled) return;
 
+        if (dbProducts && dbProducts.length > 0) {
+          setProductsState(dbProducts);
+          lsSet('youtupia_products', dbProducts);
+        }
+        if (dbSeries && dbSeries.length > 0) {
+          setSeriesState(dbSeries);
+          lsSet('youtupia_series', dbSeries);
+        }
+        if (dbDrops && dbDrops.length > 0) {
+          setDropsState(dbDrops);
+          lsSet('youtupia_drops', dbDrops);
+        }
+        if (dbCreators && dbCreators.length > 0) {
+          setCreatorsState(dbCreators);
+          lsSet('youtupia_creators', dbCreators);
+        }
+      } catch (e) {
+        console.warn('DB load failed, using localStorage cache:', e);
+      } finally {
+        if (!cancelled) setDbLoading(false);
+      }
+    };
+    loadFromDb();
+    const t = setTimeout(() => setHydrating(false), 520);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, []);
+
+  // ── Setters that write to BOTH Supabase and localStorage ─────────────────
+  const setProducts = useCallback((p: Product[]) => {
+    setProductsState(p);
+    lsSet('youtupia_products', p);
+    dbSaveAll('yt_products', p);
+  }, []);
+
+  const setSeries = useCallback((s: Series[]) => {
+    setSeriesState(s);
+    lsSet('youtupia_series', s);
+    dbSaveAll('yt_series', s);
+  }, []);
+
+  const setCreators = useCallback((c: Creator[]) => {
+    setCreatorsState(c);
+    lsSet('youtupia_creators', c);
+    dbSaveAll('yt_creators', c);
+  }, []);
+
+  const setDrops = useCallback((d: Drop[]) => {
+    setDropsState(d);
+    lsSet('youtupia_drops', d);
+    dbSaveAll('yt_drops', d);
+  }, []);
+
+  // ── Local-only setters ────────────────────────────────────────────────────
+  const setHomePromo = useCallback((p: HomePromo) => { setHomePromoState(p); lsSet('youtupia_home_promo', p); }, []);
+  const setCoupons = useCallback((c: DiscountCoupon[]) => { setCouponsState(c); lsSet('youtupia_coupons', c); }, []);
+  const setTopBanner = useCallback((b: TopBanner) => { setTopBannerState(b); lsSet('youtupia_top_banner', b); }, []);
+
+  useEffect(() => { lsSet('youtupia_cart', cart); }, [cart]);
+  useEffect(() => { lsSet('youtupia_orders', orders); }, [orders]);
+  useEffect(() => { lsSet('youtupia_wishlist', wishlist); }, [wishlist]);
+  useEffect(() => { lsSet('youtupia_recent', recentlyViewed); }, [recentlyViewed]);
+
+  // ── Cart actions ──────────────────────────────────────────────────────────
   const addToCart = (product: Product, size: string, qty = 1) => {
     const variant = product.variants.find(v => v.size === size);
     const variantStock = variant?.stock ?? 0;
@@ -162,7 +265,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
     sonnerToast.success('Added to cart', { description: `${product.name} · ${size}${isPreorder ? ' (Preorder)' : ''}` });
   };
-  const removeFromCart = (productId: string, size: string) => setCart(prev => prev.filter(i => !(i.productId === productId && i.size === size)));
+
+  const removeFromCart = (productId: string, size: string) =>
+    setCart(prev => prev.filter(i => !(i.productId === productId && i.size === size)));
+
   const updateCartQty = (productId: string, size: string, qty: number) => {
     if (qty <= 0) { removeFromCart(productId, size); return; }
     setCart(prev => prev.map(i => {
@@ -175,19 +281,31 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return { ...i, quantity: qty };
     }));
   };
+
   const clearCart = () => setCart([]);
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
+
   const addOrder = (order: Order) => setOrders(prev => [order, ...prev]);
-  const updateOrderStatus = (orderId: string, status: Order['status']) => setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+  const updateOrderStatus = (orderId: string, status: Order['status']) =>
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+  const updateOrder = (orderId: string, updates: Partial<Order>) =>
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updates } : o));
+
   const toggleWishlist = (productId: string) => setWishlist(prev => {
     const exists = prev.includes(productId);
     const next = exists ? prev.filter(id => id !== productId) : [...prev, productId];
     sonnerToast.message(exists ? 'Removed from wishlist' : 'Saved to wishlist', { description: exists ? 'Your favorites have been updated.' : 'We\u2019ll keep this one ready for you.' });
     return next;
   });
-  const addRecentlyViewed = (productId: string) => setRecentlyViewed(prev => [productId, ...prev.filter(id => id !== productId)].slice(0, 10));
-  const addReview = (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => { const nr: Review = { ...review, id: `r${Date.now()}`, createdAt: new Date().toISOString() }; setProducts(products.map(p => p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p)); };
+
+  const addRecentlyViewed = (productId: string) =>
+    setRecentlyViewed(prev => [productId, ...prev.filter(id => id !== productId)].slice(0, 10));
+
+  const addReview = (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => {
+    const nr: Review = { ...review, id: `r${Date.now()}`, createdAt: new Date().toISOString() };
+    setProducts(products.map(p => p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p));
+  };
 
   const validateDiscountCode = (code: string) => {
     const upper = code.trim().toUpperCase();
@@ -196,13 +314,23 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return { valid: true, pct: coupon.type === 'percentage' ? coupon.value : 0, amount: coupon.type === 'fixed' ? coupon.value : 0, type: coupon.type, coupon };
   };
 
-  const updateOrder = (orderId: string, updates: Partial<Order>) => setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updates } : o));
-
   return (
-    <StoreContext.Provider value={{ products, series, creators, drops, cart, orders, wishlist, recentlyViewed, homePromo, coupons, topBanner, hydrating, setProducts, setSeries, setCreators, setDrops, setHomePromo, setCoupons, setTopBanner, addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount, addOrder, updateOrderStatus, updateOrder, toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode }}>
+    <StoreContext.Provider value={{
+      products, series, creators, drops, cart, orders, wishlist, recentlyViewed,
+      homePromo, coupons, topBanner, hydrating, dbLoading,
+      setProducts, setSeries, setCreators, setDrops,
+      setHomePromo, setCoupons, setTopBanner,
+      addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount,
+      addOrder, updateOrderStatus, updateOrder,
+      toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode,
+    }}>
       {children}
     </StoreContext.Provider>
   );
 };
 
-export const useStore = () => { const ctx = useContext(StoreContext); if (!ctx) throw new Error('useStore must be used within StoreProvider'); return ctx; };
+export const useStore = () => {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error('useStore must be used within StoreProvider');
+  return ctx;
+};
