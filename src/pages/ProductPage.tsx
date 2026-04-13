@@ -271,7 +271,7 @@ const ProductPage = () => {
 
             {/* Trust */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px', background: 'hsl(var(--secondary))', borderRadius: '12px' }}>
-              {[{ icon: Truck, text: 'Free delivery on every order ' }, { icon: Shield, text: 'Secure payment via Razorpay' }, { icon: CheckCircle, text: '7-day easy returns, no questions asked' }].map(({ icon: Icon, text }) => (
+              {[{ icon: Truck, text: 'Free delivery on every order ' }, { icon: Shield, text: 'Secure payment via Razorpay' }, { icon: CheckCircle, text: 'Premium Quality Assured ' }].map(({ icon: Icon, text }) => (
                 <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
                   <Icon size={14} style={{ color: '#ff0000', flexShrink: 0 }} /> {text}
                 </div>
