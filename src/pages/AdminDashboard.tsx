@@ -17,6 +17,57 @@ const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7
 
 type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage' | 'coupons' | 'tickets';
 
+// ── CALENDAR DATE-TIME PICKER ──────────────────────
+const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChange: (iso: string) => void; labelText: string }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const localValue = value ? new Date(value).toISOString().slice(0, 16) : '';
+
+  const displayDate = value
+    ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' · ' +
+      new Date(value).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
+    : 'Pick a date & time';
+
+  return (
+    <div style={{ marginBottom: '0' }}>
+      <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginBottom: '6px' }}>{labelText}</div>
+      <div style={{ position: 'relative' }}>
+        {/* Visible styled button */}
+        <div
+          onClick={() => inputRef.current?.showPicker?.() ?? inputRef.current?.click()}
+          style={{
+            width: '100%', padding: '9px 38px 9px 12px', background: 'hsl(0 0% 7%)',
+            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
+            color: value ? '#f1f5f9' : '#475569', fontFamily: 'Roboto, sans-serif',
+            fontSize: '13px', cursor: 'pointer', boxSizing: 'border-box' as const,
+            display: 'flex', alignItems: 'center', gap: '8px', userSelect: 'none' as const,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#ef4444', flexShrink: 0 }}>
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>{displayDate}</span>
+          {value && (
+            <span
+              onClick={e => { e.stopPropagation(); onChange(''); }}
+              style={{ marginLeft: 'auto', color: '#475569', fontSize: '16px', lineHeight: 1, cursor: 'pointer', padding: '0 2px' }}
+            >×</span>
+          )}
+        </div>
+        {/* Hidden native input */}
+        <input
+          ref={inputRef}
+          type="datetime-local"
+          value={localValue}
+          onChange={e => onChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
+          style={{ position: 'absolute', opacity: 0, top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+          tabIndex={-1}
+        />
+      </div>
+    </div>
+  );
+};
+
 // ── IMAGE UPLOAD DROPZONE ──────────────────────────
 const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -918,8 +969,11 @@ const CreatorsTab = () => {
             <ImageDropzone value={editing.banner || ''} onChange={v => setEditing(ed => ({ ...ed!, banner: v }))} label="BANNER IMAGE" />
 
             <div style={{ marginBottom: '14px' }}>
-              <div style={{ ...label, marginBottom: '6px' }}>DROP COUNTDOWN END (optional)</div>
-              <input type="datetime-local" style={inputStyle} value={editing.dropCountdownEnd ? new Date(editing.dropCountdownEnd).toISOString().slice(0, 16) : ''} onChange={e => setEditing(ed => ({ ...ed!, dropCountdownEnd: e.target.value ? new Date(e.target.value).toISOString() : '' }))} />
+              <DateTimePicker
+                labelText="DROP COUNTDOWN END (optional)"
+                value={editing.dropCountdownEnd || ''}
+                onChange={v => setEditing(ed => ({ ...ed!, dropCountdownEnd: v }))}
+              />
             </div>
 
             <div style={{ marginBottom: '20px' }}>
@@ -1035,8 +1089,8 @@ const DropControlTab = () => {
           </div>
           <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div><textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={newForm.description} onChange={e => setNewForm((f: any) => ({ ...f, description: e.target.value }))} placeholder="What this drop is about..." /></div>
           <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>BANNER URL</div><input style={inputStyle} value={newForm.banner} onChange={e => setNewForm((f: any) => ({ ...f, banner: e.target.value }))} placeholder="https://..." /></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-            <div><div style={{ ...label, marginBottom: '5px' }}>DROP END TIME</div><input type="datetime-local" style={inputStyle} value={newForm.endsAt ? new Date(newForm.endsAt).toISOString().slice(0,16) : ''} onChange={e => setNewForm((f: any) => ({ ...f, endsAt: e.target.value ? new Date(e.target.value).toISOString() : '' }))} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div><DateTimePicker labelText="DROP END TIME" value={newForm.endsAt || ''} onChange={v => setNewForm((f: any) => ({ ...f, endsAt: v }))} /></div>
             <div><div style={{ ...label, marginBottom: '5px' }}>LIMITED DROP</div><button onClick={() => setNewForm((f: any) => ({ ...f, limited: !f.limited }))} style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer' as const }}>{newForm.limited ? 'YES — Never restocking' : 'NO — Regular drop'}</button></div>
           </div>
           <div style={{ marginBottom: '12px' }}>
@@ -1069,12 +1123,10 @@ const DropControlTab = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                   <div>
-                    <div style={{ ...label, marginBottom: '5px' }}>DROP END TIME</div>
-                    <input
-                      type="datetime-local"
-                      style={inputStyle}
-                      value={form.endsAt ? new Date(form.endsAt).toISOString().slice(0, 16) : ''}
-                      onChange={e => setForm((f: any) => ({ ...f, endsAt: e.target.value ? new Date(e.target.value).toISOString() : '' }))}
+                    <DateTimePicker
+                      labelText="DROP END TIME"
+                      value={form.endsAt || ''}
+                      onChange={v => setForm((f: any) => ({ ...f, endsAt: v }))}
                     />
                   </div>
                   <div>
