@@ -1127,9 +1127,21 @@ const DropControlTab = () => {
                     <span style={{ ...label }}>Ends: {d.endsAt ? new Date(d.endsAt).toLocaleString() : 'Not set'}</span>
                   </div>
                 </div>
-                <button onClick={() => openEdit(d.id)} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px', flexShrink: 0 }}>
-                  <Edit2 size={12} /> Edit Drop
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                  <button onClick={() => openEdit(d.id)} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
+                    <Edit2 size={12} /> Edit Drop
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete "${d.name}"? This cannot be undone.`)) {
+                        setDrops(drops.filter(x => x.id !== d.id));
+                        sonnerToast.success('Drop deleted', { description: d.name + ' has been removed.' });
+                      }
+                    }}
+                    style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                </div>
               </div>
             )}
           </div>
