@@ -51,7 +51,7 @@ const CheckoutPage = () => {
     </div>
   );
 
-  const shipping = cartTotal >= 999 ? 0 : 60;
+  const shipping = 0;
   const discountAmount = discountApplied
     ? (discountType === 'percentage' ? Math.round(cartTotal * discountPct / 100) : Math.min(discountFixed, cartTotal))
     : 0;
@@ -283,7 +283,7 @@ const CheckoutPage = () => {
                 <span>Shipping</span>
                 <span style={{ color: shipping === 0 ? '#22c55e' : 'inherit' }}>{shipping === 0 ? 'FREE ✓' : `₹${shipping}`}</span>
               </div>
-              {shipping > 0 && <div style={{ fontSize: '11px', color: '#fbbf24' }}>Add ₹{(999 - cartTotal).toLocaleString()} more for free shipping</div>}
+              {shipping > 0 && <div style={{ fontSize: '11px', color: '#fbbf24' }}>Shipping calculated at checkout</div>}
               {discountApplied && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#22c55e' }}>
                   <span>Discount ({discountCode})</span><span>−₹{discountAmount.toLocaleString()}</span>
