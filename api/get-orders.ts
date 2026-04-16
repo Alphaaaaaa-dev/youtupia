@@ -1,9 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 /**
- * GET /api/get-orders?userId=xxx
- * Returns all orders for a given user from Supabase.
- * Called on page load in OrdersPage to hydrate from DB instead of only localStorage.
+ * GET /api/get-orders?userId=xxx   → orders for that user
+ * GET /api/get-orders              → ALL orders (admin use)
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,12 +17,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY)
     return res.status(500).json({ error: 'Server configuration error' });
 
-  const userId = req.query.userId as string;
-  if (!userId) return res.status(400).json({ error: 'userId required' });
+  const userId = req.query.userId as string | undefined;
+
+  // Build filter: if userId provided, filter by user; otherwise fetch all
+  const filter = userId
+    ? `?user_id=eq.${userId}&order=created_at.desc`
+    : `?order=created_at.desc`;
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/orders?user_id=eq.${userId}&order=created_at.desc`,
+      `${SUPABASE_URL}/rest/v1/orders${filter}`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -38,10 +41,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to fetch orders' });
     }
 
-    const orders = await response.json();
+    const rows = await response.json();
 
-    // Map DB snake_case back to camelCase for the frontend Order interface
-    const mapped = orders.map((o: any) => ({
+    // Map DB snake_case → camelCase for frontend Order interface
+    const orders = (rows || []).map((o: any) => ({
       id:             o.id,
       items:          o.items,
       total:          o.total,
@@ -57,10 +60,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       trackingId:     o.tracking_id,
       trackingUrl:    o.tracking_url,
       notes:          o.notes,
+      cancelReason:   o.cancel_reason,
+      codCharge:      o.cod_charge,
       createdAt:      o.created_at,
     }));
 
-    return res.status(200).json({ orders: mapped });
+    return res.status(200).json({ orders });
 
   } catch (err) {
     console.error('Get orders error:', err);
