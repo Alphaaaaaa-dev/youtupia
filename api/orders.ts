@@ -36,7 +36,7 @@ function mapOrder(o: any) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -44,8 +44,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Missing env vars' });
 
   // ── GET /api/orders  ────────────────────────────────────────────────────
-  // ?userId=xxx  → orders for that user
-  // (no param)   → ALL orders (admin)
   if (req.method === 'GET') {
     const userId = req.query.userId as string | undefined;
     const filter = userId
@@ -62,7 +60,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── POST /api/orders  ───────────────────────────────────────────────────
-  // Body: { order, userId }  → save a new order
   if (req.method === 'POST') {
     const { order, userId } = req.body || {};
     if (!order) return res.status(400).json({ error: 'Order data missing' });
@@ -104,9 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── PATCH /api/orders  ──────────────────────────────────────────────────
-  // Body: { id, ...updates } OR { orderId, updates }  → update order fields
   if (req.method === 'PATCH') {
-    // Support both call shapes used across the codebase
     const id      = req.body?.id || req.body?.orderId;
     const updates = req.body?.updates || req.body;
 
@@ -128,6 +123,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!r.ok) {
       const e = await r.json();
       return res.status(500).json({ error: e?.message || 'Failed to update order' });
+    }
+    return res.status(200).json({ success: true });
+  }
+
+  // ── DELETE /api/orders  ─────────────────────────────────────────────────
+  // Body: { id } — permanently deletes an order
+  if (req.method === 'DELETE') {
+    const id = req.body?.id;
+    if (!id) return res.status(400).json({ error: 'Missing order id' });
+
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(id)}`, {
+      method:  'DELETE',
+      headers: headers(),
+    });
+    if (!r.ok) {
+      const e = await r.json();
+      return res.status(500).json({ error: e?.message || 'Failed to delete order' });
     }
     return res.status(200).json({ success: true });
   }
