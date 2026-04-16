@@ -6,12 +6,12 @@
 // ── EDIT THESE DETAILS ────────────────────────────────────────────────────
 const BUSINESS = {
   name:     'Youtupia Merchandise LLP',
-  address1: 'Jaipur, Rajasthan - 302050',  // ← Change this
+  address1: 'Jaipur, Rajasthan - 302050',
   address2: 'India',
-  email:    'youtupiastore@gmail.com',       // ← Change this
-  gst:      '08CLBPJ3540A1ZP',          // ← Add your GST number
-  cin:      '',                              // ← Add CIN if applicable
-  logo:     '/favicon.ico',                  // favicon path
+  email:    'youtupiastore@gmail.com',
+  gst:      '08CLBPJ3540A1ZP',
+  cin:      '',
+  logo:     '/favicon.ico',
 };
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -53,15 +53,14 @@ export const generateInvoice = (order: any) => {
     day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  // Favicon as an <img> tag — uses the site's own favicon
   const logoHtml = `<img src="${window.location.origin}${BUSINESS.logo}"
     width="48" height="48"
     style="border-radius:10px;object-fit:contain;display:block;"
     onerror="this.style.display='none'"
     alt="Youtupia" />`;
 
-  const gstLine  = BUSINESS.gst  ? `<p style="font-size:11px;color:#666;">GST: ${BUSINESS.gst}</p>`  : '';
-  const cinLine  = BUSINESS.cin  ? `<p style="font-size:11px;color:#666;">CIN: ${BUSINESS.cin}</p>`  : '';
+  const gstLine  = BUSINESS.gst  ? `<p style="font-size:11px;color:#666;margin-top:3px;">GST: ${BUSINESS.gst}</p>`  : '';
+  const cinLine  = BUSINESS.cin  ? `<p style="font-size:11px;color:#666;margin-top:2px;">CIN: ${BUSINESS.cin}</p>`  : '';
   const gstBadge = BUSINESS.gst
     ? `<div style="display:inline-block;background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:3px 10px;font-size:11px;color:#cc0000;font-weight:700;margin-top:6px;">GST: ${BUSINESS.gst}</div>`
     : '';
@@ -92,7 +91,6 @@ export const generateInvoice = (order: any) => {
 <body>
 
 <div class="hdr">
-  <!-- LOGO + Brand -->
   <div class="logo-area">
     ${logoHtml}
     <div>
@@ -100,8 +98,6 @@ export const generateInvoice = (order: any) => {
       <div class="brand-sub">Creator Merchandise Platform</div>
     </div>
   </div>
-
-  <!-- Invoice meta -->
   <div style="text-align:right;">
     <div style="font-size:28px;font-weight:900;">INVOICE</div>
     <div style="font-family:monospace;font-size:14px;color:#ff0000;font-weight:700;margin-top:4px;">${order.id}</div>
@@ -110,7 +106,6 @@ export const generateInvoice = (order: any) => {
   </div>
 </div>
 
-<!-- Parties -->
 <div class="parties">
   <div class="pbox">
     <div class="plabel">Sold By</div>
@@ -133,7 +128,6 @@ export const generateInvoice = (order: any) => {
   </div>
 </div>
 
-<!-- Items table -->
 <table>
   <thead>
     <tr>
@@ -148,7 +142,6 @@ export const generateInvoice = (order: any) => {
   <tbody>${rows}</tbody>
 </table>
 
-<!-- Totals -->
 <div class="totals">
   <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#444;">
     <span>Subtotal</span><span>&#8377;${subtotal.toLocaleString('en-IN')}</span>
@@ -169,7 +162,6 @@ export const generateInvoice = (order: any) => {
   ${txnRow}
 </div>
 
-<!-- Footer -->
 <div class="ftr">
   <div style="font-size:11px;color:#999;line-height:1.7;">
     <strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>
