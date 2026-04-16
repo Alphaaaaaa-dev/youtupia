@@ -130,7 +130,7 @@ async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[])
 
 async function dbSaveOrder(order: Order, userId?: string | null): Promise<void> {
   try {
-    await fetch('/api/save-order', {
+    await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order, userId: userId || null }),
@@ -142,7 +142,7 @@ async function dbSaveOrder(order: Order, userId?: string | null): Promise<void> 
 
 async function dbUpdateOrder(orderId: string, updates: Partial<Order>): Promise<void> {
   try {
-    await fetch('/api/update-order', {
+    await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId, updates }),
@@ -154,7 +154,7 @@ async function dbUpdateOrder(orderId: string, updates: Partial<Order>): Promise<
 
 async function dbLoadOrders(userId?: string | null): Promise<Order[] | null> {
   try {
-    const url = userId ? `/api/get-orders?userId=${userId}` : '/api/get-orders';
+    const url = userId ? `/api/orders?userId=${userId}}` : '/api/orders';
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
