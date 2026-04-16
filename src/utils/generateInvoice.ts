@@ -6,10 +6,10 @@
 // ── EDIT THESE DETAILS ────────────────────────────────────────────────────
 const BUSINESS = {
   name:     'Youtupia Merchandise LLP',
-  address1: 'Jodhpur, Rajasthan - 342001',  // ← Change this
+  address1: 'Jaipur, Rajasthan - 302050',  // ← Change this
   address2: 'India',
   email:    'youtupiastore@gmail.com',       // ← Change this
-  gst:      'YOUR_GST_NUMBER_HERE',          // ← Add your GST number
+  gst:      '08CLBPJ3540A1ZP',          // ← Add your GST number
   cin:      '',                              // ← Add CIN if applicable
   logo:     '/favicon.ico',                  // favicon path
 };
