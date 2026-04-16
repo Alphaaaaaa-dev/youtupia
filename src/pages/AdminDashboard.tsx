@@ -442,7 +442,7 @@ const OverviewTab = () => {
 
 // ── ORDERS TAB ─────────────────────────────────────
 const OrdersTab = () => {
-  const { orders, updateOrderStatus, updateOrder } = useStore();
+  const { orders, updateOrderStatus, updateOrder, deleteOrder } = useStore();
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
@@ -450,13 +450,15 @@ const OrdersTab = () => {
   const [savedTracking, setSavedTracking] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelRemarkInput, setCancelRemarkInput] = useState('');
-
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+ 
   const STATUS_COLOR: Record<string, string> = { processing: '#fbbf24', preorder_confirmed: '#a78bfa', confirmed: '#60a5fa', shipped: '#8b5cf6', delivered: '#4ade80', cancelled: '#ef4444' };
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
-  const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
+  const totalRevenue = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + o.total, 0);
   const codCount = orders.filter(o => (o as any).paymentMethod === 'cod').length;
   const onlineCount = orders.filter(o => (o as any).paymentMethod !== 'cod').length;
-
+  const pendingCOD = orders.filter(o => (o as any).paymentMethod === 'cod' && o.status === 'processing').length;
+ 
   const saveTracking = (orderId: string) => {
     const trackingId = (trackingInputs[orderId] || '').trim();
     const notes = (notesInputs[orderId] || '').trim();
@@ -464,22 +466,31 @@ const OrdersTab = () => {
     const updates: any = {};
     if (trackingId) {
       updates.trackingId = trackingId;
-      updates.trackingUrl = `https://www.delhivery.com/track/package/${trackingId}`;
-      updates.status = 'shipped'; // auto-mark shipped when tracking added
+      updates.trackingUrl = 'https://www.delhivery.com/track/package/' + trackingId;
+      updates.status = 'shipped';
     }
     if (notes) updates.notes = notes;
     updateOrder(orderId, updates);
-    sonnerToast.success('Tracking saved!', { description: `Order ${orderId} updated.` });
+    sonnerToast.success('Tracking saved!', { description: 'Order ' + orderId + ' updated.' });
     setSavedTracking(orderId);
     setTimeout(() => setSavedTracking(null), 2500);
   };
-
+ 
   return (
     <div>
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Orders</h1>
       <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Manage orders, update status, add Delhivery tracking numbers.</p>
-
-      {/* Stats row */}
+ 
+      {pendingCOD > 0 && (
+        <div style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '12px', padding: '14px 18px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '20px' }}>⚠️</span>
+          <div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#fbbf24' }}>{pendingCOD} COD order{pendingCOD > 1 ? 's' : ''} waiting for your approval</div>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Accept or decline each COD order below. Prepaid orders are auto-accepted.</div>
+          </div>
+        </div>
+      )}
+ 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
         {[
           { label: 'TOTAL ORDERS', value: orders.length, color: '#f1f5f9' },
@@ -495,151 +506,173 @@ const OrdersTab = () => {
           </div>
         ))}
       </div>
-
-      {/* Filter */}
+ 
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
         {['all','processing','preorder_confirmed','confirmed','shipped','delivered','cancelled'].map(f => (
-          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : STATUS_COLOR[f] || '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
-            {f === 'all' ? `All (${orders.length})` : `${f.replace('_',' ').charAt(0).toUpperCase()+f.replace('_',' ').slice(1)} (${orders.filter(o=>o.status===f).length})`}
+          <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: '1px solid ' + (filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'), background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : STATUS_COLOR[f] || '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
+            {f === 'all' ? 'All (' + orders.length + ')' : (f.replace('_',' ').charAt(0).toUpperCase()+f.replace('_',' ').slice(1)) + ' (' + orders.filter(o=>o.status===f).length + ')'}
           </button>
         ))}
       </div>
-
+ 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>No orders found.</div>
         ) : filtered.map(o => {
           const isCOD = (o as any).paymentMethod === 'cod';
+          const isPrepaid = !isCOD;
           const isOpen = expanded === o.id;
+          const isNewCOD = isCOD && o.status === 'processing';
+          const isNewPrepaid = isPrepaid && o.status === 'processing';
           return (
-            <div key={o.id} style={{ ...card, overflow: 'hidden' }}>
-              {/* Header row */}
+            <div key={o.id} style={{ ...card, overflow: 'hidden', border: isNewCOD ? '1px solid rgba(251,191,36,0.4)' : isNewPrepaid ? '1px solid rgba(96,165,250,0.3)' : '1px solid rgba(255,255,255,0.07)' }}>
+ 
+              {isNewCOD && (
+                <div style={{ background: 'rgba(251,191,36,0.07)', borderBottom: '1px solid rgba(251,191,36,0.2)', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '16px' }}>💵</span>
+                    <div>
+                      <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#fbbf24' }}>New COD Order — Action Required</div>
+                      <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '11px', color: '#64748b' }}>Verify and accept or decline this cash on delivery order.</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => { updateOrder(o.id, { status: 'confirmed' }); sonnerToast.success('COD order accepted!', { description: o.id }); }}
+                      style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#22c55e', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                      ✓ Accept Order
+                    </button>
+                    <button onClick={() => { setCancelTarget(o.id); setCancelRemarkInput(''); }}
+                      style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                      ✕ Decline Order
+                    </button>
+                  </div>
+                </div>
+              )}
+ 
+              {isNewPrepaid && (
+                <div style={{ background: 'rgba(96,165,250,0.06)', borderBottom: '1px solid rgba(96,165,250,0.15)', padding: '9px 18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px' }}>💳</span>
+                  <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#60a5fa', fontWeight: 700 }}>Prepaid — Payment verified. Auto-accepted.</span>
+                  <button onClick={() => { updateOrder(o.id, { status: 'confirmed' }); sonnerToast.success('Order confirmed', { description: o.id }); }}
+                    style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: '6px', border: 'none', background: '#22c55e', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                    Confirm Now
+                  </button>
+                </div>
+              )}
+ 
+              {cancelTarget === o.id && (
+                <div style={{ background: 'rgba(239,68,68,0.06)', borderBottom: '1px solid rgba(239,68,68,0.2)', padding: '12px 18px' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginBottom: '6px' }}>DECLINE / CANCELLATION REASON</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input value={cancelRemarkInput} onChange={e => setCancelRemarkInput(e.target.value)}
+                      placeholder="e.g. Item out of stock, suspicious address, customer unreachable..."
+                      style={{ width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box', flex: 1 }} />
+                    <button onClick={() => { updateOrder(o.id, { status: 'cancelled', cancelReason: cancelRemarkInput || 'Declined by seller' }); setCancelTarget(null); sonnerToast.success('Order declined/cancelled', { description: o.id }); }}
+                      style={{ padding: '9px 14px', borderRadius: '8px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                      Confirm Decline
+                    </button>
+                    <button onClick={() => setCancelTarget(null)} style={{ padding: '9px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                  </div>
+                </div>
+              )}
+ 
               <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                 <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setExpanded(isOpen ? null : o.id)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '5px' }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '13px', color: '#f1f5f9' }}>{o.id}</span>
-                    <span style={{ background: STATUS_COLOR[o.status] + '18', color: STATUS_COLOR[o.status], border: `1px solid ${STATUS_COLOR[o.status]}30`, borderRadius: '20px', padding: '2px 9px', fontSize: '10px', fontWeight: 700, textTransform: 'capitalize' }}>{o.status}</span>
+                    <span style={{ background: STATUS_COLOR[o.status] + '18', color: STATUS_COLOR[o.status], border: '1px solid ' + STATUS_COLOR[o.status] + '30', borderRadius: '20px', padding: '2px 9px', fontSize: '10px', fontWeight: 700, textTransform: 'capitalize' }}>{o.status.replace('_', ' ')}</span>
                     <span style={{ background: isCOD ? 'rgba(74,222,128,0.1)' : 'rgba(96,165,250,0.1)', color: isCOD ? '#4ade80' : '#60a5fa', borderRadius: '20px', padding: '2px 8px', fontSize: '9px', fontWeight: 700 }}>{isCOD ? '💵 COD' : '💳 PAID'}</span>
                     {(o as any).trackingId && <span style={{ background: 'rgba(139,92,246,0.12)', color: '#a78bfa', borderRadius: '20px', padding: '2px 8px', fontSize: '9px', fontWeight: 700 }}>🚚 TRACKING ADDED</span>}
                   </div>
-                  <div style={{ ...label }}>{o.customerName} · {o.customerEmail} · {o.customerPhone}</div>
-                  <div style={{ ...label, marginTop: '2px' }}>📍 {o.address}</div>
-                  {(o as any).discountCode && <div style={{ ...label, color: '#4ade80', marginTop: '2px' }}>🏷 {(o as any).discountCode}</div>}
+                  <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' }}>{o.customerName} · {o.customerEmail} · {o.customerPhone}</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginTop: '2px' }}>📍 {o.address}</div>
+                  {(o as any).discountCode && <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#4ade80', letterSpacing: '0.1em', marginTop: '2px' }}>🏷 {(o as any).discountCode}</div>}
+                  {(o as any).cancelReason && <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#f87171', letterSpacing: '0.1em', marginTop: '2px' }}>❌ {(o as any).cancelReason}</div>}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
-                  <div style={{ ...label }}>{new Date(o.createdAt).toLocaleDateString('en-IN')}</div>
-                  <button
-                    onClick={e => { e.stopPropagation(); generateInvoice(o); }}
-                    style={{ padding: '5px 11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
-                    🧾 Invoice
-                  </button>
-                  <div style={{ ...label, cursor: 'pointer', color: isOpen ? '#ff6666' : '#475569' }} onClick={() => setExpanded(isOpen ? null : o.id)}>{isOpen ? '▲ collapse' : '▼ expand'}</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' }}>{new Date(o.createdAt).toLocaleDateString('en-IN')}</div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); generateInvoice(o); }}
+                      style={{ padding: '5px 11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      🧾 Invoice
+                    </button>
+                    {deleteConfirm === o.id ? (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={() => { deleteOrder(o.id); setDeleteConfirm(null); sonnerToast.success('Order deleted', { description: o.id }); }}
+                          style={{ padding: '5px 10px', borderRadius: '6px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                          Confirm Delete
+                        </button>
+                        <button onClick={() => setDeleteConfirm(null)}
+                          style={{ padding: '5px 8px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '11px' }}>
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={e => { e.stopPropagation(); setDeleteConfirm(o.id); }}
+                        style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        🗑 Delete
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '10px', color: isOpen ? '#ff6666' : '#475569', cursor: 'pointer', letterSpacing: '0.1em' }} onClick={() => setExpanded(isOpen ? null : o.id)}>{isOpen ? '▲ collapse' : '▼ expand'}</div>
                 </div>
               </div>
-
-              {/* Expanded section */}
+ 
               {isOpen && (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px' }}>
-                  {/* Items */}
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
                     {o.items.map(item => (
-                      <div key={`${item.productId}-${item.size}`} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '6px 10px' }}>
+                      <div key={item.productId + '-' + item.size} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '6px 10px' }}>
                         <img src={item.product.images[0]} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px' }} onError={e => { (e.target as any).style.display = 'none'; }} />
                         <div>
                           <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#f1f5f9', fontWeight: 600 }}>{item.product.name}</div>
-                          <div style={{ ...label }}>{item.size} × {item.quantity} · ₹{(item.product.price * item.quantity).toLocaleString()}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' }}>{item.size} × {item.quantity} · ₹{(item.product.price * item.quantity).toLocaleString()}</div>
                         </div>
                       </div>
                     ))}
                   </div>
-
-                  {/* Status buttons */}
+ 
                   <div style={{ marginBottom: '16px' }}>
-                    <div style={{ ...label, marginBottom: '8px' }}>UPDATE STATUS</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginBottom: '8px' }}>UPDATE STATUS</div>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {/* Quick action buttons: Confirm or Cancel with remark */}
-                      {o.status === 'processing' && (
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', padding: '12px', background: 'rgba(255,165,0,0.06)', border: '1px solid rgba(255,165,0,0.15)', borderRadius: '8px' }}>
-                          <div style={{ ...label, marginBottom: '8px', color: '#fbbf24', fontSize: '10px' }}>NEW ORDER — ACTION REQUIRED</div>
-                          <button onClick={() => { updateOrderStatus(o.id, 'confirmed'); sonnerToast.success('Order confirmed!', { description: o.id }); }}
-                            style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.3)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                            ✓ Confirm Order
-                          </button>
-                          <button onClick={() => { setCancelTarget(o.id); setCancelRemarkInput(''); }}
-                            style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
-                            ✕ Cancel Order
-                          </button>
-                        </div>
-                      )}
-                      {/* Cancel remark input — shows inline when cancel is clicked */}
-                      {cancelTarget === o.id && (
-                        <div style={{ padding: '12px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', marginBottom: '10px' }}>
-                          <div style={{ ...label, marginBottom: '6px', color: '#f87171' }}>CANCELLATION REASON (shown to customer)</div>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <input value={cancelRemarkInput} onChange={e => setCancelRemarkInput(e.target.value)}
-                              placeholder="e.g. Item out of stock, payment not received..."
-                              style={{ ...inputStyle, flex: 1 }} />
-                            <button onClick={() => { updateOrder(o.id, { status: 'cancelled', cancelReason: cancelRemarkInput || 'Cancelled by seller' }); setCancelTarget(null); sonnerToast.success('Order cancelled', { description: o.id }); }}
-                              style={{ padding: '9px 14px', borderRadius: '8px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
-                              Confirm Cancel
-                            </button>
-                            <button onClick={() => setCancelTarget(null)}
-                              style={{ padding: '9px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {/* All status buttons */}
                       {(['processing','preorder_confirmed','confirmed','shipped','delivered','cancelled'] as const).map(s => (
-                        <button key={s} onClick={() => { updateOrderStatus(o.id, s); sonnerToast.success('Status updated', { description: o.id + ' → ' + s }); }} disabled={o.status === s}
-                          style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${o.status === s ? STATUS_COLOR[s] : 'rgba(255,255,255,0.1)'}`, background: o.status === s ? STATUS_COLOR[s] + '18' : 'rgba(255,255,255,0.03)', color: o.status === s ? STATUS_COLOR[s] : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: o.status === s ? 'default' : 'pointer', textTransform: 'capitalize', transition: 'all 0.15s', fontWeight: o.status === s ? 700 : 400 }}>
+                        <button key={s} onClick={() => {
+                          if (s === 'cancelled') { setCancelTarget(o.id); setCancelRemarkInput(''); return; }
+                          updateOrder(o.id, { status: s });
+                          sonnerToast.success('Status updated', { description: o.id + ' → ' + s });
+                        }} disabled={o.status === s}
+                          style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid ' + (o.status === s ? STATUS_COLOR[s] : 'rgba(255,255,255,0.1)'), background: o.status === s ? STATUS_COLOR[s] + '18' : 'rgba(255,255,255,0.03)', color: o.status === s ? STATUS_COLOR[s] : s === 'cancelled' ? '#f87171' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: o.status === s ? 'default' : 'pointer', textTransform: 'capitalize', fontWeight: o.status === s ? 700 : 400 }}>
                           {o.status === s ? '● ' : ''}{s.replace('_',' ')}
                         </button>
                       ))}
                     </div>
                   </div>
-
-                  {/* Delhivery tracking input */}
-                  <div style={{ ...card, padding: '14px', marginBottom: '10px', border: '1px solid rgba(139,92,246,0.2)' }}>
-                    <div style={{ ...label, marginBottom: '8px', color: '#a78bfa' }}>DELHIVERY TRACKING NUMBER (AWB)</div>
+ 
+                  <div style={{ background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '14px', marginBottom: '10px', borderColor: 'rgba(139,92,246,0.2)' }}>
+                    <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#a78bfa', letterSpacing: '0.1em', marginBottom: '8px' }}>DELHIVERY TRACKING NUMBER (AWB)</div>
                     {(o as any).trackingId ? (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <div style={{ fontFamily: 'monospace', fontSize: '13px', color: '#a78bfa', fontWeight: 700 }}>{(o as any).trackingId}</div>
-                          <a href={(o as any).trackingUrl || `https://www.delhivery.com/track/package/${(o as any).trackingId}`} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#60a5fa', textDecoration: 'none' }}>
-                            🔗 Open on Delhivery →
-                          </a>
+                          <a href={(o as any).trackingUrl || 'https://www.delhivery.com/track/package/' + (o as any).trackingId} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#60a5fa', textDecoration: 'none' }}>🔗 Open on Delhivery →</a>
                         </div>
-                        <button onClick={() => { updateOrder(o.id, { trackingId: '', trackingUrl: '' }); }} style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer' }}>
-                          Clear
-                        </button>
+                        <button onClick={() => updateOrder(o.id, { trackingId: '', trackingUrl: '' })} style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer' }}>Clear</button>
                       </div>
                     ) : (
                       <div>
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                          <input
-                            value={trackingInputs[o.id] || ''}
-                            onChange={e => setTrackingInputs(prev => ({ ...prev, [o.id]: e.target.value }))}
-                            placeholder="Enter AWB / tracking number from Delhivery"
-                            style={{ ...inputStyle, flex: 1 }}
-                          />
+                        <div style={{ marginBottom: '8px' }}>
+                          <input value={trackingInputs[o.id] || ''} onChange={e => setTrackingInputs(prev => ({ ...prev, [o.id]: e.target.value }))} placeholder="Enter AWB / tracking number from Delhivery" style={{ width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
                         </div>
-                        <div style={{ ...label, marginBottom: '6px', marginTop: '4px' }}>INTERNAL NOTES (optional)</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginBottom: '6px' }}>INTERNAL NOTES (optional)</div>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <input
-                            value={notesInputs[o.id] || ''}
-                            onChange={e => setNotesInputs(prev => ({ ...prev, [o.id]: e.target.value }))}
-                            placeholder="e.g. Dispatched from Delhi warehouse"
-                            style={{ ...inputStyle, flex: 1 }}
-                          />
-                          <button onClick={() => saveTracking(o.id)}
-                            style={{ padding: '9px 16px', borderRadius: '8px', border: 'none', background: savedTracking === o.id ? '#16a34a' : '#8b5cf6', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.25s', flexShrink: 0 }}>
-                            <Save size={12} /> {savedTracking === o.id ? 'Saved!' : 'Save & Mark Shipped'}
+                          <input value={notesInputs[o.id] || ''} onChange={e => setNotesInputs(prev => ({ ...prev, [o.id]: e.target.value }))} placeholder="e.g. Dispatched from Jaipur warehouse" style={{ width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box', flex: 1 }} />
+                          <button onClick={() => saveTracking(o.id)} style={{ padding: '9px 16px', borderRadius: '8px', border: 'none', background: savedTracking === o.id ? '#16a34a' : '#8b5cf6', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.25s', flexShrink: 0 }}>
+                            💾 Save & Mark Shipped
                           </button>
                         </div>
-                        <div style={{ ...label, marginTop: '6px', color: '#475569' }}>
+                        <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', letterSpacing: '0.1em', marginTop: '6px' }}>
                           💡 Saving a tracking number automatically marks the order as "Shipped"
                         </div>
                       </div>
