@@ -70,7 +70,7 @@ const orderConfirmEmail = (
         <td style="background:#0a0a0a;padding:20px 36px;text-align:center;border-top:1px solid #1a1a1a;">
           <p style="color:#1e293b;font-size:11px;margin:0 0 4px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">YOUTUPIA · WEAR YOUR DREAMS</p>
           <p style="color:#334155;font-size:11px;margin:0;">
-            Questions? <a href="mailto:support@youtupia.in" style="color:#ff0000;text-decoration:none;">support@youtupia.in</a>
+            Questions? <a href="mailto:youtupiastore@gmail.com" style="color:#ff0000;text-decoration:none;">youtupiastore@gmail.com</a>
           </p>
         </td>
       </tr>
@@ -95,6 +95,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!order || !order.id)
       return res.status(400).json({ error: 'Missing order data' });
 
+    console.log('Saving order:', order.id, 'userId:', userId);
+
     // ── 1. Save order to Supabase ──────────────────────────────────────────
     const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
       method: 'POST',
@@ -109,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_id:          userId || null,
         items:            order.items,
         total:            order.total,
-        status:           'processing',
+        status:           order.status || 'processing',
         customer_name:    order.customerName,
         customer_email:   order.customerEmail,
         customer_phone:   order.customerPhone,
@@ -118,39 +120,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         payment_id:       order.paymentId || null,
         discount_code:    order.discountCode || null,
         discount_amount:  order.discountAmount || null,
+        cod_charge:       order.codCharge || null,
+        tracking_id:      order.trackingId || null,
+        tracking_url:     order.trackingUrl || null,
+        notes:            order.notes || null,
+        cancel_reason:    order.cancelReason || null,
       }),
     });
 
     if (!insertRes.ok) {
       const err = await insertRes.json();
-      console.error('Supabase insert error:', err);
-      return res.status(500).json({ error: 'Failed to save order' });
+      console.error('Supabase insert error:', JSON.stringify(err));
+
+      // If duplicate key, try updating instead
+      if (err?.code === '23505' || (err?.message || '').includes('duplicate')) {
+        console.log('Duplicate order ID, skipping insert...');
+        return res.status(200).json({ success: true, note: 'order already exists' });
+      }
+
+      return res.status(500).json({ error: 'Failed to save order', detail: err });
     }
 
-    const [savedOrder] = await insertRes.json();
+    const rows = await insertRes.json();
+    const savedOrder = Array.isArray(rows) ? rows[0] : rows;
 
     // ── 2. Send confirmation email via Resend ─────────────────────────────
-    if (RESEND_API_KEY) {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: FROM_EMAIL,
-          to: [order.customerEmail],
-          subject: `Order Confirmed — ${order.id} 🎉`,
-          html: orderConfirmEmail(
-            order.customerName,
-            order.id,
-            order.items,
-            order.total,
-            order.address,
-            order.paymentMethod,
-          ),
-        }),
-      });
+    if (RESEND_API_KEY && order.customerEmail) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+          },
+          body: JSON.stringify({
+            from: FROM_EMAIL,
+            to: [order.customerEmail],
+            subject: `Order Confirmed — ${order.id} 🎉`,
+            html: orderConfirmEmail(
+              order.customerName,
+              order.id,
+              order.items,
+              order.total,
+              order.address,
+              order.paymentMethod,
+            ),
+          }),
+        });
+      } catch (emailErr) {
+        // Non-blocking — don't fail order save if email fails
+        console.error('Email send failed:', emailErr);
+      }
     }
 
     return res.status(200).json({ success: true, order: savedOrder });
