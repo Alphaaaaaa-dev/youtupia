@@ -1,19 +1,10 @@
-import { Analytics } from '@vercel/analytics/next';
- 
+// This file is not used in the Vite app — routing is handled by React Router in App.tsx
+// Kept as placeholder to avoid confusion
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html lang="en">
-      <head>
-        <title>Next.js</title>
-      </head>
-      <body>
-        {children}
-        <Analytics />
-      </body>
-    </html>
-  );
+  return <>{children}</>;
 }
