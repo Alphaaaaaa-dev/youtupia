@@ -54,6 +54,12 @@ export interface TopBanner {
   textColor: string;
 }
 
+export interface VoteOption {
+  id: string;
+  label: string;
+  enabled: boolean;
+}
+
 // ── DEFAULT DATA ──────────────────────────────────────────────────────────────
 const DEFAULT_CREATORS: Creator[] = [
   { id: 'creator1', name: 'Carry Minati', handle: 'carryminati', bio: "India's biggest YouTuber.", avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop&crop=face', banner: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=1200&h=400&fit=crop', subscribers: '41M', productIds: ['p1', 'p3'], dropCountdownEnd: '2026-05-01T00:00:00.000Z' },
@@ -122,6 +128,42 @@ async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[])
   }
 }
 
+async function dbSaveOrder(order: Order, userId?: string | null): Promise<void> {
+  try {
+    await fetch('/api/save-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order, userId: userId || null }),
+    });
+  } catch (e) {
+    console.error('dbSaveOrder failed:', e);
+  }
+}
+
+async function dbUpdateOrder(orderId: string, updates: Partial<Order>): Promise<void> {
+  try {
+    await fetch('/api/update-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, updates }),
+    });
+  } catch (e) {
+    console.error('dbUpdateOrder failed:', e);
+  }
+}
+
+async function dbLoadOrders(userId?: string | null): Promise<Order[] | null> {
+  try {
+    const url = userId ? `/api/get-orders?userId=${userId}` : '/api/get-orders';
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data.orders) ? data.orders : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── LOCAL STORAGE HELPERS ─────────────────────────────────────────────────────
 function lsGet<T>(key: string, fallback: T): T {
   try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; } catch { return fallback; }
@@ -162,14 +204,28 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [creators, setCreatorsState] = useState<Creator[]>(() => lsGet('youtupia_creators', DEFAULT_CREATORS));
   const [drops, setDropsState] = useState<Drop[]>(() => lsGet('youtupia_drops', DEFAULT_DROPS));
 
-  // ── Local-only state (orders, cart, wishlist stay in localStorage) ──
+  // ── Local-only state ──
   const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
-  const [orders, setOrders] = useState<Order[]>(() => lsGet('youtupia_orders', []));
+  const [orders, setOrdersState] = useState<Order[]>(() => lsGet('youtupia_orders', []));
   const [wishlist, setWishlist] = useState<string[]>(() => lsGet('youtupia_wishlist', []));
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => lsGet('youtupia_recent', []));
   const [homePromo, setHomePromoState] = useState<HomePromo>(() => lsGet('youtupia_home_promo', DEFAULT_HOME_PROMO));
   const [coupons, setCouponsState] = useState<DiscountCoupon[]>(() => lsGet('youtupia_coupons', DEFAULT_COUPONS));
   const [topBanner, setTopBannerState] = useState<TopBanner>(() => lsGet('youtupia_top_banner', DEFAULT_TOP_BANNER));
+
+  // Helper to merge DB orders into local state (dedup by id, DB wins on conflicts)
+  const mergeOrders = useCallback((dbOrders: Order[]) => {
+    setOrdersState(prev => {
+      const map = new Map<string, Order>();
+      prev.forEach(o => map.set(o.id, o));
+      dbOrders.forEach(o => map.set(o.id, o)); // DB overwrites local
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      lsSet('youtupia_orders', merged);
+      return merged;
+    });
+  }, []);
 
   // ── Load from Supabase on mount ───────────────────────────────────────────
   useEffect(() => {
@@ -177,11 +233,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     const loadFromDb = async () => {
       setDbLoading(true);
       try {
-        const [dbProducts, dbSeries, dbDrops, dbCreators] = await Promise.all([
+        const [dbProducts, dbSeries, dbDrops, dbCreators, dbAllOrders] = await Promise.all([
           dbLoad<Product>('yt_products'),
           dbLoad<Series>('yt_series'),
           dbLoad<Drop>('yt_drops'),
           dbLoad<Creator>('yt_creators'),
+          dbLoadOrders(null), // load ALL orders for admin dashboard
         ]);
         if (cancelled) return;
 
@@ -201,6 +258,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           setCreatorsState(dbCreators);
           lsSet('youtupia_creators', dbCreators);
         }
+        if (dbAllOrders && dbAllOrders.length > 0) {
+          mergeOrders(dbAllOrders);
+        }
       } catch (e) {
         console.warn('DB load failed, using localStorage cache:', e);
       } finally {
@@ -210,7 +270,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     loadFromDb();
     const t = setTimeout(() => setHydrating(false), 520);
     return () => { cancelled = true; clearTimeout(t); };
-  }, []);
+  }, [mergeOrders]);
 
   // ── Setters that write to BOTH Supabase and localStorage ─────────────────
   const setProducts = useCallback((p: Product[]) => {
@@ -243,7 +303,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const setTopBanner = useCallback((b: TopBanner) => { setTopBannerState(b); lsSet('youtupia_top_banner', b); }, []);
 
   useEffect(() => { lsSet('youtupia_cart', cart); }, [cart]);
-  useEffect(() => { lsSet('youtupia_orders', orders); }, [orders]);
   useEffect(() => { lsSet('youtupia_wishlist', wishlist); }, [wishlist]);
   useEffect(() => { lsSet('youtupia_recent', recentlyViewed); }, [recentlyViewed]);
 
@@ -286,11 +345,33 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
-  const addOrder = (order: Order) => setOrders(prev => [order, ...prev]);
-  const updateOrderStatus = (orderId: string, status: Order['status']) =>
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-  const updateOrder = (orderId: string, updates: Partial<Order>) =>
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updates } : o));
+  const addOrder = useCallback((order: Order) => {
+    setOrdersState(prev => {
+      const next = [order, ...prev.filter(o => o.id !== order.id)];
+      lsSet('youtupia_orders', next);
+      return next;
+    });
+    // Persist to Supabase (non-blocking — CheckoutPage also calls /api/save-order directly)
+    dbSaveOrder(order);
+  }, []);
+
+  const updateOrderStatus = useCallback((orderId: string, status: Order['status']) => {
+    setOrdersState(prev => {
+      const next = prev.map(o => o.id === orderId ? { ...o, status } : o);
+      lsSet('youtupia_orders', next);
+      return next;
+    });
+    dbUpdateOrder(orderId, { status });
+  }, []);
+
+  const updateOrder = useCallback((orderId: string, updates: Partial<Order>) => {
+    setOrdersState(prev => {
+      const next = prev.map(o => o.id === orderId ? { ...o, ...updates } : o);
+      lsSet('youtupia_orders', next);
+      return next;
+    });
+    dbUpdateOrder(orderId, updates);
+  }, []);
 
   const toggleWishlist = (productId: string) => setWishlist(prev => {
     const exists = prev.includes(productId);
