@@ -80,7 +80,7 @@ const OrdersPage = () => {
   useEffect(() => {
     if (!user?.id) return;
     setSyncing(true);
-    fetch(`/api/get-orders?userId=${user.id}`)
+    fetch(`/api/orders?userId=${user.id}`)
       .then(r => r.json())
       .then(data => {
         if (data.orders && Array.isArray(data.orders)) {
