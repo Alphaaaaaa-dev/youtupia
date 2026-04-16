@@ -22,15 +22,16 @@ const ContactSupportPage = () => {
     setLoading(true);
     setSubmitError('');
     try {
-      const res = await fetch('/api/submit-ticket', {
+      // ← CHANGED: /api/submit-ticket → /api/tickets
+      const res = await fetch('/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim(),
+          name:     form.name.trim(),
+          email:    form.email.trim(),
           category: form.category,
-          subject: form.subject.trim(),
-          message: form.message.trim(),
+          subject:  form.subject.trim(),
+          message:  form.message.trim(),
         }),
       });
       const data = await res.json();
@@ -73,15 +74,14 @@ const ContactSupportPage = () => {
 
   const tabs: { id: TabId; label: string; emoji: string }[] = [
     { id: 'support', label: 'Customer Support', emoji: '🙋' },
-    { id: 'social', label: 'Social & Connect', emoji: '📲' },
-    { id: 'collab', label: 'Creator Collab', emoji: '🤝' },
+    { id: 'social',  label: 'Social & Connect',  emoji: '📲' },
+    { id: 'collab',  label: 'Creator Collab',     emoji: '🤝' },
   ];
 
-  // Social links — only Instagram and Twitter/X shown
   const socialLinks = [
-    { icon: Instagram, label: 'Instagram', handle: '@_youtupia_', sub: 'Follow for drops & behind the scenes', href: 'https://www.instagram.com/_youtupia_', color: '#E1306C', bg: 'rgba(225,48,108,0.1)' },
-    { icon: Twitter, label: 'Twitter / X', handle: '@_youtupia_', sub: 'Latest news, restocks & announcements', href: 'https://twitter.com/_youtupia_', color: '#1DA1F2', bg: 'rgba(29,161,242,0.1)' },
-    { icon: Mail, label: 'Email Support', handle: 'youtupiastore@gmail.com', sub: 'Response within 24 hrs', href: 'mailto:youtupiastore@gmail.com', color: '#ff0000', bg: 'rgba(255,0,0,0.1)' },
+    { icon: Instagram, label: 'Instagram',   handle: '@_youtupia_',          sub: 'Follow for drops & behind the scenes',    href: 'https://www.instagram.com/_youtupia_', color: '#E1306C', bg: 'rgba(225,48,108,0.1)' },
+    { icon: Twitter,   label: 'Twitter / X', handle: '@_youtupia_',          sub: 'Latest news, restocks & announcements',   href: 'https://twitter.com/_youtupia_',       color: '#1DA1F2', bg: 'rgba(29,161,242,0.1)' },
+    { icon: Mail,      label: 'Email Support',handle: 'youtupiastore@gmail.com', sub: 'Response within 24 hrs',              href: 'mailto:youtupiastore@gmail.com',       color: '#ff0000', bg: 'rgba(255,0,0,0.1)' },
   ];
 
   return (
@@ -91,10 +91,10 @@ const ContactSupportPage = () => {
         <div className="page-enter">
           <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>Get in Touch</div>
           <h1 style={{ fontSize: '36px', fontWeight: 900, marginBottom: '12px', letterSpacing: '-0.02em' }}>Contact Us</h1>
-          <p style={{ fontSize: '16px', color: 'hsl(var(--muted-foreground))', maxWidth: '440px', margin: '0 auto 32px', lineHeight: 1.7 }}>We're real people, not bots. Questions, collabs, feedback — hit us up.</p>
+          <p style={{ fontSize: '16px', color: 'hsl(var(--muted-foreground))', maxWidth: '440px', margin: '0 auto 32px', lineHeight: 1.7 }}>
+            We're real people, not bots. Questions, collabs, feedback — hit us up.
+          </p>
         </div>
-
-        {/* Tabs */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', paddingBottom: '0' }}>
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -110,12 +110,11 @@ const ContactSupportPage = () => {
         {/* ── SUPPORT TAB ── */}
         {activeTab === 'support' && (
           <div className="fade-in">
-            {/* Contact cards — no WhatsApp */}
             <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '48px' }}>
               {[
-                { icon: Mail, label: 'Email Us', value: 'youtupiastore@gmail.com', sub: 'Response within 24 hrs', href: 'mailto:youtupiastore@gmail.com', color: '#ff0000' },
-                { icon: Instagram, label: 'Instagram', value: '@_youtupia_', sub: 'DMs open for support', href: 'https://www.instagram.com/_youtupia_', color: '#E1306C' },
-                { icon: Clock, label: 'Support Hours', value: '10am – 8pm', sub: 'Monday to Saturday', href: '#', color: '#f59e0b' },
+                { icon: Mail,  label: 'Email Us',      value: 'youtupiastore@gmail.com', sub: 'Response within 24 hrs', href: 'mailto:youtupiastore@gmail.com', color: '#ff0000' },
+                { icon: Instagram, label: 'Instagram', value: '@_youtupia_',             sub: 'DMs open for support',   href: 'https://www.instagram.com/_youtupia_', color: '#E1306C' },
+                { icon: Clock, label: 'Support Hours', value: '10am – 8pm',              sub: 'Monday to Saturday',     href: '#', color: '#f59e0b' },
               ].map(({ icon: Icon, label, value, sub, href, color }) => (
                 <a key={label} href={href} target={href !== '#' ? '_blank' : undefined} rel="noreferrer"
                   style={{ textDecoration: 'none', background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '16px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s, box-shadow 0.2s', cursor: href === '#' ? 'default' : 'pointer' }}
@@ -134,7 +133,6 @@ const ContactSupportPage = () => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-              {/* Newsletter + FAQ */}
               <div>
                 <div style={{ background: 'linear-gradient(135deg, #ff0000 0%, #cc0000 100%)', borderRadius: '20px', padding: '32px', marginBottom: '20px', position: 'relative', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '160px', height: '160px', borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
@@ -145,9 +143,7 @@ const ContactSupportPage = () => {
                     <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)}
                       style={{ flex: 1, padding: '10px 14px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: '8px', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none' }} />
                     <button onClick={() => { if (email) { setEmailSent(true); setEmail(''); setTimeout(() => setEmailSent(false), 3000); } }}
-                      style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: 'white', color: '#ff0000', fontWeight: 700, fontSize: '13px', cursor: 'pointer', transition: 'transform 0.15s', flexShrink: 0 }}
-                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.04)')}
-                      onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
+                      style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: 'white', color: '#ff0000', fontWeight: 700, fontSize: '13px', cursor: 'pointer', flexShrink: 0 }}>
                       {emailSent ? '✓ Done!' : 'Join'}
                     </button>
                   </div>
@@ -164,7 +160,6 @@ const ContactSupportPage = () => {
                 </div>
               </div>
 
-              {/* Contact form */}
               <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '20px', padding: '32px' }}>
                 <h2 style={{ fontWeight: 800, fontSize: '20px', marginBottom: '6px' }}>Send a Message</h2>
                 <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginBottom: '24px' }}>We reply within 24 hours on weekdays.</p>
@@ -174,20 +169,14 @@ const ContactSupportPage = () => {
                       <div key={key}>
                         <label style={labelStyle}>{lbl}</label>
                         <input type={type} required placeholder={ph} value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                          style={inputStyle}
-                          onFocus={e => (e.target.style.borderColor = '#ff0000')}
-                          onBlur={e => (e.target.style.borderColor = 'hsl(var(--border))')} />
+                          style={inputStyle} onFocus={e => (e.target.style.borderColor = '#ff0000')} onBlur={e => (e.target.style.borderColor = 'hsl(var(--border))')} />
                       </div>
                     ))}
                   </div>
                   <div style={{ marginBottom: '14px' }}>
                     <label style={labelStyle}>Category</label>
-                    <select
-                      value={form.category}
-                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                      style={{ ...inputStyle, cursor: 'pointer' }}
-                    >
-                      {['GENERAL INQUIRY', 'ORDER ISSUE', 'RETURN / REFUND', 'PAYMENT ISSUE', 'PRODUCT FEEDBACK', 'OTHER'].map(c => (
+                    <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ ...inputStyle, cursor: 'pointer' }}>
+                      {['GENERAL INQUIRY','ORDER ISSUE','RETURN / REFUND','PAYMENT ISSUE','PRODUCT FEEDBACK','OTHER'].map(c => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
@@ -200,19 +189,14 @@ const ContactSupportPage = () => {
                   <div style={{ marginBottom: '20px' }}>
                     <label style={labelStyle}>Message</label>
                     <textarea required rows={5} placeholder="Tell us what's up..." value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                      style={{ ...inputStyle, resize: 'vertical' }}
-                      onFocus={e => (e.target.style.borderColor = '#ff0000')} onBlur={e => (e.target.style.borderColor = 'hsl(var(--border))')} />
+                      style={{ ...inputStyle, resize: 'vertical' }} onFocus={e => (e.target.style.borderColor = '#ff0000')} onBlur={e => (e.target.style.borderColor = 'hsl(var(--border))')} />
                   </div>
                   <button type="submit" disabled={loading} className="btn-yt ripple"
                     style={{ width: '100%', justifyContent: 'center', borderRadius: '10px', padding: '13px', fontSize: '14px', fontWeight: 700, gap: '8px', background: sent ? '#16a34a' : '#ff0000', transition: 'background 0.3s', opacity: loading ? 0.7 : 1, display: 'flex', alignItems: 'center' }}>
                     <Send size={15} />
                     {sent ? '✓ Message Sent!' : loading ? 'Sending...' : 'Send Message'}
                   </button>
-                  {submitError && (
-                    <div style={{ marginTop: '10px', fontSize: '13px', color: '#f87171', textAlign: 'center' }}>
-                      {submitError}
-                    </div>
-                  )}
+                  {submitError && <div style={{ marginTop: '10px', fontSize: '13px', color: '#f87171', textAlign: 'center' }}>{submitError}</div>}
                 </form>
               </div>
             </div>
@@ -229,8 +213,8 @@ const ContactSupportPage = () => {
             <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '48px' }}>
               {socialLinks.map(({ icon: Icon, label, handle, sub, href, color, bg }) => (
                 <a key={label} href={href} target={href !== '#' ? '_blank' : undefined} rel="noreferrer"
-                  style={{ textDecoration: 'none', background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '18px', padding: '28px', display: 'flex', alignItems: 'center', gap: '18px', transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, border-color 0.2s', cursor: href === '#' ? 'default' : 'pointer' }}
-                  onMouseEnter={e => { if (href !== '#') { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 16px 40px rgba(0,0,0,0.2)`; e.currentTarget.style.borderColor = color + '50'; } }}
+                  style={{ textDecoration: 'none', background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '18px', padding: '28px', display: 'flex', alignItems: 'center', gap: '18px', transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, border-color 0.2s' }}
+                  onMouseEnter={e => { if (href !== '#') { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.2)'; e.currentTarget.style.borderColor = color + '50'; } }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}>
                   <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Icon size={26} style={{ color }} />
@@ -245,7 +229,6 @@ const ContactSupportPage = () => {
               ))}
             </div>
 
-            {/* Community CTA */}
             <div style={{ background: 'linear-gradient(135deg, #ff0000 0%, #cc0000 100%)', borderRadius: '20px', padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
               <div>
@@ -269,7 +252,6 @@ const ContactSupportPage = () => {
         {activeTab === 'collab' && (
           <div className="fade-in">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', alignItems: 'start' }}>
-              {/* Left: info */}
               <div>
                 <div style={{ marginBottom: '32px' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '10px' }}>For Creators</div>
@@ -278,7 +260,6 @@ const ContactSupportPage = () => {
                     We partner with YouTube creators of all sizes to design, produce, and sell exclusive limited merch drops. Zero upfront cost — we handle everything from design to delivery.
                   </p>
                 </div>
-
                 {[
                   { emoji: '🎨', title: 'Custom Designs', desc: 'Our design team works with you to create merch that matches your brand and aesthetic.' },
                   { emoji: '📦', title: 'We Handle Everything', desc: 'Production, inventory, payments, shipping — fully managed by Youtupia.' },
@@ -295,20 +276,17 @@ const ContactSupportPage = () => {
                     </div>
                   </div>
                 ))}
-
                 <div style={{ padding: '16px 20px', background: 'rgba(255,0,0,0.05)', border: '1px solid rgba(255,0,0,0.12)', borderRadius: '12px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
                   📧 For urgent collab enquiries: <a href="mailto:connectyoutupia@gmail.com" style={{ color: '#ff0000', textDecoration: 'none', fontWeight: 700 }}>connectyoutupia@gmail.com</a>
                 </div>
               </div>
 
-              {/* Right: collab form */}
               <div style={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '20px', padding: '32px', position: 'sticky', top: '80px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                   <Handshake size={20} style={{ color: '#ff0000' }} />
                   <h2 style={{ fontWeight: 800, fontSize: '20px', margin: 0 }}>Apply to Collab</h2>
                 </div>
                 <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginBottom: '24px' }}>Fill this out and our team will reach out within 48 hours.</p>
-
                 {collabSent ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                     <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
@@ -342,8 +320,7 @@ const ContactSupportPage = () => {
                     <div style={{ marginBottom: '20px' }}>
                       <label style={labelStyle}>Your Pitch / Merch Idea</label>
                       <textarea rows={4} placeholder="Tell us your vision — audience, style, what makes your community unique..." value={collabForm.pitch} onChange={e => setCollabForm(f => ({ ...f, pitch: e.target.value }))}
-                        style={{ ...inputStyle, resize: 'vertical' }}
-                        onFocus={e => (e.target.style.borderColor = '#ff0000')} onBlur={e => (e.target.style.borderColor = 'hsl(var(--border))')} />
+                        style={{ ...inputStyle, resize: 'vertical' }} onFocus={e => (e.target.style.borderColor = '#ff0000')} onBlur={e => (e.target.style.borderColor = 'hsl(var(--border))')} />
                     </div>
                     <button type="submit" disabled={loading} className="btn-yt ripple"
                       style={{ width: '100%', justifyContent: 'center', borderRadius: '10px', padding: '13px', fontSize: '14px', fontWeight: 700, gap: '8px', display: 'flex', alignItems: 'center', opacity: loading ? 0.7 : 1 }}>
