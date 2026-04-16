@@ -15,7 +15,7 @@ const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage' | 'coupons' | 'tickets';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage' | 'coupons' | 'tickets' | 'voting';
 
 // ── CALENDAR DATE-TIME PICKER ──────────────────────
 const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChange: (iso: string) => void; labelText: string }) => {
@@ -259,6 +259,7 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'homepage', icon: Youtube, label: 'Home Content' },
     { id: 'coupons', icon: Tag, label: 'Coupons' },
     { id: 'tickets', icon: MessageSquare, label: 'Support Tickets' },
+    { id: 'voting', icon: BarChart2, label: 'Voting Control' },
   ];
   return (
     <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 6%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
@@ -512,10 +513,9 @@ const OrdersTab = () => {
           const isOpen = expanded === o.id;
           return (
             <div key={o.id} style={{ ...card, overflow: 'hidden' }}>
-              {/* Header row — clickable */}
-              <div style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}
-                onClick={() => setExpanded(isOpen ? null : o.id)}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              {/* Header row */}
+              <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setExpanded(isOpen ? null : o.id)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '5px' }}>
                     <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '13px', color: '#f1f5f9' }}>{o.id}</span>
                     <span style={{ background: STATUS_COLOR[o.status] + '18', color: STATUS_COLOR[o.status], border: `1px solid ${STATUS_COLOR[o.status]}30`, borderRadius: '20px', padding: '2px 9px', fontSize: '10px', fontWeight: 700, textTransform: 'capitalize' }}>{o.status}</span>
@@ -526,10 +526,15 @@ const OrdersTab = () => {
                   <div style={{ ...label, marginTop: '2px' }}>📍 {o.address}</div>
                   {(o as any).discountCode && <div style={{ ...label, color: '#4ade80', marginTop: '2px' }}>🏷 {(o as any).discountCode}</div>}
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
-                  <div style={{ ...label, marginTop: '2px' }}>{new Date(o.createdAt).toLocaleDateString('en-IN')}</div>
-                  <div style={{ ...label, marginTop: '4px', color: isOpen ? '#ff6666' : '#475569' }}>{isOpen ? '▲ collapse' : '▼ expand'}</div>
+                  <div style={{ ...label }}>{new Date(o.createdAt).toLocaleDateString('en-IN')}</div>
+                  <button
+                    onClick={e => { e.stopPropagation(); generateInvoice(o); }}
+                    style={{ padding: '5px 11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                    🧾 Invoice
+                  </button>
+                  <div style={{ ...label, cursor: 'pointer', color: isOpen ? '#ff6666' : '#475569' }} onClick={() => setExpanded(isOpen ? null : o.id)}>{isOpen ? '▲ collapse' : '▼ expand'}</div>
                 </div>
               </div>
 
@@ -1699,6 +1704,168 @@ const SupportTicketsTab = () => {
   );
 };
 
+// ── INVOICE GENERATOR ────────────────────────────────
+const generateInvoice = (order: any) => {
+  const subtotal = order.items.reduce((s: number, i: any) => s + i.product.price * i.quantity, 0);
+  const rows = order.items.map((item: any, i: number) =>
+    '<tr><td style="color:#999;font-size:12px;">' + (i+1) + '</td><td><strong>' + item.product.name + '</strong></td><td style="color:#666;">' + item.size + '</td><td style="color:#666;">' + item.quantity + '</td><td>&#8377;' + item.product.price.toLocaleString('en-IN') + '</td><td style="font-weight:700;">&#8377;' + (item.product.price * item.quantity).toLocaleString('en-IN') + '</td></tr>'
+  ).join('');
+  const discountRow = order.discountAmount ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#16a34a;"><span>Discount (' + order.discountCode + ')</span><span>&#8722;&#8377;' + order.discountAmount.toLocaleString('en-IN') + '</span></div>' : '';
+  const codRow = order.codCharge ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span>COD Handling</span><span>&#8377;' + order.codCharge + '</span></div>' : '';
+  const txnRow = order.paymentId ? '<div style="font-size:10px;color:#999;margin-top:6px;font-family:monospace;">Txn: ' + order.paymentId + '</div>' : '';
+  const payBg = order.paymentMethod === 'cod' ? '#dcfce7' : '#dbeafe';
+  const payColor = order.paymentMethod === 'cod' ? '#16a34a' : '#2563eb';
+  const payLabel = order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid Online';
+  const dateStr = new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Invoice ' + order.id + '</title>'
+    + '<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:40px;}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:3px solid #ff0000;margin-bottom:28px;}.parties{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;}.pbox{background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #eee;}.plabel{font-size:9px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#999;margin-bottom:8px;}table{width:100%;border-collapse:collapse;margin-bottom:24px;}th{background:#ff0000;color:white;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}th:last-child,td:last-child{text-align:right;}td{padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;}.ftr{margin-top:40px;padding-top:20px;border-top:2px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;}@media print{body{padding:20px;}}</style>'
+    + '</head><body>'
+    + '<div class="hdr"><div style="display:flex;align-items:center;">'
+    + '<div style="width:48px;height:48px;background:#ff0000;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-right:14px;"><svg width="20" height="18" viewBox="0 0 16 14" fill="none"><path d="M6.5 10L10.5 7L6.5 4V10Z" fill="white"/></svg></div>'
+    + '<div><div style="font-size:26px;font-weight:900;color:#ff0000;">YOUTUPIA</div><div style="font-size:11px;color:#666;">Creator Merchandise Platform</div></div>'
+    + '</div><div style="text-align:right;">'
+    + '<div style="font-size:28px;font-weight:900;">INVOICE</div>'
+    + '<div style="font-family:monospace;font-size:14px;color:#ff0000;font-weight:700;margin-top:4px;">' + order.id + '</div>'
+    + '<div style="font-size:12px;color:#666;margin-top:4px;">' + dateStr + '</div>'
+    + '<div style="display:inline-block;background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:3px 10px;font-size:11px;color:#cc0000;font-weight:700;margin-top:6px;">GST: 27AABCU9603R1ZM</div>'
+    + '</div></div>'
+    + '<div class="parties">'
+    + '<div class="pbox"><div class="plabel">Sold By</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">Youtupia Merchandise LLP</div><div style="font-size:12px;color:#555;line-height:1.6;">123, Creator Hub, Bandra West<br/>Mumbai, Maharashtra - 400050<br/>India<br/>support@youtupia.com</div></div>'
+    + '<div class="pbox"><div class="plabel">Bill To / Ship To</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">' + order.customerName + '</div><div style="font-size:12px;color:#555;line-height:1.6;">' + order.address + '<br/>Phone: ' + order.customerPhone + '<br/>Email: ' + order.customerEmail + '</div></div>'
+    + '</div>'
+    + '<table><thead><tr><th>#</th><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>'
+    + '<div style="margin-left:auto;width:280px;">'
+    + '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#444;"><span>Subtotal</span><span>&#8377;' + subtotal.toLocaleString('en-IN') + '</span></div>'
+    + discountRow
+    + '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span>Shipping</span><span style="color:#16a34a;">FREE</span></div>'
+    + codRow
+    + '<hr style="border:none;border-top:1px solid #eee;margin:8px 0;"/>'
+    + '<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;"><span>Total</span><span>&#8377;' + order.total.toLocaleString('en-IN') + '</span></div>'
+    + '<div style="margin-top:6px;display:flex;gap:8px;"><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:' + payBg + ';color:' + payColor + ';">' + payLabel + '</span>'
+    + '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fff3f3;color:#cc0000;text-transform:capitalize;">' + order.status.replace('_',' ') + '</span></div>'
+    + txnRow
+    + '</div>'
+    + '<div class="ftr"><div style="font-size:11px;color:#999;line-height:1.7;"><strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>GSTIN: 27AABCU9603R1ZM &middot; CIN: U74999MH2024LLP123456<br/>Computer-generated invoice. No signature required.</div>'
+    + '<div style="text-align:right;"><div style="font-size:16px;font-weight:900;color:#ff0000;">YOUTUPIA</div><div style="font-size:10px;color:#bbb;margin-top:2px;">Creator Merch, Made Real.</div></div></div>'
+    + '</body></html>';
+
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+};
+
+// ── VOTING CONTROL TAB ────────────────────────────────
+const VotingControlTab = () => {
+  const { series } = useStore();
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const totalVotes = Object.values(counts).reduce((s, n) => s + n, 0);
+
+  const loadVotes = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/drop-votes');
+      if (res.ok) { const data = await res.json(); setCounts(data.counts || {}); }
+    } catch { /* ignore */ } finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadVotes(); }, []);
+
+  const resetVotes = async () => {
+    if (!confirm('Reset ALL votes to zero? This cannot be undone.')) return;
+    setResetting(true);
+    try {
+      const res = await fetch('/api/drop-votes', { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
+      if (res.ok) { setCounts({}); sonnerToast.success('All votes reset to zero!'); }
+      else sonnerToast.error('Reset failed — check your /api/drop-votes endpoint.');
+    } catch { sonnerToast.error('Reset failed.'); } finally { setResetting(false); }
+  };
+
+  const setManualCount = async (optionId: string, value: number) => {
+    try {
+      await fetch('/api/drop-votes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ optionId, count: value }) });
+      setCounts(prev => ({ ...prev, [optionId]: value }));
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch { sonnerToast.error('Failed to update vote count'); }
+  };
+
+  return (
+    <div>
+      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Voting Control</h1>
+      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Manage community vote counts for the homepage. Votes are stored globally in Supabase — visible to everyone worldwide.</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        {[
+          { label: 'TOTAL VOTES', value: totalVotes.toLocaleString(), color: '#ff6666' },
+          { label: 'OPTIONS', value: series.slice(0, 6).length, color: '#60a5fa' },
+          { label: 'LEADING', value: series.slice(0, 6).sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0))[0]?.name || '—', color: '#4ade80' },
+        ].map(s => (
+          <div key={s.label} style={{ ...card, padding: '14px 16px' }}>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: s.color }}>{s.value}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginTop: '4px' }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ ...card, padding: '20px', maxWidth: '700px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>Vote Counts</div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={loadVotes} style={{ padding: '7px 13px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}><RefreshCw size={12} /> Refresh</button>
+            <button onClick={resetVotes} disabled={resetting} style={{ padding: '7px 13px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: resetting ? 'not-allowed' : 'pointer' }}>
+              {resetting ? 'Resetting...' : 'Reset All Votes'}
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: '#475569', fontFamily: 'Roboto, sans-serif', fontSize: '13px' }}>Loading votes...</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {series.slice(0, 6).map(s => {
+              const votes = counts[s.id] || 0;
+              const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+              return (
+                <div key={s.id} style={{ ...card, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9', marginBottom: '6px' }}>{s.name}</div>
+                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#ff0000,#ff6b6b)', borderRadius: '3px', transition: 'width 0.4s' }} />
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '4px' }}>{pct}% — {votes.toLocaleString()} votes</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <input type="number" min={0} value={votes}
+                        onChange={e => setCounts(prev => ({ ...prev, [s.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                        style={{ width: '80px', padding: '6px 10px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', outline: 'none' }} />
+                      <button onClick={() => setManualCount(s.id, counts[s.id] || 0)}
+                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Set</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {saved && <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '8px', fontSize: '12px', color: '#4ade80', fontFamily: 'Roboto, sans-serif' }}>Vote count updated globally in Supabase</div>}
+      </div>
+
+      <div style={{ ...card, padding: '16px 20px', maxWidth: '700px', border: '1px solid rgba(59,130,246,0.2)' }}>
+        <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#60a5fa', marginBottom: '8px' }}>How Global Voting Works</div>
+        <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b', lineHeight: 1.7 }}>
+          Votes are stored in Supabase <code style={{ color: '#94a3b8' }}>yt_votes</code> and <code style={{ color: '#94a3b8' }}>yt_vote_log</code> tables. All visitors worldwide see the same real-time counts via <code style={{ color: '#94a3b8' }}>/api/drop-votes</code>. Each user/device can only vote once. You can manually override counts above to seed initial data.
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── MAIN ADMIN ─────────────────────────────────────
 const AdminDashboard = () => {
   const { isAdmin, logout } = useAdminAuth();
@@ -1721,6 +1888,7 @@ const AdminDashboard = () => {
         {tab === 'homepage' && <HomeContentTab />}
         {tab === 'coupons' && <CouponsTab />}
         {tab === 'tickets' && <SupportTicketsTab />}
+        {tab === 'voting' && <VotingControlTab />}
       </main>
     </div>
   );
