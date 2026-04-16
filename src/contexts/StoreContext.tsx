@@ -99,6 +99,30 @@ const DEFAULT_TOP_BANNER: TopBanner = {
   textColor: '#ffffff',
 };
 
+// ── GLOBAL SETTINGS HELPERS (Supabase-backed) ─────────────────────────────
+async function globalGet(key: string): Promise<any> {
+  try {
+    const res = await fetch(`/api/global-settings?key=${encodeURIComponent(key)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function globalSet(key: string, value: any): Promise<void> {
+  try {
+    await fetch(`/api/global-settings?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value }),
+    });
+  } catch (e) {
+    console.error('globalSet failed:', e);
+  }
+}
+
 // ── API HELPERS ───────────────────────────────────────────────────────────────
 type TableName = 'yt_products' | 'yt_series' | 'yt_drops' | 'yt_creators';
 
@@ -108,7 +132,6 @@ async function dbLoad<T>(table: TableName): Promise<T[] | null> {
     if (!res.ok) return null;
     const { data } = await res.json();
     if (!Array.isArray(data) || data.length === 0) return null;
-    // Each row has an `id` and a `payload` JSON column
     return data.map((row: any) => row.payload ?? row) as T[];
   } catch {
     return null;
@@ -143,18 +166,30 @@ async function dbSaveOrder(order: Order, userId?: string | null): Promise<void> 
 async function dbUpdateOrder(orderId: string, updates: Partial<Order>): Promise<void> {
   try {
     await fetch('/api/orders', {
-      method: 'POST',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, updates }),
+      body: JSON.stringify({ id: orderId, ...updates }),
     });
   } catch (e) {
     console.error('dbUpdateOrder failed:', e);
   }
 }
 
+async function dbDeleteOrder(orderId: string): Promise<void> {
+  try {
+    await fetch('/api/orders', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId }),
+    });
+  } catch (e) {
+    console.error('dbDeleteOrder failed:', e);
+  }
+}
+
 async function dbLoadOrders(userId?: string | null): Promise<Order[] | null> {
   try {
-    const url = userId ? `/api/orders?userId=${userId}}` : '/api/orders';
+    const url = userId ? `/api/orders?userId=${userId}` : '/api/orders';
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
@@ -185,7 +220,9 @@ interface StoreContextType {
   removeFromCart: (productId: string, size: string) => void;
   updateCartQty: (productId: string, size: string, qty: number) => void;
   clearCart: () => void; cartTotal: number; cartCount: number;
-  addOrder: (order: Order) => void; updateOrderStatus: (orderId: string, status: Order['status']) => void;
+  addOrder: (order: Order) => void;
+  updateOrderStatus: (orderId: string, status: Order['status']) => void;
+  deleteOrder: (orderId: string) => void;
   toggleWishlist: (productId: string) => void; addRecentlyViewed: (productId: string) => void;
   addReview: (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => void;
   validateDiscountCode: (code: string) => { valid: boolean; pct: number; amount: number; type: 'percentage' | 'fixed'; coupon?: DiscountCoupon };
@@ -198,27 +235,25 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [hydrating, setHydrating] = useState(true);
   const [dbLoading, setDbLoading] = useState(true);
 
-  // ── Persistent store state — starts from localStorage as cache, then syncs from DB ──
   const [products, setProductsState] = useState<Product[]>(() => lsGet('youtupia_products', DEFAULT_PRODUCTS));
   const [series, setSeriesState] = useState<Series[]>(() => lsGet('youtupia_series', DEFAULT_SERIES));
   const [creators, setCreatorsState] = useState<Creator[]>(() => lsGet('youtupia_creators', DEFAULT_CREATORS));
   const [drops, setDropsState] = useState<Drop[]>(() => lsGet('youtupia_drops', DEFAULT_DROPS));
 
-  // ── Local-only state ──
   const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
   const [orders, setOrdersState] = useState<Order[]>(() => lsGet('youtupia_orders', []));
   const [wishlist, setWishlist] = useState<string[]>(() => lsGet('youtupia_wishlist', []));
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => lsGet('youtupia_recent', []));
+  // homePromo starts from localStorage as a fast cache, then gets overwritten from Supabase
   const [homePromo, setHomePromoState] = useState<HomePromo>(() => lsGet('youtupia_home_promo', DEFAULT_HOME_PROMO));
   const [coupons, setCouponsState] = useState<DiscountCoupon[]>(() => lsGet('youtupia_coupons', DEFAULT_COUPONS));
   const [topBanner, setTopBannerState] = useState<TopBanner>(() => lsGet('youtupia_top_banner', DEFAULT_TOP_BANNER));
 
-  // Helper to merge DB orders into local state (dedup by id, DB wins on conflicts)
   const mergeOrders = useCallback((dbOrders: Order[]) => {
     setOrdersState(prev => {
       const map = new Map<string, Order>();
       prev.forEach(o => map.set(o.id, o));
-      dbOrders.forEach(o => map.set(o.id, o)); // DB overwrites local
+      dbOrders.forEach(o => map.set(o.id, o));
       const merged = Array.from(map.values()).sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
@@ -227,39 +262,39 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // ── Load from Supabase on mount ───────────────────────────────────────────
+  // ── Load from Supabase on mount ───────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     const loadFromDb = async () => {
       setDbLoading(true);
       try {
-        const [dbProducts, dbSeries, dbDrops, dbCreators, dbAllOrders] = await Promise.all([
+        const [dbProducts, dbSeries, dbDrops, dbCreators, dbAllOrders, dbHomePromo, dbTopBanner] = await Promise.all([
           dbLoad<Product>('yt_products'),
           dbLoad<Series>('yt_series'),
           dbLoad<Drop>('yt_drops'),
           dbLoad<Creator>('yt_creators'),
-          dbLoadOrders(null), // load ALL orders for admin dashboard
+          dbLoadOrders(null),
+          globalGet('home_promo'),
+          globalGet('top_banner'),
         ]);
         if (cancelled) return;
 
-        if (dbProducts && dbProducts.length > 0) {
-          setProductsState(dbProducts);
-          lsSet('youtupia_products', dbProducts);
+        if (dbProducts && dbProducts.length > 0) { setProductsState(dbProducts); lsSet('youtupia_products', dbProducts); }
+        if (dbSeries && dbSeries.length > 0) { setSeriesState(dbSeries); lsSet('youtupia_series', dbSeries); }
+        if (dbDrops && dbDrops.length > 0) { setDropsState(dbDrops); lsSet('youtupia_drops', dbDrops); }
+        if (dbCreators && dbCreators.length > 0) { setCreatorsState(dbCreators); lsSet('youtupia_creators', dbCreators); }
+        if (dbAllOrders && dbAllOrders.length > 0) { mergeOrders(dbAllOrders); }
+
+        // Load global homePromo — overrides localStorage
+        if (dbHomePromo) {
+          setHomePromoState(dbHomePromo);
+          lsSet('youtupia_home_promo', dbHomePromo);
         }
-        if (dbSeries && dbSeries.length > 0) {
-          setSeriesState(dbSeries);
-          lsSet('youtupia_series', dbSeries);
-        }
-        if (dbDrops && dbDrops.length > 0) {
-          setDropsState(dbDrops);
-          lsSet('youtupia_drops', dbDrops);
-        }
-        if (dbCreators && dbCreators.length > 0) {
-          setCreatorsState(dbCreators);
-          lsSet('youtupia_creators', dbCreators);
-        }
-        if (dbAllOrders && dbAllOrders.length > 0) {
-          mergeOrders(dbAllOrders);
+
+        // Load global topBanner — overrides localStorage
+        if (dbTopBanner) {
+          setTopBannerState(dbTopBanner);
+          lsSet('youtupia_top_banner', dbTopBanner);
         }
       } catch (e) {
         console.warn('DB load failed, using localStorage cache:', e);
@@ -272,35 +307,37 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return () => { cancelled = true; clearTimeout(t); };
   }, [mergeOrders]);
 
-  // ── Setters that write to BOTH Supabase and localStorage ─────────────────
+  // ── Setters that write to BOTH Supabase and localStorage ─────────────
   const setProducts = useCallback((p: Product[]) => {
-    setProductsState(p);
-    lsSet('youtupia_products', p);
-    dbSaveAll('yt_products', p);
+    setProductsState(p); lsSet('youtupia_products', p); dbSaveAll('yt_products', p);
   }, []);
 
   const setSeries = useCallback((s: Series[]) => {
-    setSeriesState(s);
-    lsSet('youtupia_series', s);
-    dbSaveAll('yt_series', s);
+    setSeriesState(s); lsSet('youtupia_series', s); dbSaveAll('yt_series', s);
   }, []);
 
   const setCreators = useCallback((c: Creator[]) => {
-    setCreatorsState(c);
-    lsSet('youtupia_creators', c);
-    dbSaveAll('yt_creators', c);
+    setCreatorsState(c); lsSet('youtupia_creators', c); dbSaveAll('yt_creators', c);
   }, []);
 
   const setDrops = useCallback((d: Drop[]) => {
-    setDropsState(d);
-    lsSet('youtupia_drops', d);
-    dbSaveAll('yt_drops', d);
+    setDropsState(d); lsSet('youtupia_drops', d); dbSaveAll('yt_drops', d);
   }, []);
 
-  // ── Local-only setters ────────────────────────────────────────────────────
-  const setHomePromo = useCallback((p: HomePromo) => { setHomePromoState(p); lsSet('youtupia_home_promo', p); }, []);
+  // homePromo and topBanner are now GLOBAL — saved to Supabase via /api/global-settings
+  const setHomePromo = useCallback((p: HomePromo) => {
+    setHomePromoState(p);
+    lsSet('youtupia_home_promo', p);
+    globalSet('home_promo', p); // persist globally
+  }, []);
+
   const setCoupons = useCallback((c: DiscountCoupon[]) => { setCouponsState(c); lsSet('youtupia_coupons', c); }, []);
-  const setTopBanner = useCallback((b: TopBanner) => { setTopBannerState(b); lsSet('youtupia_top_banner', b); }, []);
+
+  const setTopBanner = useCallback((b: TopBanner) => {
+    setTopBannerState(b);
+    lsSet('youtupia_top_banner', b);
+    globalSet('top_banner', b); // persist globally
+  }, []);
 
   useEffect(() => { lsSet('youtupia_cart', cart); }, [cart]);
   useEffect(() => { lsSet('youtupia_wishlist', wishlist); }, [wishlist]);
@@ -351,7 +388,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       lsSet('youtupia_orders', next);
       return next;
     });
-    // Persist to Supabase (non-blocking — CheckoutPage also calls /api/save-order directly)
     dbSaveOrder(order);
   }, []);
 
@@ -371,6 +407,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       return next;
     });
     dbUpdateOrder(orderId, updates);
+  }, []);
+
+  // deleteOrder — removes from DB AND local state/localStorage
+  const deleteOrder = useCallback((orderId: string) => {
+    setOrdersState(prev => {
+      const next = prev.filter(o => o.id !== orderId);
+      lsSet('youtupia_orders', next);
+      return next;
+    });
+    dbDeleteOrder(orderId);
   }, []);
 
   const toggleWishlist = (productId: string) => setWishlist(prev => {
@@ -402,7 +448,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setProducts, setSeries, setCreators, setDrops,
       setHomePromo, setCoupons, setTopBanner,
       addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount,
-      addOrder, updateOrderStatus, updateOrder,
+      addOrder, updateOrderStatus, updateOrder, deleteOrder,
       toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode,
     }}>
       {children}
