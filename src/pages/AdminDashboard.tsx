@@ -1565,7 +1565,7 @@ const SupportTicketsTab = () => {
   const fetchTickets = async () => {
     setLoading(true); setError('');
     try {
-      const res = await fetch('/api/admin-tickets');
+      const res = await fetch('/api/tickets');
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed to load tickets'); setLoading(false); return; }
       const data = await res.json();
       setTickets(data.tickets || []);
@@ -1578,7 +1578,7 @@ const SupportTicketsTab = () => {
   const updateStatus = async (ticketId: string, status: string) => {
     setUpdating(ticketId);
     try {
-      await fetch('/api/admin-tickets', {
+      await fetch('/api/tickets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: ticketId, status }),
