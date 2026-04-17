@@ -1738,328 +1738,650 @@ const SupportTicketsTab = () => {
 };
 
 // ── INVOICE GENERATOR ────────────────────────────────
-const generateInvoice = (order: any) => {
+// ── Updated generateInvoice function for AdminDashboard.tsx ──
+// Replace the existing generateInvoice function (around line 350 in AdminDashboard.tsx)
+// with this version.
+
+const generateInvoice = (order) => {
 
   const subtotal = order.items.reduce(
-    (s: number, i: any) => s + i.product.price * i.quantity,
+    (s, i) => s + i.product.price * i.quantity,
     0
   );
 
-  const rows = order.items
-    .map(
-      (item: any, i: number) =>
-        '<tr>' +
-        '<td style="color:#999;font-size:12px;">' +
-        (i + 1) +
-        '</td>' +
-        '<td><strong>' +
-        item.product.name +
-        '</strong></td>' +
-        '<td style="color:#666;">' +
-        item.size +
-        '</td>' +
-        '<td style="color:#666;">' +
-        item.quantity +
-        '</td>' +
-        '<td>&#8377;' +
-        item.product.price.toLocaleString("en-IN") +
-        '</td>' +
-        '<td style="font-weight:700;">&#8377;' +
-        (item.product.price * item.quantity).toLocaleString("en-IN") +
-        "</td>" +
-        "</tr>"
-    )
-    .join("");
+  // ── GST breakdown ──
+  // 12% GST on apparel: 6% CGST + 6% SGST (intra-state)
+  const GST_RATE = 0.12;
+  const baseAmount = Math.round(subtotal / (1 + GST_RATE)); // price excl. tax
+  const gstAmount = subtotal - baseAmount;
+  const cgst = Math.round(gstAmount / 2);
+  const sgst = gstAmount - cgst;
 
-  const discountRow = order.discountAmount
-    ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#16a34a;">' +
-      "<span>Discount (" +
-      order.discountCode +
-      ")</span>" +
-      "<span>&#8722;&#8377;" +
-      order.discountAmount.toLocaleString("en-IN") +
-      "</span></div>"
-    : "";
+  // Amount in words (Indian system)
+  const toWords = (num) => {
+    if (num === 0) return 'Zero';
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+      'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const convert = (n) => {
+      if (n < 20) return ones[n];
+      if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+      if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convert(n % 100) : '');
+      if (n < 100000) return convert(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
+      if (n < 10000000) return convert(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convert(n % 100000) : '');
+      return convert(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convert(n % 10000000) : '');
+    };
+    const rupees = Math.floor(num);
+    const paise = Math.round((num - rupees) * 100);
+    let result = convert(rupees) + ' Rupees';
+    if (paise > 0) result += ' and ' + convert(paise) + ' Paise';
+    return result + ' Only';
+  };
 
-  const codRow = order.codCharge
-    ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;">' +
-      "<span>COD Handling</span>" +
-      "<span>&#8377;" +
-      order.codCharge +
-      "</span></div>"
-    : "";
+  const amountInWords = toWords(order.total);
 
-  const txnRow = order.paymentId
-    ? '<div style="font-size:10px;color:#999;margin-top:6px;font-family:monospace;">Txn: ' +
-      order.paymentId +
-      "</div>"
-    : "";
+  // ── Table rows ──
+  const rows = order.items.map((item, i) =>
+    `<tr>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#999;">${i + 1}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;">
+        <strong>${item.product.name}</strong>
+        <div style="font-size:11px;color:#888;margin-top:2px;">${item.product.series || ''}</div>
+      </td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;color:#666;">${item.size}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:center;">${item.quantity}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;">&#8377;${item.product.price.toLocaleString('en-IN')}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:700;text-align:right;">&#8377;${(item.product.price * item.quantity).toLocaleString('en-IN')}</td>
+    </tr>`
+  ).join('');
 
-  const payBg = order.paymentMethod === "cod" ? "#dcfce7" : "#dbeafe";
-  const payColor = order.paymentMethod === "cod" ? "#16a34a" : "#2563eb";
-  const payLabel =
-    order.paymentMethod === "cod" ? "Cash on Delivery" : "Paid Online";
-
-  const dateStr = new Date(order.createdAt).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+  // ── QR code data (structured) ──
+  const qrData = JSON.stringify({
+    inv: order.id,
+    date: new Date(order.createdAt).toLocaleDateString('en-IN'),
+    buyer: order.customerName,
+    seller: 'Youtupia Merchandise LLP',
+    gstin: '08CLBPJ3540A1ZP',
+    subtotal: subtotal,
+    base: baseAmount,
+    cgst: cgst,
+    sgst: sgst,
+    gst_rate: '12%',
+    discount: order.discountAmount || 0,
+    cod: order.codCharge || 0,
+    total: order.total,
+    words: amountInWords,
+    items: order.items.map(i => ({ n: i.product.name, s: i.size, q: i.quantity, p: i.product.price })),
+    pay: order.paymentMethod === 'cod' ? 'COD' : 'Online',
+    txn: order.paymentId || '',
+    status: order.status,
   });
 
-  const html =
-    '<!DOCTYPE html><html><head><meta charset="UTF-8"/>' +
-    "<title>Invoice " +
-    order.id +
-    "</title>" +
-    "<style>" +
-    "*{margin:0;padding:0;box-sizing:border-box;}" +
-    "body{font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:40px;}" +
-    ".hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:3px solid #ff0000;margin-bottom:28px;}" +
-    ".parties{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;}" +
-    ".pbox{background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #eee;}" +
-    ".plabel{font-size:9px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#999;margin-bottom:8px;}" +
-    "table{width:100%;border-collapse:collapse;margin-bottom:24px;}" +
-    "th{background:#ff0000;color:white;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}" +
-    "th:last-child,td:last-child{text-align:right;}" +
-    "td{padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;}" +
-    ".ftr{margin-top:40px;padding-top:20px;border-top:2px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;}" +
-    "@media print{body{padding:20px;}}" +
-    "</style></head><body>" +
+  // ── QR code using Google Charts API (free, no key needed) ──
+  const qrUrl = `https://chart.googleapis.com/chart?chs=180x180&cht=qr&chl=${encodeURIComponent(qrData)}&choe=UTF-8`;
 
-    '<div class="hdr">' +
+  const payBg = order.paymentMethod === 'cod' ? '#dcfce7' : '#dbeafe';
+  const payColor = order.paymentMethod === 'cod' ? '#16a34a' : '#2563eb';
+  const payLabel = order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid Online';
+  const dateStr = new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
-    '<div style="display:flex;align-items:center;">' +
-    '<div style="width:48px;height:48px;background:#ff0000;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-right:14px;">' +
-    '<svg width="20" height="18" viewBox="0 0 16 14" fill="none">' +
-    '<path d="M6.5 10L10.5 7L6.5 4V10Z" fill="white"/>' +
-    "</svg></div>" +
+  const discountRow = order.discountAmount
+    ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#16a34a;">
+        <span>Discount (${order.discountCode})</span><span>&#8722;&#8377;${order.discountAmount.toLocaleString('en-IN')}</span>
+       </div>`
+    : '';
 
-    "<div>" +
-    '<div style="font-size:26px;font-weight:900;color:#ff0000;">YouTupia</div>' +
-    '<div style="font-size:11px;color:#666;">Wear Your Dreams</div>' +
-    "</div></div>" +
+  const codRow = order.codCharge
+    ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;">
+        <span>COD Handling</span><span>&#8377;${order.codCharge}</span>
+       </div>`
+    : '';
 
-    '<div style="text-align:right;">' +
-    '<div style="font-size:28px;font-weight:900;">INVOICE</div>' +
-    '<div style="font-family:monospace;font-size:14px;color:#ff0000;font-weight:700;margin-top:4px;">' +
-    order.id +
-    "</div>" +
-    '<div style="font-size:12px;color:#666;margin-top:4px;">' +
-    dateStr +
-    "</div>" +
-    '<div style="display:inline-block;background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:3px 10px;font-size:11px;color:#cc0000;font-weight:700;margin-top:6px;">GSTIN: 08CLBPJ3540A1ZP</div>' +
-    "</div></div>" +
+  const txnRow = order.paymentId
+    ? `<div style="font-size:10px;color:#999;margin-top:6px;font-family:monospace;">Txn ID: ${order.paymentId}</div>`
+    : '';
 
-    '<div class="parties">' +
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Invoice ${order.id}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:32px;}
+  .page{max-width:820px;margin:0 auto;}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #ff0000;margin-bottom:24px;}
+  .logo-block{display:flex;align-items:center;gap:14px;}
+  .logo-img{width:54px;height:54px;border-radius:12px;object-fit:contain;border:1px solid #eee;}
+  .brand-name{font-size:28px;font-weight:900;color:#ff0000;letter-spacing:-1px;}
+  .brand-tag{font-size:11px;color:#666;margin-top:2px;letter-spacing:0.05em;}
+  .inv-meta{text-align:right;}
+  .inv-title{font-size:30px;font-weight:900;color:#1a1a1a;}
+  .inv-id{font-family:monospace;font-size:14px;color:#ff0000;font-weight:700;margin-top:4px;}
+  .inv-date{font-size:12px;color:#666;margin-top:4px;}
+  .gstin-badge{display:inline-block;background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:3px 10px;font-size:11px;color:#cc0000;font-weight:700;margin-top:8px;}
+  .parties{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+  .party-box{background:#f9f9f9;border-radius:10px;padding:14px;border:1px solid #eee;}
+  .party-label{font-size:9px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#999;margin-bottom:8px;}
+  .party-name{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .party-detail{font-size:12px;color:#555;line-height:1.7;}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+  th{background:#ff0000;color:white;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}
+  th:last-child{text-align:right;}
+  .totals-row{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-top:4px;}
+  .gst-box{flex:1;background:#f9f9f9;border-radius:10px;padding:14px;border:1px solid #eee;}
+  .gst-title{font-size:10px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#999;margin-bottom:10px;}
+  .gst-line{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee;}
+  .gst-line:last-child{border-bottom:none;font-weight:700;color:#1a1a1a;font-size:13px;margin-top:4px;}
+  .amounts-box{width:260px;flex-shrink:0;}
+  .amount-line{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#444;}
+  .amount-total{display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;border-top:2px solid #eee;margin-top:6px;}
+  .words-box{background:#fff3f3;border:1px solid #ffcccc;border-radius:8px;padding:10px 14px;margin-top:16px;margin-bottom:16px;}
+  .words-label{font-size:9px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#cc0000;margin-bottom:4px;}
+  .words-text{font-size:12px;color:#7a0000;font-style:italic;line-height:1.5;}
+  .qr-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;padding-top:16px;border-top:2px solid #f0f0f0;}
+  .qr-section{text-align:center;}
+  .qr-label{font-size:9px;color:#999;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;font-weight:700;}
+  .qr-img{width:120px;height:120px;border:1px solid #eee;border-radius:8px;padding:4px;}
+  .qr-sub{font-size:9px;color:#bbb;margin-top:4px;max-width:120px;}
+  .footer-text{font-size:11px;color:#999;line-height:1.7;max-width:480px;}
+  .footer-brand{font-size:16px;font-weight:900;color:#ff0000;}
+  .footer-tagline{font-size:10px;color:#bbb;margin-top:2px;}
+  .status-badges{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+  .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+  @media print{body{padding:16px;}.page{max-width:100%;}}
+</style>
+</head>
+<body>
+<div class="page">
 
-    '<div class="pbox">' +
-    '<div class="plabel">Sold By</div>' +
-    '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Youtupia Merchandise LLP</div>' +
-    '<div style="font-size:12px;color:#555;line-height:1.6;">64/158 pratap nagar sanganerbr/>Jaipur, Rajasthan - 302033<br/>India<br/>youtupiastore@gmail.com</div>' +
-    "</div>" +
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-block">
+      <img class="logo-img" src="https://www.youtupia.in/favicon.ico" alt="Youtupia"
+        onerror="this.style.display='none';this.nextSibling.style.display='flex';" />
+      <div style="display:none;width:54px;height:54px;background:#ff0000;border-radius:12px;align-items:center;justify-content:center;">
+        <svg width="22" height="20" viewBox="0 0 16 14" fill="none">
+          <path d="M6.5 10L10.5 7L6.5 4V10Z" fill="white"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">Youtupia</div>
+        <div class="brand-tag">Wear Your Dreams</div>
+        <div class="gstin-badge">GSTIN: 08CLBPJ3540A1ZP</div>
+      </div>
+    </div>
+    <div class="inv-meta">
+      <div class="inv-title">TAX INVOICE</div>
+      <div class="inv-id">${order.id}</div>
+      <div class="inv-date">${dateStr}</div>
+      <div class="status-badges">
+        <span class="badge" style="background:${payBg};color:${payColor};">${payLabel}</span>
+        <span class="badge" style="background:#fff3f3;color:#cc0000;text-transform:capitalize;">${order.status.replace('_', ' ')}</span>
+      </div>
+    </div>
+  </div>
 
-    '<div class="pbox">' +
-    '<div class="plabel">Bill To / Ship To</div>' +
-    '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">' +
-    order.customerName +
-    "</div>" +
-    '<div style="font-size:12px;color:#555;line-height:1.6;">' +
-    order.address +
-    "<br/>Phone: " +
-    order.customerPhone +
-    "<br/>Email: " +
-    order.customerEmail +
-    "</div></div></div>" +
+  <!-- PARTIES -->
+  <div class="parties">
+    <div class="party-box">
+      <div class="party-label">Sold By</div>
+      <div class="party-name">Youtupia Merchandise LLP</div>
+      <div class="party-detail">
+        64/158 Pratap Nagar, Sanganer<br/>
+        Jaipur, Rajasthan – 302033<br/>
+        India<br/>
+        youtupiastore@gmail.com<br/>
+        <strong>GSTIN:</strong> 08CLBPJ3540A1ZP
+      </div>
+    </div>
+    <div class="party-box">
+      <div class="party-label">Bill To / Ship To</div>
+      <div class="party-name">${order.customerName}</div>
+      <div class="party-detail">
+        ${order.address}<br/>
+        Phone: ${order.customerPhone}<br/>
+        Email: ${order.customerEmail}
+      </div>
+    </div>
+  </div>
 
-    "<table>" +
-    "<thead>" +
-    "<tr>" +
-    "<th>#</th>" +
-    "<th>Product</th>" +
-    "<th>Size</th>" +
-    "<th>Qty</th>" +
-    "<th>Unit Price</th>" +
-    "<th>Amount</th>" +
-    "</tr>" +
-    "</thead>" +
-    "<tbody>" +
-    rows +
-    "</tbody></table>" +
+  <!-- ITEMS TABLE -->
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36px;">#</th>
+        <th>Product</th>
+        <th style="width:60px;">Size</th>
+        <th style="width:50px;text-align:center;">Qty</th>
+        <th style="width:100px;">Unit Price</th>
+        <th style="width:110px;text-align:right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
 
-    '<div style="margin-left:auto;width:280px;">' +
+  <!-- TOTALS + GST BREAKDOWN -->
+  <div class="totals-row">
+    <!-- GST Breakdown -->
+    <div class="gst-box">
+      <div class="gst-title">GST Breakdown (12% on Apparel)</div>
+      <div class="gst-line">
+        <span style="color:#666;">Taxable Amount (excl. GST)</span>
+        <span>&#8377;${baseAmount.toLocaleString('en-IN')}</span>
+      </div>
+      <div class="gst-line">
+        <span style="color:#666;">CGST @ 6%</span>
+        <span>&#8377;${cgst.toLocaleString('en-IN')}</span>
+      </div>
+      <div class="gst-line">
+        <span style="color:#666;">SGST @ 6%</span>
+        <span>&#8377;${sgst.toLocaleString('en-IN')}</span>
+      </div>
+      <div class="gst-line">
+        <span>Total Tax</span>
+        <span>&#8377;${gstAmount.toLocaleString('en-IN')}</span>
+      </div>
+    </div>
 
-    '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#444;">' +
-    "<span>Subtotal</span>" +
-    "<span>&#8377;" +
-    subtotal.toLocaleString("en-IN") +
-    "</span></div>" +
+    <!-- Amount summary -->
+    <div class="amounts-box">
+      <div class="amount-line"><span>Subtotal (incl. GST)</span><span>&#8377;${subtotal.toLocaleString('en-IN')}</span></div>
+      ${order.discountAmount ? `<div class="amount-line" style="color:#16a34a;"><span>Discount (${order.discountCode})</span><span>&#8722;&#8377;${order.discountAmount.toLocaleString('en-IN')}</span></div>` : ''}
+      <div class="amount-line"><span>Shipping</span><span style="color:#16a34a;">FREE</span></div>
+      ${order.codCharge ? `<div class="amount-line"><span>COD Handling</span><span>&#8377;${order.codCharge}</span></div>` : ''}
+      <div class="amount-total">
+        <span>Grand Total</span>
+        <span>&#8377;${order.total.toLocaleString('en-IN')}</span>
+      </div>
+      ${txnRow}
+    </div>
+  </div>
 
-    discountRow +
+  <!-- AMOUNT IN WORDS -->
+  <div class="words-box">
+    <div class="words-label">Amount in Words</div>
+    <div class="words-text">${amountInWords}</div>
+  </div>
 
-    '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;">' +
-    "<span>Shipping</span>" +
-    '<span style="color:#16a34a;">FREE</span></div>' +
+  <!-- QR CODE + FOOTER -->
+  <div class="qr-footer">
+    <div class="footer-text">
+      <strong>Terms &amp; Conditions</strong><br/>
+      • All sales are final. Keep the invoice safe for future references.<br/>
+      • Goods once sold will not be taken back or exchanged except for manufacturing defect.<br/>
+      • Subject to Jaipur jurisdiction only.<br/><br/>
+      <div class="footer-brand">YOUTUPIA</div>
+      <div class="footer-tagline">Wear Your Dreams · youtupiastore@gmail.com</div>
+    </div>
+    <div class="qr-section">
+      <div class="qr-label">Scan for Order Details</div>
+      <img class="qr-img" src="${qrUrl}" alt="QR Code" />
+      <div class="qr-sub">Contains order ID, GST breakdown, item details &amp; payment info</div>
+    </div>
+  </div>
 
-    codRow +
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid #f0f0f0;text-align:center;font-size:10px;color:#ccc;letter-spacing:0.05em;">
+    COMPUTER GENERATED INVOICE — NO SIGNATURE REQUIRED · YOUTUPIA MERCHANDISE LLP · GSTIN: 08CLBPJ3540A1ZP
+  </div>
 
-    '<hr style="border:none;border-top:1px solid #eee;margin:8px 0;"/>' +
+</div>
+<script>window.onload=()=>setTimeout(()=>window.print(),600);</script>
+</body>
+</html>`;
 
-    '<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;">' +
-    "<span>Total</span>" +
-    "<span>&#8377;" +
-    order.total.toLocaleString("en-IN") +
-    "</span></div>" +
-
-    '<div style="margin-top:6px;display:flex;gap:8px;">' +
-
-    '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:' +
-    payBg +
-    ";color:" +
-    payColor +
-    ';">' +
-    payLabel +
-    "</span>" +
-
-    '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fff3f3;color:#cc0000;text-transform:capitalize;">' +
-    order.status.replace("_", " ") +
-    "</span></div>" +
-
-    txnRow +
-    "</div>" +
-
-    '<div class="ftr">' +
-    '<div style="font-size:11px;color:#999;line-height:1.7;">' +
-    "<strong>Terms:</strong> All sales are final. Keep the invoice for your benfit.<br/>" +
-    "GSTIN: 08CLBPJ3540A1ZP · " +
-    "Computer-generated invoice. No signature required." +
-    "</div>" +
-
-    '<div style="text-align:right;">' +
-    '<div style="font-size:16px;font-weight:900;color:#ff0000;">YOUTUPIA</div>' +
-    '<div style="font-size:10px;color:#bbb;margin-top:2px;">Wear Your Dreams</div>' +
-    "</div></div>" +
-
-    "</body></html>";
-
-  const win = window.open("", "_blank");
-
+  const win = window.open('', '_blank');
   if (!win) return;
-
   win.document.write(html);
   win.document.close();
-
-  setTimeout(() => win.print(), 500);
 };
 
 // ── VOTING CONTROL TAB ────────────────────────────────
-const VotingControlTab = () => {
-  const { series } = useStore();
+
+
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Save, RefreshCw, X, ToggleLeft, ToggleRight } from 'lucide-react';
+import { toast as sonnerToast } from '@/components/ui/sonner';
+
+const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px' } as const;
+const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
+const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
+
+interface Poll {
+  id: string;
+  title: string;
+  description?: string;
+  active: boolean;
+  created_at: string;
+}
+interface PollOption {
+  id: string;
+  poll_id: string;
+  label: string;
+  sort_order: number;
+}
+
+export const VotingControlTab = () => {
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [options, setOptions] = useState<PollOption[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [resetting, setResetting] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const totalVotes = Object.values(counts).reduce((s, n) => s + n, 0);
+  const [creating, setCreating] = useState(false);
+  const [expandedPoll, setExpandedPoll] = useState<string | null>(null);
+  const [countInputs, setCountInputs] = useState<Record<string, number>>({});
+  const [savingCount, setSavingCount] = useState<string | null>(null);
+  const [deletingPoll, setDeletingPoll] = useState<string | null>(null);
 
-  const loadVotes = async () => {
+  const [newPoll, setNewPoll] = useState({
+    title: '',
+    description: '',
+    active: true,
+    options: ['', ''],
+  });
+
+  const fetchAll = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/drop-votes');
-      if (res.ok) { const data = await res.json(); setCounts(data.counts || {}); }
-    } catch { /* ignore */ } finally { setLoading(false); }
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      setPolls(data.polls || []);
+      setOptions(data.options || []);
+      setCounts(data.counts || {});
+
+      // Pre-fill count inputs
+      const inputs: Record<string, number> = {};
+      for (const opt of (data.options || [])) {
+        inputs[opt.id] = data.counts?.[opt.id] || 0;
+      }
+      setCountInputs(inputs);
+    } catch {
+      sonnerToast.error('Failed to load polls');
+    }
+    setLoading(false);
   };
 
-  useEffect(() => { loadVotes(); }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  const resetVotes = async () => {
-    if (!confirm('Reset ALL votes to zero? This cannot be undone.')) return;
-    setResetting(true);
+  const handleCreatePoll = async () => {
+    const validOptions = newPoll.options.filter(o => o.trim());
+    if (!newPoll.title.trim()) { sonnerToast.error('Poll title is required'); return; }
+    if (validOptions.length < 2) { sonnerToast.error('At least 2 options required'); return; }
+
     try {
-      const res = await fetch('/api/drop-votes', { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
-      if (res.ok) { setCounts({}); sonnerToast.success('All votes reset to zero!'); }
-      else sonnerToast.error('Reset failed — check your /api/drop-votes endpoint.');
-    } catch { sonnerToast.error('Reset failed.'); } finally { setResetting(false); }
+      const res = await fetch('/api/drop-votes?action=create_poll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newPoll.title.trim(), description: newPoll.description.trim(), active: newPoll.active, options: validOptions }),
+      });
+      if (!res.ok) throw new Error('create failed');
+      sonnerToast.success('Poll created!', { description: newPoll.title });
+      setCreating(false);
+      setNewPoll({ title: '', description: '', active: true, options: ['', ''] });
+      fetchAll();
+    } catch {
+      sonnerToast.error('Failed to create poll');
+    }
   };
 
-  const setManualCount = async (optionId: string, value: number) => {
+  const togglePollActive = async (poll: Poll) => {
     try {
-      await fetch('/api/drop-votes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ optionId, count: value }) });
-      setCounts(prev => ({ ...prev, [optionId]: value }));
-      setSaved(true); setTimeout(() => setSaved(false), 2000);
-    } catch { sonnerToast.error('Failed to update vote count'); }
+      await fetch('/api/drop-votes?action=update_poll', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pollId: poll.id, active: !poll.active }),
+      });
+      setPolls(prev => prev.map(p => p.id === poll.id ? { ...p, active: !p.active } : p));
+      sonnerToast.success(poll.active ? 'Poll hidden from public' : 'Poll now visible');
+    } catch {
+      sonnerToast.error('Failed to update poll');
+    }
+  };
+
+  const resetPollVotes = async (pollId: string) => {
+    if (!confirm('Reset ALL votes for this poll? Cannot be undone.')) return;
+    try {
+      await fetch('/api/drop-votes?action=reset_poll', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pollId }),
+      });
+      setCounts(prev => {
+        const next = { ...prev };
+        for (const opt of options.filter(o => o.poll_id === pollId)) delete next[opt.id];
+        return next;
+      });
+      sonnerToast.success('Votes reset!');
+    } catch {
+      sonnerToast.error('Failed to reset votes');
+    }
+  };
+
+  const deletePoll = async (pollId: string) => {
+    if (deletingPoll !== pollId) { setDeletingPoll(pollId); return; }
+    try {
+      await fetch('/api/drop-votes?action=delete_poll', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pollId }),
+      });
+      sonnerToast.success('Poll deleted');
+      setDeletingPoll(null);
+      fetchAll();
+    } catch {
+      sonnerToast.error('Failed to delete poll');
+    }
+  };
+
+  const setManualCount = async (optionId: string, pollId: string) => {
+    const count = countInputs[optionId] ?? 0;
+    setSavingCount(optionId);
+    try {
+      await fetch('/api/drop-votes?action=set_count', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ optionId, pollId, count }),
+      });
+      setCounts(prev => ({ ...prev, [optionId]: count }));
+      sonnerToast.success('Count updated globally');
+    } catch {
+      sonnerToast.error('Failed to update count');
+    }
+    setSavingCount(null);
   };
 
   return (
     <div>
-      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Voting Control</h1>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Manage community vote counts for the homepage. Votes are stored globally in Supabase — visible to everyone worldwide.</p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-        {[
-          { label: 'TOTAL VOTES', value: totalVotes.toLocaleString(), color: '#ff6666' },
-          { label: 'OPTIONS', value: series.slice(0, 6).length, color: '#60a5fa' },
-          { label: 'LEADING', value: series.slice(0, 6).sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0))[0]?.name || '—', color: '#4ade80' },
-        ].map(s => (
-          <div key={s.label} style={{ ...card, padding: '14px 16px' }}>
-            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: s.color }}>{s.value}</div>
-            <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginTop: '4px' }}>{s.label}</div>
-          </div>
-        ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Voting Control</h1>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>
+            Create custom polls, manage options, and control vote counts globally. All votes are stored in Supabase — visible to all users.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={fetchAll} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer' }}>
+            <RefreshCw size={12} /> Refresh
+          </button>
+          <button onClick={() => setCreating(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+            <Plus size={14} /> New Poll
+          </button>
+        </div>
       </div>
 
-      <div style={{ ...card, padding: '20px', maxWidth: '700px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>Vote Counts</div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={loadVotes} style={{ padding: '7px 13px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}><RefreshCw size={12} /> Refresh</button>
-            <button onClick={resetVotes} disabled={resetting} style={{ padding: '7px 13px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: resetting ? 'not-allowed' : 'pointer' }}>
-              {resetting ? 'Resetting...' : 'Reset All Votes'}
+      {/* Supabase schema note */}
+      <div style={{ ...card, padding: '14px 18px', marginBottom: '20px', border: '1px solid rgba(59,130,246,0.2)' }}>
+        <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#60a5fa', marginBottom: '6px' }}>📋 Required Supabase Tables</div>
+        <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#475569', lineHeight: 1.8 }}>
+          <span style={{ color: '#94a3b8' }}>yt_polls</span>: id, title, description, active, created_at<br/>
+          <span style={{ color: '#94a3b8' }}>yt_poll_options</span>: id, poll_id, label, sort_order<br/>
+          <span style={{ color: '#94a3b8' }}>yt_votes</span>: id, poll_id, option_id, user_key, created_at<br/>
+          All tables need RLS disabled or service-role access.
+        </div>
+      </div>
+
+      {/* CREATE POLL FORM */}
+      {creating && (
+        <div style={{ ...card, padding: '22px', marginBottom: '20px', border: '1px solid rgba(255,0,0,0.25)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '16px', color: '#f1f5f9' }}>New Poll</div>
+            <button onClick={() => setCreating(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <div style={{ ...label, marginBottom: '6px' }}>POLL TITLE *</div>
+              <input style={inputStyle} value={newPoll.title} onChange={e => setNewPoll(f => ({ ...f, title: e.target.value }))} placeholder="Vote for next drop category" />
+            </div>
+            <div>
+              <div style={{ ...label, marginBottom: '6px' }}>DESCRIPTION (optional)</div>
+              <input style={inputStyle} value={newPoll.description} onChange={e => setNewPoll(f => ({ ...f, description: e.target.value }))} placeholder="Help us decide what to drop next" />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+            <button onClick={() => setNewPoll(f => ({ ...f, active: !f.active }))}
+              style={{ width: '38px', height: '22px', borderRadius: '11px', background: newPoll.active ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+              <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: newPoll.active ? '18px' : '2px', transition: 'left 0.2s' }} />
+            </button>
+            <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: newPoll.active ? '#4ade80' : '#64748b' }}>
+              {newPoll.active ? 'Visible to public immediately' : 'Hidden from public (draft)'}
+            </span>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ ...label, marginBottom: '8px' }}>POLL OPTIONS * (min 2)</div>
+            {newPoll.options.map((opt, i) => (
+              <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#ff6666', flexShrink: 0 }}>{i + 1}</div>
+                <input style={{ ...inputStyle, flex: 1 }} value={opt} onChange={e => { const opts = [...newPoll.options]; opts[i] = e.target.value; setNewPoll(f => ({ ...f, options: opts })); }} placeholder={`Option ${i + 1}`} />
+                {newPoll.options.length > 2 && (
+                  <button onClick={() => { const opts = newPoll.options.filter((_, idx) => idx !== i); setNewPoll(f => ({ ...f, options: opts })); }}
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171', flexShrink: 0 }}><X size={12} /></button>
+                )}
+              </div>
+            ))}
+            <button onClick={() => setNewPoll(f => ({ ...f, options: [...f.options, ''] }))}
+              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px dashed rgba(255,255,255,0.12)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}>
+              + Add option
             </button>
           </div>
-        </div>
 
-        {loading ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: '#475569', fontFamily: 'Roboto, sans-serif', fontSize: '13px' }}>Loading votes...</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {series.slice(0, 6).map(s => {
-              const votes = counts[s.id] || 0;
-              const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
-              return (
-                <div key={s.id} style={{ ...card, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9', marginBottom: '6px' }}>{s.name}</div>
-                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#ff0000,#ff6b6b)', borderRadius: '3px', transition: 'width 0.4s' }} />
-                      </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '4px' }}>{pct}% — {votes.toLocaleString()} votes</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      <input type="number" min={0} value={votes}
-                        onChange={e => setCounts(prev => ({ ...prev, [s.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
-                        style={{ width: '80px', padding: '6px 10px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', outline: 'none' }} />
-                      <button onClick={() => setManualCount(s.id, counts[s.id] || 0)}
-                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Set</button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={handleCreatePoll} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Save size={13} /> Create Poll
+            </button>
+            <button onClick={() => setCreating(false)} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
           </div>
-        )}
-        {saved && <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '8px', fontSize: '12px', color: '#4ade80', fontFamily: 'Roboto, sans-serif' }}>Vote count updated globally in Supabase</div>}
-      </div>
-
-      <div style={{ ...card, padding: '16px 20px', maxWidth: '700px', border: '1px solid rgba(59,130,246,0.2)' }}>
-        <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#60a5fa', marginBottom: '8px' }}>How Global Voting Works</div>
-        <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b', lineHeight: 1.7 }}>
-          Votes are stored in Supabase <code style={{ color: '#94a3b8' }}>yt_votes</code> and <code style={{ color: '#94a3b8' }}>yt_vote_log</code> tables. All visitors worldwide see the same real-time counts via <code style={{ color: '#94a3b8' }}>/api/drop-votes</code>. Each user/device can only vote once. You can manually override counts above to seed initial data.
         </div>
-      </div>
+      )}
+
+      {/* POLLS LIST */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>Loading polls...</div>
+      ) : polls.length === 0 ? (
+        <div style={{ ...card, padding: '48px', textAlign: 'center' }}>
+          <div style={{ fontSize: '36px', marginBottom: '12px' }}>🗳️</div>
+          <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '14px', color: '#64748b' }}>No polls yet. Create your first poll above.</div>
+        </div>
+      ) : polls.map(poll => {
+        const pollOpts = options.filter(o => o.poll_id === poll.id);
+        const pollTotal = pollOpts.reduce((s, o) => s + (counts[o.id] || 0), 0);
+        const isExpanded = expandedPoll === poll.id;
+
+        return (
+          <div key={poll.id} style={{ ...card, marginBottom: '12px', overflow: 'hidden' }}>
+            {/* Poll header */}
+            <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', borderBottom: isExpanded ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setExpandedPoll(isExpanded ? null : poll.id)}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                  <span style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>{poll.title}</span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px', background: poll.active ? 'rgba(74,222,128,0.1)' : 'rgba(100,116,139,0.1)', color: poll.active ? '#4ade80' : '#64748b' }}>
+                    {poll.active ? 'LIVE' : 'HIDDEN'}
+                  </span>
+                </div>
+                {poll.description && <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b' }}>{poll.description}</div>}
+                <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.08em', marginTop: '4px' }}>
+                  {pollOpts.length} options · {pollTotal.toLocaleString()} votes · {isExpanded ? '▲ collapse' : '▼ expand'}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
+                {/* Toggle active */}
+                <button onClick={() => togglePollActive(poll)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '7px', border: `1px solid ${poll.active ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`, background: poll.active ? 'rgba(74,222,128,0.08)' : 'transparent', color: poll.active ? '#4ade80' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                  {poll.active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                  {poll.active ? 'Live' : 'Hidden'}
+                </button>
+                {/* Reset votes */}
+                <button onClick={() => resetPollVotes(poll.id)}
+                  style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.06)', color: '#fbbf24', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer' }}>
+                  Reset Votes
+                </button>
+                {/* Delete */}
+                {deletingPoll === poll.id ? (
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button onClick={() => deletePoll(poll.id)}
+                      style={{ padding: '6px 10px', borderRadius: '7px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
+                      Confirm Delete
+                    </button>
+                    <button onClick={() => setDeletingPoll(null)}
+                      style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '11px' }}>
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => deletePoll(poll.id)}
+                    style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Expanded: vote counts per option */}
+            {isExpanded && (
+              <div style={{ padding: '16px 20px' }}>
+                <div style={{ ...label, marginBottom: '12px' }}>VOTE COUNTS — set manually to seed data</div>
+                {pollOpts.length === 0 ? (
+                  <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#475569' }}>No options found.</div>
+                ) : pollOpts.map(opt => {
+                  const voteCount = counts[opt.id] || 0;
+                  const pct = pollTotal > 0 ? Math.round((voteCount / pollTotal) * 100) : 0;
+                  return (
+                    <div key={opt.id} style={{ ...card, padding: '12px 14px', marginBottom: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#f1f5f9', marginBottom: '6px' }}>{opt.label}</div>
+                          <div style={{ height: '5px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#ff0000,#ff6b6b)', borderRadius: '3px', transition: 'width 0.4s' }} />
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '4px' }}>{pct}% — {voteCount.toLocaleString()} votes</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                          <input type="number" min={0} value={countInputs[opt.id] ?? voteCount}
+                            onChange={e => setCountInputs(prev => ({ ...prev, [opt.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            style={{ width: '80px', padding: '6px 10px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', outline: 'none' }} />
+                          <button onClick={() => setManualCount(opt.id, poll.id)} disabled={savingCount === opt.id}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: savingCount === opt.id ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.25s' }}>
+                            {savingCount === opt.id ? '✓' : 'Set'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '10px', fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#60a5fa' }}>
+                  💡 Setting a count replaces all votes for that option with seeded data. Real user votes are also included.
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
-
 // ── MAIN ADMIN ─────────────────────────────────────
 const AdminDashboard = () => {
   const { isAdmin, logout } = useAdminAuth();
