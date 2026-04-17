@@ -2038,15 +2038,14 @@ const generateInvoice = (order) => {
 
 // ── VOTING CONTROL TAB ────────────────────────────────
 
-
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, RefreshCw, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { toast as sonnerToast } from '@/components/ui/sonner';
-
+ 
 const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px' } as const;
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
-
+ 
 interface Poll {
   id: string;
   title: string;
@@ -2060,7 +2059,7 @@ interface PollOption {
   label: string;
   sort_order: number;
 }
-
+ 
 export const VotingControlTab = () => {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [options, setOptions] = useState<PollOption[]>([]);
@@ -2071,14 +2070,14 @@ export const VotingControlTab = () => {
   const [countInputs, setCountInputs] = useState<Record<string, number>>({});
   const [savingCount, setSavingCount] = useState<string | null>(null);
   const [deletingPoll, setDeletingPoll] = useState<string | null>(null);
-
+ 
   const [newPoll, setNewPoll] = useState({
     title: '',
     description: '',
     active: true,
     options: ['', ''],
   });
-
+ 
   const fetchAll = async () => {
     setLoading(true);
     try {
@@ -2088,7 +2087,7 @@ export const VotingControlTab = () => {
       setPolls(data.polls || []);
       setOptions(data.options || []);
       setCounts(data.counts || {});
-
+ 
       // Pre-fill count inputs
       const inputs: Record<string, number> = {};
       for (const opt of (data.options || [])) {
@@ -2100,14 +2099,14 @@ export const VotingControlTab = () => {
     }
     setLoading(false);
   };
-
+ 
   useEffect(() => { fetchAll(); }, []);
-
+ 
   const handleCreatePoll = async () => {
     const validOptions = newPoll.options.filter(o => o.trim());
     if (!newPoll.title.trim()) { sonnerToast.error('Poll title is required'); return; }
     if (validOptions.length < 2) { sonnerToast.error('At least 2 options required'); return; }
-
+ 
     try {
       const res = await fetch('/api/drop-votes?action=create_poll', {
         method: 'POST',
@@ -2123,7 +2122,7 @@ export const VotingControlTab = () => {
       sonnerToast.error('Failed to create poll');
     }
   };
-
+ 
   const togglePollActive = async (poll: Poll) => {
     try {
       await fetch('/api/drop-votes?action=update_poll', {
@@ -2137,7 +2136,7 @@ export const VotingControlTab = () => {
       sonnerToast.error('Failed to update poll');
     }
   };
-
+ 
   const resetPollVotes = async (pollId: string) => {
     if (!confirm('Reset ALL votes for this poll? Cannot be undone.')) return;
     try {
@@ -2156,7 +2155,7 @@ export const VotingControlTab = () => {
       sonnerToast.error('Failed to reset votes');
     }
   };
-
+ 
   const deletePoll = async (pollId: string) => {
     if (deletingPoll !== pollId) { setDeletingPoll(pollId); return; }
     try {
@@ -2172,7 +2171,7 @@ export const VotingControlTab = () => {
       sonnerToast.error('Failed to delete poll');
     }
   };
-
+ 
   const setManualCount = async (optionId: string, pollId: string) => {
     const count = countInputs[optionId] ?? 0;
     setSavingCount(optionId);
@@ -2189,7 +2188,7 @@ export const VotingControlTab = () => {
     }
     setSavingCount(null);
   };
-
+ 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
@@ -2208,7 +2207,7 @@ export const VotingControlTab = () => {
           </button>
         </div>
       </div>
-
+ 
       {/* Supabase schema note */}
       <div style={{ ...card, padding: '14px 18px', marginBottom: '20px', border: '1px solid rgba(59,130,246,0.2)' }}>
         <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#60a5fa', marginBottom: '6px' }}>📋 Required Supabase Tables</div>
@@ -2219,7 +2218,7 @@ export const VotingControlTab = () => {
           All tables need RLS disabled or service-role access.
         </div>
       </div>
-
+ 
       {/* CREATE POLL FORM */}
       {creating && (
         <div style={{ ...card, padding: '22px', marginBottom: '20px', border: '1px solid rgba(255,0,0,0.25)' }}>
@@ -2227,7 +2226,7 @@ export const VotingControlTab = () => {
             <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '16px', color: '#f1f5f9' }}>New Poll</div>
             <button onClick={() => setCreating(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={18} /></button>
           </div>
-
+ 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             <div>
               <div style={{ ...label, marginBottom: '6px' }}>POLL TITLE *</div>
@@ -2238,7 +2237,7 @@ export const VotingControlTab = () => {
               <input style={inputStyle} value={newPoll.description} onChange={e => setNewPoll(f => ({ ...f, description: e.target.value }))} placeholder="Help us decide what to drop next" />
             </div>
           </div>
-
+ 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <button onClick={() => setNewPoll(f => ({ ...f, active: !f.active }))}
               style={{ width: '38px', height: '22px', borderRadius: '11px', background: newPoll.active ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
@@ -2248,7 +2247,7 @@ export const VotingControlTab = () => {
               {newPoll.active ? 'Visible to public immediately' : 'Hidden from public (draft)'}
             </span>
           </div>
-
+ 
           <div style={{ marginBottom: '16px' }}>
             <div style={{ ...label, marginBottom: '8px' }}>POLL OPTIONS * (min 2)</div>
             {newPoll.options.map((opt, i) => (
@@ -2266,7 +2265,7 @@ export const VotingControlTab = () => {
               + Add option
             </button>
           </div>
-
+ 
           <div style={{ display: 'flex', gap: '10px' }}>
             <button onClick={handleCreatePoll} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Save size={13} /> Create Poll
@@ -2275,7 +2274,7 @@ export const VotingControlTab = () => {
           </div>
         </div>
       )}
-
+ 
       {/* POLLS LIST */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>Loading polls...</div>
@@ -2288,7 +2287,7 @@ export const VotingControlTab = () => {
         const pollOpts = options.filter(o => o.poll_id === poll.id);
         const pollTotal = pollOpts.reduce((s, o) => s + (counts[o.id] || 0), 0);
         const isExpanded = expandedPoll === poll.id;
-
+ 
         return (
           <div key={poll.id} style={{ ...card, marginBottom: '12px', overflow: 'hidden' }}>
             {/* Poll header */}
@@ -2305,7 +2304,7 @@ export const VotingControlTab = () => {
                   {pollOpts.length} options · {pollTotal.toLocaleString()} votes · {isExpanded ? '▲ collapse' : '▼ expand'}
                 </div>
               </div>
-
+ 
               <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
                 {/* Toggle active */}
                 <button onClick={() => togglePollActive(poll)}
@@ -2338,7 +2337,7 @@ export const VotingControlTab = () => {
                 )}
               </div>
             </div>
-
+ 
             {/* Expanded: vote counts per option */}
             {isExpanded && (
               <div style={{ padding: '16px 20px' }}>
