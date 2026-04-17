@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 
 export interface ProductVariant { size: string; stock: number; }
@@ -68,21 +68,20 @@ async function globalSet(key: string, value: any): Promise<void> {
   } catch (e) { console.error('globalSet failed:', e); }
 }
 
-// ── DB helpers ──
 type TableName = 'yt_products' | 'yt_series' | 'yt_drops' | 'yt_creators';
 
-// Load all rows from a table — returns unwrapped items
+// Load all rows from a table
 async function dbLoad<T>(table: TableName): Promise<T[] | null> {
   try {
     const res = await fetch(`/api/store-data?table=${table}`);
     if (!res.ok) return null;
     const { data } = await res.json();
-    if (!Array.isArray(data) || data.length === 0) return null;
+    if (!Array.isArray(data)) return null;
     return data as T[];
   } catch { return null; }
 }
 
-// Save a single item — wraps it correctly for the API
+// Save a single item
 async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item: T): Promise<void> {
   try {
     await fetch(`/api/store-data?table=${table}`, {
@@ -93,7 +92,7 @@ async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item:
   } catch (e) { console.error(`dbSaveSingleRow(${table}) failed:`, e); }
 }
 
-// Save all items — wraps each correctly
+// Save all items
 async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[]): Promise<void> {
   try {
     const rows = items.map(item => ({ id: item.id, payload: item }));
@@ -156,7 +155,7 @@ async function dbLoadOrders(userId?: string | null): Promise<Order[] | null> {
   } catch { return null; }
 }
 
-// ── localStorage helpers ──
+// ── localStorage helpers — ONLY for cart, wishlist, orders (not store data) ──
 function lsGet<T>(key: string, fallback: T): T {
   try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }
   catch { return fallback; }
@@ -165,7 +164,6 @@ function lsSet(key: string, val: unknown) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-// ── Context type ──
 interface StoreContextType {
   products: Product[]; series: Series[]; creators: Creator[]; drops: Drop[];
   cart: CartItem[]; orders: Order[]; wishlist: string[]; recentlyViewed: string[];
@@ -199,18 +197,22 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProductsState] = useState<Product[]>(() => lsGet('youtupia_products', []));
-  const [series, setSeriesState] = useState<Series[]>(() => lsGet('youtupia_series', []));
-  const [creators, setCreatorsState] = useState<Creator[]>(() => lsGet('youtupia_creators', []));
-  const [drops, setDropsState] = useState<Drop[]>(() => lsGet('youtupia_drops', []));
+  // ── Store data: START EMPTY, always load from Supabase ──
+  const [products, setProductsState] = useState<Product[]>([]);
+  const [series, setSeriesState] = useState<Series[]>([]);
+  const [creators, setCreatorsState] = useState<Creator[]>([]);
+  const [drops, setDropsState] = useState<Drop[]>([]);
 
+  // ── User data: localStorage is fine (per-user) ──
   const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
   const [orders, setOrdersState] = useState<Order[]>(() => lsGet('youtupia_orders', []));
   const [wishlist, setWishlist] = useState<string[]>(() => lsGet('youtupia_wishlist', []));
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => lsGet('youtupia_recent', []));
-  const [homePromo, setHomePromoState] = useState<HomePromo>(() => lsGet('youtupia_home_promo', DEFAULT_HOME_PROMO));
   const [coupons, setCouponsState] = useState<DiscountCoupon[]>(() => lsGet('youtupia_coupons', DEFAULT_COUPONS));
-  const [topBanner, setTopBannerState] = useState<TopBanner>(() => lsGet('youtupia_top_banner', DEFAULT_TOP_BANNER));
+
+  // ── Settings: load from Supabase ──
+  const [homePromo, setHomePromoState] = useState<HomePromo>(DEFAULT_HOME_PROMO);
+  const [topBanner, setTopBannerState] = useState<TopBanner>(DEFAULT_TOP_BANNER);
 
   const [hydrating, setHydrating] = useState(true);
   const [dbLoading, setDbLoading] = useState(true);
@@ -228,7 +230,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // ── Load from Supabase on mount ──────────────────────────────────────────
+  // ── Load from Supabase on mount — THIS IS THE FIX ──
   useEffect(() => {
     let cancelled = false;
 
@@ -236,7 +238,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setDbLoading(true);
 
       try {
-        // Load all store data in parallel
+        // Load all store data in parallel from Supabase
         const [dbProducts, dbSeries, dbDrops, dbCreators] = await Promise.all([
           dbLoad<Product>('yt_products'),
           dbLoad<Series>('yt_series'),
@@ -246,23 +248,20 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
         if (cancelled) return;
 
-        // Only update state if we got real data back
-        if (dbProducts && dbProducts.length > 0) {
-          console.log('[Store] Loaded', dbProducts.length, 'products from DB');
+        // Always use Supabase data — even if empty array (means no products yet)
+        // This ensures all users see the same data
+        if (dbProducts !== null) {
+          console.log('[Store] Loaded', dbProducts.length, 'products from Supabase');
           setProductsState(dbProducts);
-          lsSet('youtupia_products', dbProducts);
         }
-        if (dbSeries && dbSeries.length > 0) {
+        if (dbSeries !== null) {
           setSeriesState(dbSeries);
-          lsSet('youtupia_series', dbSeries);
         }
-        if (dbDrops && dbDrops.length > 0) {
+        if (dbDrops !== null) {
           setDropsState(dbDrops);
-          lsSet('youtupia_drops', dbDrops);
         }
-        if (dbCreators && dbCreators.length > 0) {
+        if (dbCreators !== null) {
           setCreatorsState(dbCreators);
-          lsSet('youtupia_creators', dbCreators);
         }
 
         if (!cancelled) {
@@ -276,8 +275,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           globalGet('top_banner'),
         ]).then(([dbHomePromo, dbTopBanner]) => {
           if (cancelled) return;
-          if (dbHomePromo) { setHomePromoState(dbHomePromo); lsSet('youtupia_home_promo', dbHomePromo); }
-          if (dbTopBanner) { setTopBannerState(dbTopBanner); lsSet('youtupia_top_banner', dbTopBanner); }
+          if (dbHomePromo) setHomePromoState(dbHomePromo);
+          if (dbTopBanner) setTopBannerState(dbTopBanner);
         }).catch(() => {});
 
         dbLoadOrders(null).then(dbAllOrders => {
@@ -286,7 +285,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         }).catch(() => {});
 
       } catch (e) {
-        console.warn('[Store] DB load failed, using localStorage cache:', e);
+        console.warn('[Store] DB load failed:', e);
         if (!cancelled) {
           setDbLoading(false);
           setHydrating(false);
@@ -298,58 +297,43 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return () => { cancelled = true; };
   }, [mergeOrders]);
 
-  // ── OPTIMISTIC SETTERS ───────────────────────────────────────────────────
+  // ── OPTIMISTIC SETTERS — update state immediately, then save to Supabase ──
 
-  // Set ALL products (bulk) — used when loading or bulk operations
   const setProducts = useCallback((p: Product[]) => {
     setProductsState(p);
-    lsSet('youtupia_products', p);
     dbSaveAll('yt_products', p);
   }, []);
 
-  // Set/update a SINGLE product — fast targeted update
   const setProduct = useCallback((p: Product) => {
     setProductsState(prev => {
       const exists = prev.find(x => x.id === p.id);
-      const next = exists ? prev.map(x => x.id === p.id ? p : x) : [...prev, p];
-      lsSet('youtupia_products', next);
-      return next;
+      return exists ? prev.map(x => x.id === p.id ? p : x) : [...prev, p];
     });
-    // Save to DB — this is what was broken before
     dbSaveSingleRow('yt_products', p);
   }, []);
 
-  // Delete a SINGLE product — fast targeted delete
   const deleteProduct = useCallback((id: string) => {
-    setProductsState(prev => {
-      const next = prev.filter(x => x.id !== id);
-      lsSet('youtupia_products', next);
-      return next;
-    });
+    setProductsState(prev => prev.filter(x => x.id !== id));
     dbDeleteSingleRow('yt_products', id);
   }, []);
 
   const setSeries = useCallback((s: Series[]) => {
     setSeriesState(s);
-    lsSet('youtupia_series', s);
     dbSaveAll('yt_series', s);
   }, []);
 
   const setCreators = useCallback((c: Creator[]) => {
     setCreatorsState(c);
-    lsSet('youtupia_creators', c);
     dbSaveAll('yt_creators', c);
   }, []);
 
   const setDrops = useCallback((d: Drop[]) => {
     setDropsState(d);
-    lsSet('youtupia_drops', d);
     dbSaveAll('yt_drops', d);
   }, []);
 
   const setHomePromo = useCallback((p: HomePromo) => {
     setHomePromoState(p);
-    lsSet('youtupia_home_promo', p);
     globalSet('home_promo', p);
   }, []);
 
@@ -360,15 +344,15 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const setTopBanner = useCallback((b: TopBanner) => {
     setTopBannerState(b);
-    lsSet('youtupia_top_banner', b);
     globalSet('top_banner', b);
   }, []);
 
+  // Persist user-specific data to localStorage
   useEffect(() => { lsSet('youtupia_cart', cart); }, [cart]);
   useEffect(() => { lsSet('youtupia_wishlist', wishlist); }, [wishlist]);
   useEffect(() => { lsSet('youtupia_recent', recentlyViewed); }, [recentlyViewed]);
 
-  // ── Cart actions ─────────────────────────────────────────────────────────
+  // ── Cart actions ──
   const addToCart = (product: Product, size: string, qty = 1) => {
     const variant = product.variants.find(v => v.size === size);
     const variantStock = variant?.stock ?? 0;
@@ -479,7 +463,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       const updated = prev.map(p =>
         p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p
       );
-      lsSet('youtupia_products', updated);
       const updatedProduct = updated.find(p => p.id === productId);
       if (updatedProduct) dbSaveSingleRow('yt_products', updatedProduct);
       return updated;
