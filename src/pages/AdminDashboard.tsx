@@ -1856,25 +1856,18 @@ th:last-child{text-align:right;}
 };
 
 // ── VOTING CONTROL TAB ────────────────────────────────
-interface VotingPoll {
-  id: string;
-  title: string;
-  description?: string;
-  active: boolean;
-  created_at: string;
-}
-interface VotingPollOption {
-  id: string;
-  poll_id: string;
-  label: string;
-  sort_order: number;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// REPLACE the VotingControlTab const in src/pages/AdminDashboard.tsx
+// Find: const VotingControlTab = () => {
+// Replace the entire component with this
+// ─────────────────────────────────────────────────────────────────────────────
 
 const VotingControlTab = () => {
   const [polls, setPolls] = useState<VotingPoll[]>([]);
   const [options, setOptions] = useState<VotingPollOption[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [tablesReady, setTablesReady] = useState<boolean | null>(null); // null = unknown
   const [creating, setCreating] = useState(false);
   const [expandedPoll, setExpandedPoll] = useState<string | null>(null);
   const [countInputs, setCountInputs] = useState<Record<string, number>>({});
@@ -1892,8 +1885,21 @@ const VotingControlTab = () => {
     setLoading(true);
     try {
       const res = await fetch('/api/drop-votes');
-      if (!res.ok) throw new Error('fetch failed');
+      if (!res.ok) {
+        setTablesReady(false);
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
+
+      // API now returns tablesExist flag
+      if (data.tablesExist === false) {
+        setTablesReady(false);
+        setLoading(false);
+        return;
+      }
+
+      setTablesReady(true);
       setPolls(data.polls || []);
       setOptions(data.options || []);
       setCounts(data.counts || {});
@@ -1904,6 +1910,7 @@ const VotingControlTab = () => {
       }
       setCountInputs(inputs);
     } catch {
+      setTablesReady(false);
       sonnerToast.error('Failed to load polls');
     }
     setLoading(false);
@@ -1920,9 +1927,18 @@ const VotingControlTab = () => {
       const res = await fetch('/api/drop-votes?action=create_poll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newPoll.title.trim(), description: newPoll.description.trim(), active: newPoll.active, options: validOptions }),
+        body: JSON.stringify({
+          title: newPoll.title.trim(),
+          description: newPoll.description.trim(),
+          active: newPoll.active,
+          options: validOptions,
+        }),
       });
-      if (!res.ok) throw new Error('create failed');
+      if (!res.ok) {
+        const e = await res.json();
+        sonnerToast.error(e?.error || 'Failed to create poll');
+        return;
+      }
       sonnerToast.success('Poll created!', { description: newPoll.title });
       setCreating(false);
       setNewPoll({ title: '', description: '', active: true, options: ['', ''] });
@@ -2011,22 +2027,40 @@ const VotingControlTab = () => {
           <button onClick={fetchAll} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer' }}>
             <RefreshCw size={12} /> Refresh
           </button>
-          <button onClick={() => setCreating(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-            <Plus size={14} /> New Poll
+          {tablesReady && (
+            <button onClick={() => setCreating(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+              <Plus size={14} /> New Poll
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tables not ready — show setup instructions */}
+      {tablesReady === false && (
+        <div style={{ ...card, padding: '28px', border: '1px solid rgba(239,68,68,0.3)', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <AlertCircle size={24} style={{ color: '#ef4444', flexShrink: 0 }} />
+            <div>
+              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>Voting tables not found</div>
+              <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginTop: '2px' }}>Run the SQL file in Supabase to create them, then click Refresh.</div>
+            </div>
+          </div>
+          <div style={{ background: 'hsl(0 0% 7%)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
+            <div style={{ ...label, marginBottom: '10px', color: '#60a5fa' }}>REQUIRED TABLES (create via supabase_complete.sql)</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#94a3b8', lineHeight: 1.8 }}>
+              <div>• <span style={{ color: '#60a5fa' }}>yt_polls</span> — poll titles and active status</div>
+              <div>• <span style={{ color: '#60a5fa' }}>yt_poll_options</span> — options per poll</div>
+              <div>• <span style={{ color: '#60a5fa' }}>yt_votes</span> — individual votes</div>
+            </div>
+          </div>
+          <button onClick={fetchAll} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+            <RefreshCw size={14} /> Check Again
           </button>
         </div>
-      </div>
+      )}
 
-      <div style={{ ...card, padding: '14px 18px', marginBottom: '20px', border: '1px solid rgba(59,130,246,0.2)' }}>
-        <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#60a5fa', marginBottom: '6px' }}>📋 Required Supabase Tables</div>
-        <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#475569', lineHeight: 1.8 }}>
-          <span style={{ color: '#94a3b8' }}>yt_polls</span>: id, title, description, active, created_at<br/>
-          <span style={{ color: '#94a3b8' }}>yt_poll_options</span>: id, poll_id, label, sort_order<br/>
-          <span style={{ color: '#94a3b8' }}>yt_votes</span>: id, poll_id, option_id, user_key, created_at
-        </div>
-      </div>
-
-      {creating && (
+      {/* Tables exist — show controls */}
+      {tablesReady && creating && (
         <div style={{ ...card, padding: '22px', marginBottom: '20px', border: '1px solid rgba(255,0,0,0.25)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
             <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '16px', color: '#f1f5f9' }}>New Poll</div>
@@ -2045,12 +2079,14 @@ const VotingControlTab = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <button onClick={() => setNewPoll(f => ({ ...f, active: !f.active }))}
-              style={{ width: '38px', height: '22px', borderRadius: '11px', background: newPoll.active ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+            <button
+              onClick={() => setNewPoll(f => ({ ...f, active: !f.active }))}
+              style={{ width: '38px', height: '22px', borderRadius: '11px', background: newPoll.active ? '#ff0000' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}
+            >
               <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'white', position: 'absolute', top: '2px', left: newPoll.active ? '18px' : '2px', transition: 'left 0.2s' }} />
             </button>
             <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: newPoll.active ? '#4ade80' : '#64748b' }}>
-              {newPoll.active ? 'Visible to public immediately' : 'Hidden from public (draft)'}
+              {newPoll.active ? 'Visible to public immediately' : 'Hidden (draft)'}
             </span>
           </div>
 
@@ -2059,36 +2095,53 @@ const VotingControlTab = () => {
             {newPoll.options.map((opt, i) => (
               <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                 <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: '#ff6666', flexShrink: 0 }}>{i + 1}</div>
-                <input style={{ ...inputStyle, flex: 1 }} value={opt} onChange={e => { const opts = [...newPoll.options]; opts[i] = e.target.value; setNewPoll(f => ({ ...f, options: opts })); }} placeholder={`Option ${i + 1}`} />
+                <input
+                  style={{ ...inputStyle, flex: 1 }}
+                  value={opt}
+                  onChange={e => { const opts = [...newPoll.options]; opts[i] = e.target.value; setNewPoll(f => ({ ...f, options: opts })); }}
+                  placeholder={`Option ${i + 1}`}
+                />
                 {newPoll.options.length > 2 && (
-                  <button onClick={() => { const opts = newPoll.options.filter((_, idx) => idx !== i); setNewPoll(f => ({ ...f, options: opts })); }}
-                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171', flexShrink: 0 }}><X size={12} /></button>
+                  <button
+                    onClick={() => { const opts = newPoll.options.filter((_, idx) => idx !== i); setNewPoll(f => ({ ...f, options: opts })); }}
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171', flexShrink: 0 }}
+                  ><X size={12} /></button>
                 )}
               </div>
             ))}
-            <button onClick={() => setNewPoll(f => ({ ...f, options: [...f.options, ''] }))}
-              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px dashed rgba(255,255,255,0.12)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}>
+            <button
+              onClick={() => setNewPoll(f => ({ ...f, options: [...f.options, ''] }))}
+              style={{ padding: '6px 14px', borderRadius: '6px', border: '1px dashed rgba(255,255,255,0.12)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', marginTop: '4px' }}
+            >
               + Add option
             </button>
           </div>
 
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={handleCreatePoll} style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={handleCreatePoll}
+              style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
               <Save size={13} /> Create Poll
             </button>
-            <button onClick={() => setCreating(false)} style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
+            <button
+              onClick={() => setCreating(false)}
+              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>Loading polls...</div>
-      ) : polls.length === 0 ? (
+      ) : tablesReady && polls.length === 0 ? (
         <div style={{ ...card, padding: '48px', textAlign: 'center' }}>
           <div style={{ fontSize: '36px', marginBottom: '12px' }}>🗳️</div>
           <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '14px', color: '#64748b' }}>No polls yet. Create your first poll above.</div>
         </div>
-      ) : polls.map(poll => {
+      ) : tablesReady ? polls.map(poll => {
         const pollOpts = options.filter(o => o.poll_id === poll.id);
         const pollTotal = pollOpts.reduce((s, o) => s + (counts[o.id] || 0), 0);
         const isExpanded = expandedPoll === poll.id;
@@ -2103,36 +2156,48 @@ const VotingControlTab = () => {
                     {poll.active ? 'LIVE' : 'HIDDEN'}
                   </span>
                 </div>
-                {poll.description && <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b' }}>{poll.description}</div>}
+                {poll.description && (
+                  <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b' }}>{poll.description}</div>
+                )}
                 <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.08em', marginTop: '4px' }}>
                   {pollOpts.length} options · {pollTotal.toLocaleString()} votes · {isExpanded ? '▲ collapse' : '▼ expand'}
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
-                <button onClick={() => togglePollActive(poll)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '7px', border: `1px solid ${poll.active ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`, background: poll.active ? 'rgba(74,222,128,0.08)' : 'transparent', color: poll.active ? '#4ade80' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
+                <button
+                  onClick={() => togglePollActive(poll)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '7px', border: `1px solid ${poll.active ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`, background: poll.active ? 'rgba(74,222,128,0.08)' : 'transparent', color: poll.active ? '#4ade80' : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                >
                   {poll.active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                   {poll.active ? 'Live' : 'Hidden'}
                 </button>
-                <button onClick={() => resetPollVotes(poll.id)}
-                  style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.06)', color: '#fbbf24', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer' }}>
+                <button
+                  onClick={() => resetPollVotes(poll.id)}
+                  style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(251,191,36,0.25)', background: 'rgba(251,191,36,0.06)', color: '#fbbf24', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer' }}
+                >
                   Reset Votes
                 </button>
                 {deletingPoll === poll.id ? (
                   <div style={{ display: 'flex', gap: '4px' }}>
-                    <button onClick={() => deletePoll(poll.id)}
-                      style={{ padding: '6px 10px', borderRadius: '7px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}>
-                      Confirm Delete
+                    <button
+                      onClick={() => deletePoll(poll.id)}
+                      style={{ padding: '6px 10px', borderRadius: '7px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Confirm
                     </button>
-                    <button onClick={() => setDeletingPoll(null)}
-                      style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '11px' }}>
+                    <button
+                      onClick={() => setDeletingPoll(null)}
+                      style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '11px' }}
+                    >
                       ✕
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => deletePoll(poll.id)}
-                    style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <button
+                    onClick={() => deletePoll(poll.id)}
+                    style={{ padding: '6px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
                     <Trash2 size={12} /> Delete
                   </button>
                 )}
@@ -2155,14 +2220,23 @@ const VotingControlTab = () => {
                           <div style={{ height: '5px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#ff0000,#ff6b6b)', borderRadius: '3px', transition: 'width 0.4s' }} />
                           </div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '4px' }}>{pct}% — {voteCount.toLocaleString()} votes</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '4px' }}>
+                            {pct}% — {voteCount.toLocaleString()} votes
+                          </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                          <input type="number" min={0} value={countInputs[opt.id] ?? voteCount}
+                          <input
+                            type="number"
+                            min={0}
+                            value={countInputs[opt.id] ?? voteCount}
                             onChange={e => setCountInputs(prev => ({ ...prev, [opt.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
-                            style={{ width: '80px', padding: '6px 10px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', outline: 'none' }} />
-                          <button onClick={() => setManualCount(opt.id, poll.id)} disabled={savingCount === opt.id}
-                            style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: savingCount === opt.id ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.25s' }}>
+                            style={{ width: '80px', padding: '6px 10px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', outline: 'none' }}
+                          />
+                          <button
+                            onClick={() => setManualCount(opt.id, poll.id)}
+                            disabled={savingCount === opt.id}
+                            style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: savingCount === opt.id ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.25s' }}
+                          >
                             {savingCount === opt.id ? '✓' : 'Set'}
                           </button>
                         </div>
@@ -2171,17 +2245,16 @@ const VotingControlTab = () => {
                   );
                 })}
                 <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '10px', fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#60a5fa' }}>
-                  💡 Setting a count replaces all votes for that option with seeded data.
+                  💡 Setting a count replaces all votes for that option with seeded data globally.
                 </div>
               </div>
             )}
           </div>
         );
-      })}
+      }) : null}
     </div>
   );
 };
-
 // ── MAIN ADMIN ─────────────────────────────────────
 const AdminDashboard = () => {
   const { isAdmin, logout } = useAdminAuth();
