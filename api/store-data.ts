@@ -97,61 +97,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── PUT — upsert/update a SINGLE row (fast, targeted) ────────────────
-    if (req.method === 'PUT') {
-      const { row } = req.body || {};
-      if (!row || !row.id) {
-        return res.status(400).json({ error: 'row with id required' });
-      }
+    // ── PUT — upsert/update a SINGLE row (fast, targeted) ────────────────
+if (req.method === 'PUT') {
+  const { row } = req.body || {};
+  if (!row || !row.id) {
+    return res.status(400).json({ error: 'row with id required' });
+  }
 
-      const dbRow = {
-        id: row.id,
-        payload: row.payload || row,
-      };
+  const dbRow = {
+    id: row.id,
+    payload: row.payload || row,
+  };
 
-      // Try PATCH first (update existing)
-      const patchRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(row.id)}`,
-        {
-          method: 'PATCH',
-          headers: { ...headers(), Prefer: 'return=representation' },
-          body: JSON.stringify(dbRow),
-        }
-      );
+  // Use upsert (POST with merge-duplicates) instead of PATCH+INSERT
+  const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      ...headers(),
+      Prefer: 'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify(dbRow),
+  });
 
-      if (!patchRes.ok) {
-        const e = await patchRes.json();
-        return res.status(500).json({ error: e?.message || 'Update failed' });
-      }
+  if (!upsertRes.ok) {
+    const e = await upsertRes.json();
+    return res.status(500).json({ error: e?.message || 'Upsert failed' });
+  }
 
-      const patched = await patchRes.json();
-
-      // If no rows were updated (new record), INSERT
-      if (!patched || patched.length === 0) {
-        const insRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-          method: 'POST',
-          headers: {
-            ...headers(),
-            Prefer: 'resolution=merge-duplicates,return=representation',
-          },
-          body: JSON.stringify(dbRow),
-        });
-        if (!insRes.ok) {
-          const e = await insRes.json();
-          return res.status(500).json({ error: e?.message || 'Insert failed' });
-        }
-        const inserted = await insRes.json();
-        const data = (inserted || []).map((r: any) =>
-          r.payload && typeof r.payload === 'object' ? { ...r.payload, id: r.id } : r
-        );
-        return res.status(200).json({ data });
-      }
-
-      const data = patched.map((r: any) =>
-        r.payload && typeof r.payload === 'object' ? { ...r.payload, id: r.id } : r
-      );
-      return res.status(200).json({ data });
-    }
-
+  const saved = await upsertRes.json();
+  const data = (saved || []).map((r: any) =>
+    r.payload && typeof r.payload === 'object' ? { ...r.payload, id: r.id } : r
+  );
+  return res.status(200).json({ data });
+}
     // ── DELETE single row ────────────────────────────────────────────────
     if (req.method === 'DELETE') {
       const { id } = req.body || {};
