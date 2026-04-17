@@ -41,70 +41,83 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ data });
     }
 
-    // ── POST — upsert entire array (replace all) ──────────────────────────
+    // ── POST — upsert entire array (replace all) using UPSERT ─────────────
+    // This is called when admin saves entire product list
     if (req.method === 'POST') {
       const { rows } = req.body || {};
       if (!Array.isArray(rows)) {
         return res.status(400).json({ error: 'rows must be an array' });
       }
 
-      // Delete all existing rows first, then insert fresh
-      const del = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=neq.NEVER_MATCH_THIS_PLACEHOLDER`, {
-        method: 'DELETE',
-        headers: headers(),
-      });
-
-      // Actually delete all — use a filter that matches everything
-      await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=gte.0`, {
-        method: 'DELETE',
-        headers: headers(),
-      });
-
-      // Fallback: delete with no filter (requires RLS to allow)
-      await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: 'DELETE',
-        headers: { ...headers(), 'Content-Range': '*' },
-      });
-
       if (rows.length === 0) {
+        // Delete all rows safely
+        const del = await fetch(
+          `${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`,
+          { method: 'DELETE', headers: headers() }
+        );
         return res.status(200).json({ data: [] });
       }
 
+      // Use upsert with merge-duplicates — much safer than delete+insert
       const ins = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
         method: 'POST',
-        headers: { ...headers(), Prefer: 'return=representation' },
+        headers: {
+          ...headers(),
+          Prefer: 'resolution=merge-duplicates,return=representation',
+        },
         body: JSON.stringify(rows),
       });
 
       if (!ins.ok) {
         const e = await ins.json();
-        return res.status(500).json({ error: e?.message || 'Insert failed', detail: e });
+        return res.status(500).json({ error: e?.message || 'Upsert failed', detail: e });
       }
 
       const data = await ins.json();
       return res.status(200).json({ data });
     }
 
-    // ── PUT — upsert single row ──────────────────────────────────────────
+    // ── PUT — upsert/update a SINGLE row ──────────────────────────────────
+    // Used for individual product edits — FAST, targeted update
     if (req.method === 'PUT') {
       const { row } = req.body || {};
       if (!row || !row.id) {
         return res.status(400).json({ error: 'row with id required' });
       }
 
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: 'POST',
-        headers: { ...headers(), Prefer: 'resolution=merge-duplicates,return=representation' },
-        body: JSON.stringify(row),
-      });
+      // Try PATCH first (update existing)
+      const patch = await fetch(
+        `${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(row.id)}`,
+        {
+          method: 'PATCH',
+          headers: { ...headers(), Prefer: 'return=representation' },
+          body: JSON.stringify(row),
+        }
+      );
 
-      if (!r.ok) {
-        const e = await r.json();
-        return res.status(500).json({ error: e?.message || 'Upsert failed' });
+      if (!patch.ok) {
+        const e = await patch.json();
+        return res.status(500).json({ error: e?.message || 'Update failed' });
       }
 
-      const data = await r.json();
-      return res.status(200).json({ data });
+      const patched = await patch.json();
+
+      // If no rows were updated (new record), INSERT instead
+      if (!patched || patched.length === 0) {
+        const ins = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+          method: 'POST',
+          headers: { ...headers(), Prefer: 'return=representation' },
+          body: JSON.stringify(row),
+        });
+        if (!ins.ok) {
+          const e = await ins.json();
+          return res.status(500).json({ error: e?.message || 'Insert failed' });
+        }
+        const data = await ins.json();
+        return res.status(200).json({ data });
+      }
+
+      return res.status(200).json({ data: patched });
     }
 
     // ── DELETE single row ────────────────────────────────────────────────
