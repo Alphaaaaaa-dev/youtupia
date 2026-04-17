@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 
 export interface ProductVariant { size: string; stock: number; }
@@ -31,7 +31,6 @@ export interface HomePromo { videoUrl: string; posterUrl?: string; title: string
 export interface DiscountCoupon { id: string; code: string; type: 'percentage' | 'fixed'; value: number; active: boolean; description?: string; }
 export interface TopBanner { enabled: boolean; messages: string[]; bgColor: string; textColor: string; }
 
-// ── DEFAULTS (only used as absolute fallback if DB AND localStorage both empty) ──
 const DEFAULT_COUPONS: DiscountCoupon[] = [
   { id: 'c1', code: 'YOUTUPIA10', type: 'percentage', value: 10, active: true, description: '10% off for Youtupia community' },
 ];
@@ -68,6 +67,7 @@ async function globalSet(key: string, value: any): Promise<void> {
 
 // ── DB helpers ──
 type TableName = 'yt_products' | 'yt_series' | 'yt_drops' | 'yt_creators';
+
 async function dbLoad<T>(table: TableName): Promise<T[] | null> {
   try {
     const res = await fetch(`/api/store-data?table=${table}`);
@@ -77,6 +77,19 @@ async function dbLoad<T>(table: TableName): Promise<T[] | null> {
     return data.map((row: any) => row.payload ?? row) as T[];
   } catch { return null; }
 }
+
+// ── FAST: Save a single row (PATCH/PUT) — used for edits ──
+async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item: T): Promise<void> {
+  try {
+    await fetch(`/api/store-data?table=${table}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ row: { id: item.id, payload: item } }),
+    });
+  } catch (e) { console.error(`dbSaveSingleRow(${table}) failed:`, e); }
+}
+
+// ── SLOW: Save all rows — only used for bulk operations ──
 async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[]): Promise<void> {
   try {
     const rows = items.map(item => ({ id: item.id, payload: item }));
@@ -85,6 +98,18 @@ async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[])
     });
   } catch (e) { console.error(`dbSaveAll(${table}) failed:`, e); }
 }
+
+// ── FAST: Delete a single row ──
+async function dbDeleteSingleRow(table: TableName, id: string): Promise<void> {
+  try {
+    await fetch(`/api/store-data?table=${table}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+  } catch (e) { console.error(`dbDeleteSingleRow(${table}) failed:`, e); }
+}
+
 async function dbSaveOrder(order: Order, userId?: string | null): Promise<void> {
   try {
     await fetch('/api/orders', {
@@ -131,7 +156,10 @@ interface StoreContextType {
   cart: CartItem[]; orders: Order[]; wishlist: string[]; recentlyViewed: string[];
   homePromo: HomePromo; coupons: DiscountCoupon[]; topBanner: TopBanner;
   hydrating: boolean; dbLoading: boolean;
-  setProducts: (p: Product[]) => void; setSeries: (s: Series[]) => void;
+  setProducts: (p: Product[]) => void;
+  setProduct: (p: Product) => void; // NEW: targeted single product update
+  deleteProduct: (id: string) => void; // NEW: targeted delete
+  setSeries: (s: Series[]) => void;
   setCreators: (c: Creator[]) => void; setDrops: (d: Drop[]) => void;
   setHomePromo: (p: HomePromo) => void; setCoupons: (c: DiscountCoupon[]) => void; setTopBanner: (b: TopBanner) => void;
   addToCart: (product: Product, size: string, qty?: number) => void;
@@ -150,10 +178,6 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
-  // ── FIX: Start with EMPTY arrays so no stale default products show ──
-  // We load from localStorage as fast cache, but ONLY if localStorage has real data
-  // (not the hardcoded defaults). The key insight: if DB loads fast enough,
-  // users never see stale data. If DB is slow, they see cached real data.
   const [products, setProductsState] = useState<Product[]>(() => lsGet('youtupia_products', []));
   const [series, setSeriesState] = useState<Series[]>(() => lsGet('youtupia_series', []));
   const [creators, setCreatorsState] = useState<Creator[]>(() => lsGet('youtupia_creators', []));
@@ -167,7 +191,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [coupons, setCouponsState] = useState<DiscountCoupon[]>(() => lsGet('youtupia_coupons', DEFAULT_COUPONS));
   const [topBanner, setTopBannerState] = useState<TopBanner>(() => lsGet('youtupia_top_banner', DEFAULT_TOP_BANNER));
 
-  // hydrating = true means "DB not yet checked". dbLoading = true means "fetching".
   const [hydrating, setHydrating] = useState(true);
   const [dbLoading, setDbLoading] = useState(true);
 
@@ -184,24 +207,34 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // ── Load from Supabase on mount ──
+  // ── Load from Supabase on mount — PARALLELIZED for speed ──
   useEffect(() => {
     let cancelled = false;
     const loadFromDb = async () => {
       setDbLoading(true);
+
+      // Load store data and settings in parallel — don't wait for all to finish
+      // Products load first since they're most critical
+      const storeDataPromise = Promise.all([
+        dbLoad<Product>('yt_products'),
+        dbLoad<Series>('yt_series'),
+        dbLoad<Drop>('yt_drops'),
+        dbLoad<Creator>('yt_creators'),
+      ]);
+
+      const settingsPromise = Promise.all([
+        globalGet('home_promo'),
+        globalGet('top_banner'),
+      ]);
+
+      // Don't block on orders — load them separately in background
+      const ordersPromise = dbLoadOrders(null);
+
       try {
-        const [dbProducts, dbSeries, dbDrops, dbCreators, dbAllOrders, dbHomePromo, dbTopBanner] = await Promise.all([
-          dbLoad<Product>('yt_products'),
-          dbLoad<Series>('yt_series'),
-          dbLoad<Drop>('yt_drops'),
-          dbLoad<Creator>('yt_creators'),
-          dbLoadOrders(null),
-          globalGet('home_promo'),
-          globalGet('top_banner'),
-        ]);
+        // Store data is highest priority — show products ASAP
+        const [dbProducts, dbSeries, dbDrops, dbCreators] = await storeDataPromise;
         if (cancelled) return;
 
-        // Always use DB data if available — this is the source of truth
         if (dbProducts && dbProducts.length > 0) {
           setProductsState(dbProducts);
           lsSet('youtupia_products', dbProducts);
@@ -218,20 +251,27 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           setCreatorsState(dbCreators);
           lsSet('youtupia_creators', dbCreators);
         }
-        if (dbAllOrders && dbAllOrders.length > 0) {
-          mergeOrders(dbAllOrders);
+
+        // Mark hydration complete so UI renders with fresh data
+        if (!cancelled) {
+          setDbLoading(false);
+          setHydrating(false);
         }
-        if (dbHomePromo) {
-          setHomePromoState(dbHomePromo);
-          lsSet('youtupia_home_promo', dbHomePromo);
-        }
-        if (dbTopBanner) {
-          setTopBannerState(dbTopBanner);
-          lsSet('youtupia_top_banner', dbTopBanner);
-        }
+
+        // Settings and orders load in background (non-blocking)
+        settingsPromise.then(([dbHomePromo, dbTopBanner]) => {
+          if (cancelled) return;
+          if (dbHomePromo) { setHomePromoState(dbHomePromo); lsSet('youtupia_home_promo', dbHomePromo); }
+          if (dbTopBanner) { setTopBannerState(dbTopBanner); lsSet('youtupia_top_banner', dbTopBanner); }
+        }).catch(() => {});
+
+        ordersPromise.then(dbAllOrders => {
+          if (cancelled) return;
+          if (dbAllOrders && dbAllOrders.length > 0) mergeOrders(dbAllOrders);
+        }).catch(() => {});
+
       } catch (e) {
         console.warn('DB load failed, using localStorage cache:', e);
-      } finally {
         if (!cancelled) {
           setDbLoading(false);
           setHydrating(false);
@@ -242,10 +282,39 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return () => { cancelled = true; };
   }, [mergeOrders]);
 
-  // ── Setters ──
+  // ── OPTIMISTIC SETTERS ──
+
+  // Set ALL products (bulk) — used when loading, or bulk delete
   const setProducts = useCallback((p: Product[]) => {
-    setProductsState(p); lsSet('youtupia_products', p); dbSaveAll('yt_products', p);
+    setProductsState(p);
+    lsSet('youtupia_products', p);
+    // Fire-and-forget bulk save in background
+    dbSaveAll('yt_products', p);
   }, []);
+
+  // Set/update a SINGLE product — FAST targeted update
+  // Optimistic: updates UI instantly, saves to DB in background
+  const setProduct = useCallback((p: Product) => {
+    setProductsState(prev => {
+      const exists = prev.find(x => x.id === p.id);
+      const next = exists ? prev.map(x => x.id === p.id ? p : x) : [...prev, p];
+      lsSet('youtupia_products', next);
+      return next;
+    });
+    // Background save — doesn't block UI
+    dbSaveSingleRow('yt_products', p);
+  }, []);
+
+  // Delete a SINGLE product — FAST targeted delete
+  const deleteProduct = useCallback((id: string) => {
+    setProductsState(prev => {
+      const next = prev.filter(x => x.id !== id);
+      lsSet('youtupia_products', next);
+      return next;
+    });
+    dbDeleteSingleRow('yt_products', id);
+  }, []);
+
   const setSeries = useCallback((s: Series[]) => {
     setSeriesState(s); lsSet('youtupia_series', s); dbSaveAll('yt_series', s);
   }, []);
@@ -368,7 +437,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   const addReview = (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => {
     const nr: Review = { ...review, id: `r${Date.now()}`, createdAt: new Date().toISOString() };
-    setProducts(products.map(p => p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p));
+    const updated = products.map(p => p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p);
+    setProductsState(updated);
+    lsSet('youtupia_products', updated);
+    // Save just the updated product
+    const updatedProduct = updated.find(p => p.id === productId);
+    if (updatedProduct) dbSaveSingleRow('yt_products', updatedProduct);
   };
 
   const validateDiscountCode = (code: string) => {
@@ -382,7 +456,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     <StoreContext.Provider value={{
       products, series, creators, drops, cart, orders, wishlist, recentlyViewed,
       homePromo, coupons, topBanner, hydrating, dbLoading,
-      setProducts, setSeries, setCreators, setDrops,
+      setProducts, setProduct, deleteProduct, setSeries, setCreators, setDrops,
       setHomePromo, setCoupons, setTopBanner,
       addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount,
       addOrder, updateOrderStatus, updateOrder, deleteOrder,
