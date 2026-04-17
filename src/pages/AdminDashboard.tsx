@@ -1855,7 +1855,7 @@ const generateInvoice = (order: any) => {
     '<div class="pbox">' +
     '<div class="plabel">Sold By</div>' +
     '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">Youtupia Merchandise LLP</div>' +
-    '<div style="font-size:12px;color:#555;line-height:1.6;">Sector 6 , Jaipur<br/>Jaipur, Rajasthan - 302050<br/>India<br/>youtupiastore@gmail.com</div>' +
+    '<div style="font-size:12px;color:#555;line-height:1.6;">64/158 pratap nagar sanganerbr/>Jaipur, Rajasthan - 302033<br/>India<br/>youtupiastore@gmail.com</div>' +
     "</div>" +
 
     '<div class="pbox">' +
