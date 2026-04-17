@@ -784,23 +784,37 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
 
 // ── PRODUCTS TAB ───────────────────────────────────
 const ProductsTab = () => {
-  const { products, setProducts } = useStore();
+  const { products, setProduct, deleteProduct } = useStore();
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [showModal, setShowModal] = useState(false);
-
-  const handleSave = (p: Product) => {
-    const exists = products.find(x => x.id === p.id);
-    if (exists) setProducts(products.map(x => x.id === p.id ? p : x));
-    else setProducts([...products, p]);
-    setShowModal(false); setEditing(null);
+  const [saving, setSaving] = useState(false);
+ 
+  const handleSave = async (p: Product) => {
+    setSaving(true);
+    // OPTIMISTIC: UI updates instantly, DB saves in background
+    setProduct(p);  // ← uses setProduct (single row) instead of setProducts (all rows)
+    setShowModal(false);
+    setEditing(null);
+    setSaving(false);
+    sonnerToast.success(editing?.id ? 'Product updated!' : 'Product added!', {
+      description: p.name + ' saved successfully.'
+    });
   };
-
+ 
+  const handleDelete = (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    deleteProduct(id);  // ← uses deleteProduct (single row) instead of setProducts(filtered)
+    sonnerToast.success('Product deleted', { description: name + ' removed.' });
+  };
+ 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
           <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Products</h1>
-          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Add, edit, or remove products.</p>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>
+            Add, edit, or remove products. Changes reflect instantly.
+          </p>
         </div>
         <button onClick={() => { setEditing(null); setShowModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
           <Plus size={14} /> Add Product
@@ -830,7 +844,7 @@ const ProductsTab = () => {
               <button onClick={() => { setEditing(p); setShowModal(true); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
                 <Edit2 size={12} /> Edit
               </button>
-              <button onClick={() => { if (confirm('Delete this product?')) setProducts(products.filter(x => x.id !== p.id)); }} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
+              <button onClick={() => handleDelete(p.id, p.name)} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
                 <Trash2 size={12} /> Delete
               </button>
             </div>
@@ -841,7 +855,6 @@ const ProductsTab = () => {
     </div>
   );
 };
-
 // ── SERIES TAB ─────────────────────────────────────
 const SeriesTab = () => {
   const { series, setSeries } = useStore();
