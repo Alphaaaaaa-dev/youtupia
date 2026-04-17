@@ -257,7 +257,7 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'voting', icon: BarChart2, label: 'Voting Control' },
   ];
   return (
-    <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 6%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
+    <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 2.5%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
       <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <div style={{ width: '32px', height: '32px', background: '#ff0000', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="14" height="12" viewBox="0 0 16 14" fill="none"><path d="M6.5 10L10.5 7L6.5 4V10Z" fill="white"/></svg>
@@ -1801,10 +1801,10 @@ th:last-child{text-align:right;}
 
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-top:4px;">
     <div style="flex:1;background:#f9f9f9;border-radius:10px;padding:14px;border:1px solid #eee;">
-      <div style="font-size:10px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#999;margin-bottom:10px;">GST Breakdown (12%)</div>
+      <div style="font-size:10px;font-weight:900;letter-spacing:0.1em;text-transform:uppercase;color:#999;margin-bottom:10px;">GST Breakdown (5%)</div>
       <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee;"><span style="color:#666;">Taxable Amount</span><span>&#8377;${baseAmount.toLocaleString('en-IN')}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee;"><span style="color:#666;">CGST @ 6%</span><span>&#8377;${cgst.toLocaleString('en-IN')}</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee;"><span style="color:#666;">SGST @ 6%</span><span>&#8377;${sgst.toLocaleString('en-IN')}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee;"><span style="color:#666;">CGST @ 2.5%</span><span>&#8377;${cgst.toLocaleString('en-IN')}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #eee;"><span style="color:#666;">SGST @ 2.5%</span><span>&#8377;${sgst.toLocaleString('en-IN')}</span></div>
       <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;font-weight:700;"><span>Total Tax</span><span>&#8377;${gstAmount.toLocaleString('en-IN')}</span></div>
     </div>
     <div style="width:260px;flex-shrink:0;">
