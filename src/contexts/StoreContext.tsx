@@ -57,10 +57,13 @@ async function globalGet(key: string): Promise<any> {
     return data.value ?? null;
   } catch { return null; }
 }
+
 async function globalSet(key: string, value: any): Promise<void> {
   try {
     await fetch(`/api/global-settings?key=${encodeURIComponent(key)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value }),
     });
   } catch (e) { console.error('globalSet failed:', e); }
 }
@@ -68,17 +71,18 @@ async function globalSet(key: string, value: any): Promise<void> {
 // ── DB helpers ──
 type TableName = 'yt_products' | 'yt_series' | 'yt_drops' | 'yt_creators';
 
+// Load all rows from a table — returns unwrapped items
 async function dbLoad<T>(table: TableName): Promise<T[] | null> {
   try {
     const res = await fetch(`/api/store-data?table=${table}`);
     if (!res.ok) return null;
     const { data } = await res.json();
     if (!Array.isArray(data) || data.length === 0) return null;
-    return data.map((row: any) => row.payload ?? row) as T[];
+    return data as T[];
   } catch { return null; }
 }
 
-// ── FAST: Save a single row (PATCH/PUT) — used for edits ──
+// Save a single item — wraps it correctly for the API
 async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item: T): Promise<void> {
   try {
     await fetch(`/api/store-data?table=${table}`, {
@@ -89,17 +93,19 @@ async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item:
   } catch (e) { console.error(`dbSaveSingleRow(${table}) failed:`, e); }
 }
 
-// ── SLOW: Save all rows — only used for bulk operations ──
+// Save all items — wraps each correctly
 async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[]): Promise<void> {
   try {
     const rows = items.map(item => ({ id: item.id, payload: item }));
     await fetch(`/api/store-data?table=${table}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rows }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows }),
     });
   } catch (e) { console.error(`dbSaveAll(${table}) failed:`, e); }
 }
 
-// ── FAST: Delete a single row ──
+// Delete a single row
 async function dbDeleteSingleRow(table: TableName, id: string): Promise<void> {
   try {
     await fetch(`/api/store-data?table=${table}`, {
@@ -113,24 +119,33 @@ async function dbDeleteSingleRow(table: TableName, id: string): Promise<void> {
 async function dbSaveOrder(order: Order, userId?: string | null): Promise<void> {
   try {
     await fetch('/api/orders', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order, userId: userId || null }),
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order, userId: userId || null }),
     });
   } catch (e) { console.error('dbSaveOrder failed:', e); }
 }
+
 async function dbUpdateOrder(orderId: string, updates: Partial<Order>): Promise<void> {
   try {
     await fetch('/api/orders', {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: orderId, ...updates }),
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId, ...updates }),
     });
   } catch (e) { console.error('dbUpdateOrder failed:', e); }
 }
+
 async function dbDeleteOrder(orderId: string): Promise<void> {
   try {
     await fetch('/api/orders', {
-      method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: orderId }),
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: orderId }),
     });
   } catch (e) { console.error('dbDeleteOrder failed:', e); }
 }
+
 async function dbLoadOrders(userId?: string | null): Promise<Order[] | null> {
   try {
     const url = userId ? `/api/orders?userId=${userId}` : '/api/orders';
@@ -157,19 +172,25 @@ interface StoreContextType {
   homePromo: HomePromo; coupons: DiscountCoupon[]; topBanner: TopBanner;
   hydrating: boolean; dbLoading: boolean;
   setProducts: (p: Product[]) => void;
-  setProduct: (p: Product) => void; // NEW: targeted single product update
-  deleteProduct: (id: string) => void; // NEW: targeted delete
+  setProduct: (p: Product) => void;
+  deleteProduct: (id: string) => void;
   setSeries: (s: Series[]) => void;
-  setCreators: (c: Creator[]) => void; setDrops: (d: Drop[]) => void;
-  setHomePromo: (p: HomePromo) => void; setCoupons: (c: DiscountCoupon[]) => void; setTopBanner: (b: TopBanner) => void;
+  setCreators: (c: Creator[]) => void;
+  setDrops: (d: Drop[]) => void;
+  setHomePromo: (p: HomePromo) => void;
+  setCoupons: (c: DiscountCoupon[]) => void;
+  setTopBanner: (b: TopBanner) => void;
   addToCart: (product: Product, size: string, qty?: number) => void;
   removeFromCart: (productId: string, size: string) => void;
   updateCartQty: (productId: string, size: string, qty: number) => void;
-  clearCart: () => void; cartTotal: number; cartCount: number;
+  clearCart: () => void;
+  cartTotal: number;
+  cartCount: number;
   addOrder: (order: Order) => void;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   deleteOrder: (orderId: string) => void;
-  toggleWishlist: (productId: string) => void; addRecentlyViewed: (productId: string) => void;
+  toggleWishlist: (productId: string) => void;
+  addRecentlyViewed: (productId: string) => void;
   addReview: (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => void;
   validateDiscountCode: (code: string) => { valid: boolean; pct: number; amount: number; type: 'percentage' | 'fixed'; coupon?: DiscountCoupon };
   updateOrder: (orderId: string, updates: Partial<Order>) => void;
@@ -207,35 +228,27 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // ── Load from Supabase on mount — PARALLELIZED for speed ──
+  // ── Load from Supabase on mount ──────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
+
     const loadFromDb = async () => {
       setDbLoading(true);
 
-      // Load store data and settings in parallel — don't wait for all to finish
-      // Products load first since they're most critical
-      const storeDataPromise = Promise.all([
-        dbLoad<Product>('yt_products'),
-        dbLoad<Series>('yt_series'),
-        dbLoad<Drop>('yt_drops'),
-        dbLoad<Creator>('yt_creators'),
-      ]);
-
-      const settingsPromise = Promise.all([
-        globalGet('home_promo'),
-        globalGet('top_banner'),
-      ]);
-
-      // Don't block on orders — load them separately in background
-      const ordersPromise = dbLoadOrders(null);
-
       try {
-        // Store data is highest priority — show products ASAP
-        const [dbProducts, dbSeries, dbDrops, dbCreators] = await storeDataPromise;
+        // Load all store data in parallel
+        const [dbProducts, dbSeries, dbDrops, dbCreators] = await Promise.all([
+          dbLoad<Product>('yt_products'),
+          dbLoad<Series>('yt_series'),
+          dbLoad<Drop>('yt_drops'),
+          dbLoad<Creator>('yt_creators'),
+        ]);
+
         if (cancelled) return;
 
+        // Only update state if we got real data back
         if (dbProducts && dbProducts.length > 0) {
+          console.log('[Store] Loaded', dbProducts.length, 'products from DB');
           setProductsState(dbProducts);
           lsSet('youtupia_products', dbProducts);
         }
@@ -252,48 +265,49 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           lsSet('youtupia_creators', dbCreators);
         }
 
-        // Mark hydration complete so UI renders with fresh data
         if (!cancelled) {
           setDbLoading(false);
           setHydrating(false);
         }
 
-        // Settings and orders load in background (non-blocking)
-        settingsPromise.then(([dbHomePromo, dbTopBanner]) => {
+        // Load settings and orders in background
+        Promise.all([
+          globalGet('home_promo'),
+          globalGet('top_banner'),
+        ]).then(([dbHomePromo, dbTopBanner]) => {
           if (cancelled) return;
           if (dbHomePromo) { setHomePromoState(dbHomePromo); lsSet('youtupia_home_promo', dbHomePromo); }
           if (dbTopBanner) { setTopBannerState(dbTopBanner); lsSet('youtupia_top_banner', dbTopBanner); }
         }).catch(() => {});
 
-        ordersPromise.then(dbAllOrders => {
+        dbLoadOrders(null).then(dbAllOrders => {
           if (cancelled) return;
           if (dbAllOrders && dbAllOrders.length > 0) mergeOrders(dbAllOrders);
         }).catch(() => {});
 
       } catch (e) {
-        console.warn('DB load failed, using localStorage cache:', e);
+        console.warn('[Store] DB load failed, using localStorage cache:', e);
         if (!cancelled) {
           setDbLoading(false);
           setHydrating(false);
         }
       }
     };
+
     loadFromDb();
     return () => { cancelled = true; };
   }, [mergeOrders]);
 
-  // ── OPTIMISTIC SETTERS ──
+  // ── OPTIMISTIC SETTERS ───────────────────────────────────────────────────
 
-  // Set ALL products (bulk) — used when loading, or bulk delete
+  // Set ALL products (bulk) — used when loading or bulk operations
   const setProducts = useCallback((p: Product[]) => {
     setProductsState(p);
     lsSet('youtupia_products', p);
-    // Fire-and-forget bulk save in background
     dbSaveAll('yt_products', p);
   }, []);
 
-  // Set/update a SINGLE product — FAST targeted update
-  // Optimistic: updates UI instantly, saves to DB in background
+  // Set/update a SINGLE product — fast targeted update
   const setProduct = useCallback((p: Product) => {
     setProductsState(prev => {
       const exists = prev.find(x => x.id === p.id);
@@ -301,11 +315,11 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       lsSet('youtupia_products', next);
       return next;
     });
-    // Background save — doesn't block UI
+    // Save to DB — this is what was broken before
     dbSaveSingleRow('yt_products', p);
   }, []);
 
-  // Delete a SINGLE product — FAST targeted delete
+  // Delete a SINGLE product — fast targeted delete
   const deleteProduct = useCallback((id: string) => {
     setProductsState(prev => {
       const next = prev.filter(x => x.id !== id);
@@ -316,37 +330,55 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setSeries = useCallback((s: Series[]) => {
-    setSeriesState(s); lsSet('youtupia_series', s); dbSaveAll('yt_series', s);
+    setSeriesState(s);
+    lsSet('youtupia_series', s);
+    dbSaveAll('yt_series', s);
   }, []);
+
   const setCreators = useCallback((c: Creator[]) => {
-    setCreatorsState(c); lsSet('youtupia_creators', c); dbSaveAll('yt_creators', c);
+    setCreatorsState(c);
+    lsSet('youtupia_creators', c);
+    dbSaveAll('yt_creators', c);
   }, []);
+
   const setDrops = useCallback((d: Drop[]) => {
-    setDropsState(d); lsSet('youtupia_drops', d); dbSaveAll('yt_drops', d);
+    setDropsState(d);
+    lsSet('youtupia_drops', d);
+    dbSaveAll('yt_drops', d);
   }, []);
+
   const setHomePromo = useCallback((p: HomePromo) => {
-    setHomePromoState(p); lsSet('youtupia_home_promo', p); globalSet('home_promo', p);
+    setHomePromoState(p);
+    lsSet('youtupia_home_promo', p);
+    globalSet('home_promo', p);
   }, []);
+
   const setCoupons = useCallback((c: DiscountCoupon[]) => {
-    setCouponsState(c); lsSet('youtupia_coupons', c);
+    setCouponsState(c);
+    lsSet('youtupia_coupons', c);
   }, []);
+
   const setTopBanner = useCallback((b: TopBanner) => {
-    setTopBannerState(b); lsSet('youtupia_top_banner', b); globalSet('top_banner', b);
+    setTopBannerState(b);
+    lsSet('youtupia_top_banner', b);
+    globalSet('top_banner', b);
   }, []);
 
   useEffect(() => { lsSet('youtupia_cart', cart); }, [cart]);
   useEffect(() => { lsSet('youtupia_wishlist', wishlist); }, [wishlist]);
   useEffect(() => { lsSet('youtupia_recent', recentlyViewed); }, [recentlyViewed]);
 
-  // ── Cart actions ──
+  // ── Cart actions ─────────────────────────────────────────────────────────
   const addToCart = (product: Product, size: string, qty = 1) => {
     const variant = product.variants.find(v => v.size === size);
     const variantStock = variant?.stock ?? 0;
     const isPreorder = Boolean(product.preorder);
+
     if (!isPreorder && variantStock <= 0) {
       sonnerToast.message('Out of stock', { description: `${product.name} (${size}) is unavailable.` });
       return;
     }
+
     setCart(prev => {
       const ex = prev.find(i => i.productId === product.id && i.size === size);
       if (ex) {
@@ -355,7 +387,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left.` });
           return prev;
         }
-        return prev.map(i => i.productId === product.id && i.size === size ? { ...i, quantity: nextQty } : i);
+        return prev.map(i =>
+          i.productId === product.id && i.size === size ? { ...i, quantity: nextQty } : i
+        );
       }
       if (!isPreorder && qty > variantStock) {
         sonnerToast.message('Stock limit reached', { description: `Only ${variantStock} left.` });
@@ -363,7 +397,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       }
       return [...prev, { productId: product.id, size, quantity: qty, product }];
     });
-    sonnerToast.success('Added to cart', { description: `${product.name} · ${size}${isPreorder ? ' (Preorder)' : ''}` });
+    sonnerToast.success('Added to cart', {
+      description: `${product.name} · ${size}${isPreorder ? ' (Preorder)' : ''}`,
+    });
   };
 
   const removeFromCart = (productId: string, size: string) =>
@@ -433,23 +469,34 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const addRecentlyViewed = (productId: string) =>
-    setRecentlyViewed(prev => [productId, ...prev.filter(id => id !== productId)].slice(0, 10));
+    setRecentlyViewed(prev =>
+      [productId, ...prev.filter(id => id !== productId)].slice(0, 10)
+    );
 
   const addReview = (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => {
     const nr: Review = { ...review, id: `r${Date.now()}`, createdAt: new Date().toISOString() };
-    const updated = products.map(p => p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p);
-    setProductsState(updated);
-    lsSet('youtupia_products', updated);
-    // Save just the updated product
-    const updatedProduct = updated.find(p => p.id === productId);
-    if (updatedProduct) dbSaveSingleRow('yt_products', updatedProduct);
+    setProductsState(prev => {
+      const updated = prev.map(p =>
+        p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p
+      );
+      lsSet('youtupia_products', updated);
+      const updatedProduct = updated.find(p => p.id === productId);
+      if (updatedProduct) dbSaveSingleRow('yt_products', updatedProduct);
+      return updated;
+    });
   };
 
   const validateDiscountCode = (code: string) => {
     const upper = code.trim().toUpperCase();
     const coupon = coupons.find(c => c.code.toUpperCase() === upper && c.active);
     if (!coupon) return { valid: false, pct: 0, amount: 0, type: 'percentage' as const };
-    return { valid: true, pct: coupon.type === 'percentage' ? coupon.value : 0, amount: coupon.type === 'fixed' ? coupon.value : 0, type: coupon.type, coupon };
+    return {
+      valid: true,
+      pct: coupon.type === 'percentage' ? coupon.value : 0,
+      amount: coupon.type === 'fixed' ? coupon.value : 0,
+      type: coupon.type,
+      coupon,
+    };
   };
 
   return (
