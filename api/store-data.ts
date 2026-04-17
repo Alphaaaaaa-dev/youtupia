@@ -3,12 +3,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-const headers = () => ({
-  'Content-Type': 'application/json',
-  apikey: SUPABASE_SERVICE_KEY!,
-  Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-  Prefer: 'return=representation',
-});
+function headers() {
+  return {
+    'Content-Type': 'application/json',
+    apikey: SUPABASE_SERVICE_KEY!,
+    Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+    Prefer: 'return=representation',
+  };
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,6 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    console.error('Missing env vars: SUPABASE_URL or SUPABASE_SERVICE_KEY');
     return res.status(500).json({ error: 'Missing env vars' });
   }
 
@@ -28,47 +31,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // ── GET all rows ──────────────────────────────────────────────────────
+
+    // ── GET — fetch all rows ────────────────────────────────────────────────
     if (req.method === 'GET') {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*&order=created_at.asc`, {
-        headers: headers(),
-      });
+      const url = `${SUPABASE_URL}/rest/v1/${table}?select=*&order=updated_at.asc`;
+      console.log(`[store-data] GET ${url}`);
+
+      const r = await fetch(url, { headers: headers() });
+      const responseText = await r.text();
+
       if (!r.ok) {
-        const e = await r.json();
-        return res.status(500).json({ error: e?.message || 'Fetch failed' });
+        console.error(`[store-data] GET failed ${r.status}:`, responseText);
+        return res.status(500).json({ error: `Fetch failed: ${responseText}` });
       }
-      const rows = await r.json();
-      // Unwrap payload if present, otherwise return row as-is
+
+      const rows = JSON.parse(responseText);
+      // Unwrap payload
       const data = (rows || []).map((row: any) => {
         if (row.payload && typeof row.payload === 'object') {
-          // Merge: payload fields take precedence, but keep id from row
           return { ...row.payload, id: row.id };
         }
         return row;
       });
+
+      console.log(`[store-data] GET ${table} returned ${data.length} rows`);
       return res.status(200).json({ data });
     }
 
-    // ── POST — upsert entire array (bulk save) ────────────────────────────
+    // ── POST — upsert ENTIRE array (bulk save / replace all) ───────────────
     if (req.method === 'POST') {
       const { rows } = req.body || {};
       if (!Array.isArray(rows)) {
         return res.status(400).json({ error: 'rows must be an array' });
       }
 
+      console.log(`[store-data] POST bulk upsert ${table}: ${rows.length} rows`);
+
+      // If empty array, delete all rows first
       if (rows.length === 0) {
-        // Delete all rows
-        await fetch(
+        const delR = await fetch(
           `${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`,
           { method: 'DELETE', headers: headers() }
         );
+        if (!delR.ok) {
+          const e = await delR.text();
+          console.error('[store-data] DELETE all failed:', e);
+          return res.status(500).json({ error: 'Delete failed: ' + e });
+        }
         return res.status(200).json({ data: [] });
       }
 
-      // Each row: { id, payload } where payload is the full product object
       const dbRows = rows.map((row: any) => ({
-        id: row.id,
-        payload: row.payload || row, // support both wrapped and unwrapped
+        id: String(row.id),
+        payload: row.payload !== undefined ? row.payload : row,
       }));
 
       const ins = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
@@ -80,77 +95,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body: JSON.stringify(dbRows),
       });
 
+      const insText = await ins.text();
       if (!ins.ok) {
-        const e = await ins.json();
-        return res.status(500).json({ error: e?.message || 'Upsert failed', detail: e });
+        console.error(`[store-data] POST upsert failed ${ins.status}:`, insText);
+        return res.status(500).json({ error: `Upsert failed: ${insText}` });
       }
 
-      const saved = await ins.json();
-      // Return unwrapped data
+      const saved = JSON.parse(insText);
       const data = (saved || []).map((row: any) => {
         if (row.payload && typeof row.payload === 'object') {
           return { ...row.payload, id: row.id };
         }
         return row;
       });
+
+      console.log(`[store-data] POST bulk upsert ${table} saved ${data.length} rows`);
       return res.status(200).json({ data });
     }
 
-    // ── PUT — upsert/update a SINGLE row (fast, targeted) ────────────────
-    // ── PUT — upsert/update a SINGLE row (fast, targeted) ────────────────
-if (req.method === 'PUT') {
-  const { row } = req.body || {};
-  if (!row || !row.id) {
-    return res.status(400).json({ error: 'row with id required' });
-  }
+    // ── PUT — upsert/update a SINGLE row ───────────────────────────────────
+    if (req.method === 'PUT') {
+      const { row } = req.body || {};
+      if (!row || !row.id) {
+        return res.status(400).json({ error: 'row with id required' });
+      }
 
-  const dbRow = {
-    id: row.id,
-    payload: row.payload || row,
-  };
+      const dbRow = {
+        id: String(row.id),
+        payload: row.payload !== undefined ? row.payload : row,
+      };
 
-  // Use upsert (POST with merge-duplicates) instead of PATCH+INSERT
-  const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: {
-      ...headers(),
-      Prefer: 'resolution=merge-duplicates,return=representation',
-    },
-    body: JSON.stringify(dbRow),
-  });
+      console.log(`[store-data] PUT upsert ${table} id=${dbRow.id}`);
 
-  if (!upsertRes.ok) {
-    const e = await upsertRes.json();
-    return res.status(500).json({ error: e?.message || 'Upsert failed' });
-  }
+      const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: {
+          ...headers(),
+          Prefer: 'resolution=merge-duplicates,return=representation',
+        },
+        body: JSON.stringify(dbRow),
+      });
 
-  const saved = await upsertRes.json();
-  const data = (saved || []).map((r: any) =>
-    r.payload && typeof r.payload === 'object' ? { ...r.payload, id: r.id } : r
-  );
-  return res.status(200).json({ data });
-}
-    // ── DELETE single row ────────────────────────────────────────────────
+      const upsertText = await upsertRes.text();
+      if (!upsertRes.ok) {
+        console.error(`[store-data] PUT upsert failed ${upsertRes.status}:`, upsertText);
+        return res.status(500).json({ error: `Upsert failed: ${upsertText}` });
+      }
+
+      const saved = JSON.parse(upsertText);
+      const data = (saved || []).map((r: any) =>
+        r.payload && typeof r.payload === 'object' ? { ...r.payload, id: r.id } : r
+      );
+
+      console.log(`[store-data] PUT upsert ${table} id=${dbRow.id} success`);
+      return res.status(200).json({ data });
+    }
+
+    // ── DELETE — single row ─────────────────────────────────────────────────
     if (req.method === 'DELETE') {
       const { id } = req.body || {};
       if (!id) return res.status(400).json({ error: 'id required' });
 
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-        headers: headers(),
-      });
+      console.log(`[store-data] DELETE ${table} id=${id}`);
+
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}`,
+        { method: 'DELETE', headers: headers() }
+      );
 
       if (!r.ok) {
-        const e = await r.json();
-        return res.status(500).json({ error: e?.message || 'Delete failed' });
+        const e = await r.text();
+        console.error('[store-data] DELETE failed:', e);
+        return res.status(500).json({ error: `Delete failed: ${e}` });
       }
 
+      console.log(`[store-data] DELETE ${table} id=${id} success`);
       return res.status(200).json({ success: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
+
   } catch (err: any) {
-    console.error('store-data error:', err);
+    console.error('[store-data] Unhandled error:', err);
     return res.status(500).json({ error: err.message || 'Internal error' });
   }
 }
