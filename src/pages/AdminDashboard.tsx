@@ -1835,8 +1835,8 @@ const generateInvoice = (order: any) => {
     "</svg></div>" +
 
     "<div>" +
-    '<div style="font-size:26px;font-weight:900;color:#ff0000;">YOUTUPIA</div>' +
-    '<div style="font-size:11px;color:#666;">Creator Merchandise Platform</div>' +
+    '<div style="font-size:26px;font-weight:900;color:#ff0000;">YouTupia</div>' +
+    '<div style="font-size:11px;color:#666;">Wear Your Dreams</div>' +
     "</div></div>" +
 
     '<div style="text-align:right;">' +
@@ -1929,14 +1929,14 @@ const generateInvoice = (order: any) => {
 
     '<div class="ftr">' +
     '<div style="font-size:11px;color:#999;line-height:1.7;">' +
-    "<strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>" +
-    "GSTIN: 27AABCU9603R1ZM · CIN: U74999MH2024LLP123456<br/>" +
+    "<strong>Terms:</strong> All sales are final. Keep the invoice for your benfit.<br/>" +
+    "GSTIN: 08CLBPJ3540A1ZP · " +
     "Computer-generated invoice. No signature required." +
     "</div>" +
 
     '<div style="text-align:right;">' +
     '<div style="font-size:16px;font-weight:900;color:#ff0000;">YOUTUPIA</div>' +
-    '<div style="font-size:10px;color:#bbb;margin-top:2px;">Creator Merch, Made Real.</div>' +
+    '<div style="font-size:10px;color:#bbb;margin-top:2px;">Wear Your Dreams</div>' +
     "</div></div>" +
 
     "</body></html>";
