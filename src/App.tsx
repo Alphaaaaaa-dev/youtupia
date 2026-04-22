@@ -30,7 +30,6 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import NotFound from './pages/NotFound';
 import CreatorPage from './pages/CreatorPage';
-import DropsPage from './pages/DropsPage';
 import WishlistPage from './pages/WishlistPage';
 import TrackOrderPage from './pages/TrackOrderPage';
 import { useStore } from './contexts/StoreContext';
@@ -109,7 +108,6 @@ const StoreLayout = () => {
             <Route path="/contact" element={<ContactSupportPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/creator/:handle" element={<CreatorPage />} />
-            <Route path="/drops" element={<DropsPage />} />
             <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
             <Route path="/order-success" element={<ProtectedRoute><OrderSuccessPage /></ProtectedRoute>} />
             <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
