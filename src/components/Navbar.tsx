@@ -244,7 +244,6 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/shop', label: 'Shop' },
-    { to: '/drops', label: 'Drops' },
     { to: '/catalogue', label: 'Catalogue' },
     { to: '/about', label: 'About' },
     { to: '/contact', label: 'Contact' },
