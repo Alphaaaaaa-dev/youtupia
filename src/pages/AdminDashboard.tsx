@@ -15,7 +15,7 @@ const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'drops' | 'homepage' | 'coupons' | 'tickets' | 'voting';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'homepage' | 'coupons' | 'tickets' | 'voting';
 
 // ── CALENDAR DATE-TIME PICKER ──────────────────────
 const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChange: (iso: string) => void; labelText: string }) => {
@@ -250,7 +250,6 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'products', icon: ShoppingBag, label: 'Products' },
     { id: 'series', icon: Settings, label: 'Series' },
     { id: 'creators', icon: Users, label: 'Creators' },
-    { id: 'drops', icon: Zap, label: 'Drop Control' },
     { id: 'homepage', icon: Youtube, label: 'Home Content' },
     { id: 'coupons', icon: Tag, label: 'Coupons' },
     { id: 'tickets', icon: MessageSquare, label: 'Support Tickets' },
@@ -676,7 +675,7 @@ const OrdersTab = () => {
 
 // ── PRODUCT MODAL ──────────────────────────────────
 const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> | null; onSave: (p: Product) => void; onClose: () => void }) => {
-  const { series, creators, drops } = useStore();
+  const { series, creators, } = useStore();
   const isNew = !product?.id;
   const [form, setForm] = useState<Partial<Product>>(product || {
     name: '', series: '', seriesId: '', price: 0, description: '',
@@ -1047,195 +1046,6 @@ const CreatorsTab = () => {
 };
 
 // ── DROP CONTROL TAB ───────────────────────────────
-const DropControlTab = () => {
-  const { drops, products, setDrops } = useStore();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<any>(null);
-
-  const openEdit = (dropId: string) => {
-    const d = drops.find(x => x.id === dropId);
-    if (!d) return;
-    setEditingId(dropId);
-    setForm({ ...d });
-  };
-
-  const save = () => {
-    if (!form?.id || !form?.name) return;
-    setDrops(drops.map(d => d.id === form.id ? {
-      ...d,
-      name: form.name || d.name,
-      description: form.description || '',
-      theme: form.theme || '',
-      banner: form.banner || '',
-      endsAt: form.endsAt || '',
-      limited: Boolean(form.limited),
-      productIds: form.productIds || [],
-    } : d));
-    setEditingId(null);
-    setForm(null);
-  };
-
-  const [creatingNew, setCreatingNew] = useState(false);
-  const [newForm, setNewForm] = useState<any>({
-    id: '', name: '', description: '', dropNumber: drops.length + 1, theme: '',
-    banner: '', endsAt: '', productIds: [], limited: false
-  });
-  const [dropSaved, setDropSaved] = useState<string | null>(null);
-
-  const saveNew = () => {
-    if (!newForm.name) return;
-    const newDrop = {
-      ...newForm,
-      id: 'drop' + Date.now(),
-      dropNumber: drops.length + 1,
-    };
-    setDrops([...drops, newDrop]);
-    sonnerToast.success('Drop created!', { description: newDrop.name + ' is now live.' });
-    setCreatingNew(false);
-    setNewForm({ id: '', name: '', description: '', dropNumber: drops.length + 2, theme: '', banner: '', endsAt: '', productIds: [], limited: false });
-  };
-
-  const saveDrop = () => {
-    save();
-    sonnerToast.success('Drop updated!', { description: form?.name + ' saved successfully.' });
-    setDropSaved(editingId);
-    setTimeout(() => setDropSaved(null), 2500);
-  };
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-        <div>
-          <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Drop Control</h1>
-          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Create, edit and manage your drops.</p>
-        </div>
-        <button onClick={() => setCreatingNew(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-          <Plus size={14} /> New Drop
-        </button>
-      </div>
-
-      {creatingNew && (
-        <div style={{ ...card, padding: '20px', marginBottom: '16px', border: '1px solid rgba(255,0,0,0.2)' }}>
-          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9', marginBottom: '14px' }}>New Drop</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-            <div><div style={{ ...label, marginBottom: '5px' }}>DROP NAME *</div><input style={inputStyle} value={newForm.name} onChange={e => setNewForm((f: any) => ({ ...f, name: e.target.value }))} placeholder="Drop 003 — Summer" /></div>
-            <div><div style={{ ...label, marginBottom: '5px' }}>THEME</div><input style={inputStyle} value={newForm.theme} onChange={e => setNewForm((f: any) => ({ ...f, theme: e.target.value }))} placeholder="Streetwear / Gaming..." /></div>
-          </div>
-          <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div><textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={newForm.description} onChange={e => setNewForm((f: any) => ({ ...f, description: e.target.value }))} placeholder="What this drop is about..." /></div>
-          <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>BANNER URL</div><input style={inputStyle} value={newForm.banner} onChange={e => setNewForm((f: any) => ({ ...f, banner: e.target.value }))} placeholder="https://..." /></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-            <div><DateTimePicker labelText="DROP END TIME" value={newForm.endsAt || ''} onChange={v => setNewForm((f: any) => ({ ...f, endsAt: v }))} /></div>
-            <div><div style={{ ...label, marginBottom: '5px' }}>LIMITED DROP</div><button onClick={() => setNewForm((f: any) => ({ ...f, limited: !f.limited }))} style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer' as const }}>{newForm.limited ? 'YES — Never restocking' : 'NO — Regular drop'}</button></div>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <div style={{ ...label, marginBottom: '6px' }}>ASSIGN PRODUCTS</div>
-            <div style={{ maxHeight: '140px', overflowY: 'auto', padding: '6px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
-              {products.map(p => {
-                const checked = (newForm.productIds || []).includes(p.id);
-                return (<label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 4px', cursor: 'pointer' }}><input type="checkbox" checked={checked} onChange={() => { const ids = newForm.productIds || []; setNewForm((f: any) => ({ ...f, productIds: checked ? ids.filter((id: string) => id !== p.id) : [...ids, p.id] })); }} /><span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#cbd5e1' }}>{p.name}</span></label>);
-              })}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={saveNew} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Save size={13} /> Create Drop</button>
-            <button onClick={() => setCreatingNew(false)} style={{ padding: '8px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {drops.map(d => (
-          <div key={d.id} style={{ ...card, padding: '18px' }}>
-            {editingId === d.id && form ? (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                  <div><div style={{ ...label, marginBottom: '5px' }}>DROP NAME</div><input style={inputStyle} value={form.name || ''} onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
-                  <div><div style={{ ...label, marginBottom: '5px' }}>THEME</div><input style={inputStyle} value={form.theme || ''} onChange={e => setForm((f: any) => ({ ...f, theme: e.target.value }))} /></div>
-                </div>
-                <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>DESCRIPTION</div><textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.description || ''} onChange={e => setForm((f: any) => ({ ...f, description: e.target.value }))} /></div>
-                <div style={{ marginBottom: '10px' }}><div style={{ ...label, marginBottom: '5px' }}>BANNER URL</div><input style={inputStyle} value={form.banner || ''} onChange={e => setForm((f: any) => ({ ...f, banner: e.target.value }))} /></div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
-                  <div>
-                    <DateTimePicker
-                      labelText="DROP END TIME"
-                      value={form.endsAt || ''}
-                      onChange={v => setForm((f: any) => ({ ...f, endsAt: v }))}
-                    />
-                  </div>
-                  <div>
-                    <div style={{ ...label, marginBottom: '5px' }}>LIMITED DROP</div>
-                    <button onClick={() => setForm((f: any) => ({ ...f, limited: !f.limited }))}
-                      style={{ ...inputStyle, textAlign: 'left', cursor: 'pointer' as const }}>
-                      {form.limited ? 'YES (Never restocking)' : 'NO (Regular drop)'}
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: '14px' }}>
-                  <div style={{ ...label, marginBottom: '6px' }}>ASSIGNED PRODUCTS</div>
-                  <div style={{ maxHeight: '180px', overflowY: 'auto', padding: '6px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
-                    {products.map(p => {
-                      const checked = (form.productIds || []).includes(p.id);
-                      return (
-                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 4px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const ids = form.productIds || [];
-                              setForm((f: any) => ({ ...f, productIds: checked ? ids.filter((id: string) => id !== p.id) : [...ids, p.id] }));
-                            }}
-                          />
-                          <span style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#cbd5e1' }}>{p.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <button onClick={saveDrop} style={{ padding: '8px 16px', borderRadius: '7px', border: 'none', background: dropSaved === editingId ? '#16a34a' : '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.25s' }}><Save size={13} /> {dropSaved === editingId ? '✓ Saved!' : 'Save Drop'}</button>
-                  <button onClick={() => { setEditingId(null); setForm(null); }} style={{ padding: '8px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                <div>
-                  <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>
-                    {d.name}
-                  </div>
-                  <div style={{ ...label, marginTop: '4px' }}>{d.theme}</div>
-                  <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#94a3b8', marginTop: '6px', maxWidth: '680px' }}>{d.description}</div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ ...label }}>Products: {d.productIds.length}</span>
-                    <span style={{ ...label }}>Limited: {d.limited ? 'Yes' : 'No'}</span>
-                    <span style={{ ...label }}>Ends: {d.endsAt ? new Date(d.endsAt).toLocaleString() : 'Not set'}</span>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                  <button onClick={() => openEdit(d.id)} style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
-                    <Edit2 size={12} /> Edit Drop
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm(`Delete "${d.name}"? This cannot be undone.`)) {
-                        setDrops(drops.filter(x => x.id !== d.id));
-                        sonnerToast.success('Drop deleted', { description: d.name + ' has been removed.' });
-                      }
-                    }}
-                    style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.15)', background: 'rgba(239,68,68,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
-                    <Trash2 size={12} /> Delete
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // ── HOME CONTENT TAB ───────────────────────────────
 const HomeContentTab = () => {
