@@ -4,19 +4,17 @@ import { toast as sonnerToast } from '@/components/ui/sonner';
 export interface ProductVariant { size: string; stock: number; }
 export interface Review { id: string; userName: string; rating: number; comment: string; createdAt: string; verified: boolean; }
 export interface Product {
-  id: string; name: string; series: string; seriesId: string; creatorId?: string; dropId?: string;
+  id: string; name: string; series: string; seriesId: string; creatorId?: string; 
   price: number; originalPrice?: number; description: string; images: string[];
   variants: ProductVariant[]; tags: string[]; featured: boolean; createdAt: string;
-  reviews?: Review[]; viewerCount?: number; limitedEdition?: boolean; dropEndsAt?: string; preorder?: boolean;
+  reviews?: Review[]; viewerCount?: number; limitedEdition?: boolean;  preorder?: boolean;
 }
 export interface Series { id: string; name: string; description: string; logo: string; banner: string; color: string; }
 export interface Creator {
   id: string; name: string; handle: string; bio: string; avatar: string; banner: string;
-  youtubeUrl?: string; youtubeVideoId?: string; subscribers?: string; productIds: string[]; dropCountdownEnd?: string;
+  youtubeUrl?: string; youtubeVideoId?: string; subscribers?: string; productIds: string[];
 }
-export interface Drop {
-  id: string; name: string; description: string; dropNumber: number; theme: string;
-  banner: string; endsAt?: string; productIds: string[]; limited: boolean;
+
 }
 export interface CartItem { productId: string; size: string; quantity: number; product: Product; }
 export interface Order {
@@ -35,7 +33,7 @@ const DEFAULT_COUPONS: DiscountCoupon[] = [
   { id: 'c1', code: 'YOUTUPIA10', type: 'percentage', value: 10, active: true, description: '10% off for Youtupia community' },
 ];
 const DEFAULT_HOME_PROMO: HomePromo = {
-  videoUrl: '', posterUrl: '', title: 'Promotion Video', subtitle: 'Creator drop preview', ctaText: 'Watch Drop', ctaLink: '/drops',
+  videoUrl: '', posterUrl: '', title: 'Promotion Video', subtitle: 'Creator drop preview', ctaText: 'Watch Drop', ctaLink: '/products',
 };
 const DEFAULT_TOP_BANNER: TopBanner = {
   enabled: true,
@@ -68,7 +66,7 @@ async function globalSet(key: string, value: any): Promise<void> {
   } catch (e) { console.error('globalSet failed:', e); }
 }
 
-type TableName = 'yt_products' | 'yt_series' | 'yt_drops' | 'yt_creators';
+type TableName = 'yt_products' | 'yt_series' | 'yt_creators';
 
 // Load all rows from a table
 async function dbLoad<T>(table: TableName): Promise<T[] | null> {
@@ -165,7 +163,7 @@ function lsSet(key: string, val: unknown) {
 }
 
 interface StoreContextType {
-  products: Product[]; series: Series[]; creators: Creator[]; drops: Drop[];
+  products: Product[]; series: Series[]; creators: Creator[];
   cart: CartItem[]; orders: Order[]; wishlist: string[]; recentlyViewed: string[];
   homePromo: HomePromo; coupons: DiscountCoupon[]; topBanner: TopBanner;
   hydrating: boolean; dbLoading: boolean;
@@ -174,7 +172,6 @@ interface StoreContextType {
   deleteProduct: (id: string) => void;
   setSeries: (s: Series[]) => void;
   setCreators: (c: Creator[]) => void;
-  setDrops: (d: Drop[]) => void;
   setHomePromo: (p: HomePromo) => void;
   setCoupons: (c: DiscountCoupon[]) => void;
   setTopBanner: (b: TopBanner) => void;
@@ -201,7 +198,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProductsState] = useState<Product[]>([]);
   const [series, setSeriesState] = useState<Series[]>([]);
   const [creators, setCreatorsState] = useState<Creator[]>([]);
-  const [drops, setDropsState] = useState<Drop[]>([]);
+ 
 
   // ── User data: localStorage is fine (per-user) ──
   const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
@@ -239,10 +236,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         // Load all store data in parallel from Supabase
-        const [dbProducts, dbSeries, dbDrops, dbCreators] = await Promise.all([
+        const [dbProducts, dbSeries, dbCreators] = await Promise.all([
           dbLoad<Product>('yt_products'),
           dbLoad<Series>('yt_series'),
-          dbLoad<Drop>('yt_drops'),
           dbLoad<Creator>('yt_creators'),
         ]);
 
@@ -256,9 +252,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         }
         if (dbSeries !== null) {
           setSeriesState(dbSeries);
-        }
-        if (dbDrops !== null) {
-          setDropsState(dbDrops);
+        
         }
         if (dbCreators !== null) {
           setCreatorsState(dbCreators);
@@ -327,10 +321,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     dbSaveAll('yt_creators', c);
   }, []);
 
-  const setDrops = useCallback((d: Drop[]) => {
-    setDropsState(d);
-    dbSaveAll('yt_drops', d);
-  }, []);
+
 
   const setHomePromo = useCallback((p: HomePromo) => {
     setHomePromoState(p);
@@ -484,9 +475,9 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <StoreContext.Provider value={{
-      products, series, creators, drops, cart, orders, wishlist, recentlyViewed,
+      products, series, creators, cart, orders, wishlist, recentlyViewed,
       homePromo, coupons, topBanner, hydrating, dbLoading,
-      setProducts, setProduct, deleteProduct, setSeries, setCreators, setDrops,
+      setProducts, setProduct, deleteProduct, setSeries, setCreators, 
       setHomePromo, setCoupons, setTopBanner,
       addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount,
       addOrder, updateOrderStatus, updateOrder, deleteOrder,
