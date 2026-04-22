@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { table } = req.query as { table: string };
-  const ALLOWED_TABLES = ['yt_products', 'yt_series', 'yt_drops', 'yt_creators'];
+  const ALLOWED_TABLES = ['yt_products', 'yt_series', 'yt_creators'];
 
   if (!table || !ALLOWED_TABLES.includes(table)) {
     return res.status(400).json({ error: 'Invalid table. Allowed: ' + ALLOWED_TABLES.join(', ') });
