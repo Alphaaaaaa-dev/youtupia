@@ -7,14 +7,13 @@ import ProductQuickViewModal from '../components/ProductQuickViewModal';
 import type { Product } from '../contexts/StoreContext';
 
 const ShopPage = () => {
-  const { products, series, drops, addToCart, toggleWishlist, wishlist } = useStore();
+  const { products, series, addToCart, toggleWishlist, wishlist } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState(searchParams.get('q') || '');
   const [selectedSeries, setSelectedSeries] = useState(searchParams.get('series') || '');
-  const [selectedDrop, setSelectedDrop] = useState(searchParams.get('drop') || '');
   const [sortBy, setSortBy] = useState('newest');
   const [priceMax, setPriceMax] = useState(10000);
   const [showFilters, setShowFilters] = useState(false);
@@ -35,7 +34,6 @@ const ShopPage = () => {
     }
 
     if (selectedSeries) list = list.filter(p => p.seriesId === selectedSeries);
-    if (selectedDrop) list = list.filter(p => p.dropId === selectedDrop);
     list = list.filter(p => p.price <= priceMax);
 
     switch (sortBy) {
@@ -46,17 +44,16 @@ const ShopPage = () => {
     }
 
     return list;
-  }, [products, search, selectedSeries, selectedDrop, priceMax, sortBy]);
+  }, [products, search, selectedSeries, priceMax, sortBy]);
 
   const clearFilters = () => {
     setSearch('');
     setSelectedSeries('');
-    setSelectedDrop('');
     setPriceMax(10000);
     setSortBy('newest');
   };
 
-  const hasFilters = search || selectedSeries || selectedDrop || priceMax < 10000;
+  const hasFilters = search || selectedSeries || priceMax < 10000;
 
   const handleQuickAdd = (p: Product, e: React.MouseEvent) => {
     e.preventDefault();
@@ -76,8 +73,6 @@ const ShopPage = () => {
           <h1 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '16px', letterSpacing: '-0.02em' }}>
             {selectedSeries
               ? `Shop — ${series.find(s => s.id === selectedSeries)?.name || ''}`
-              : selectedDrop
-              ? `Shop — ${drops.find(d => d.id === selectedDrop)?.name || ''}`
               : 'Shop All'}
           </h1>
           <div style={{ display: 'flex', gap: '10px', maxWidth: '600px' }}>
@@ -113,14 +108,6 @@ const ShopPage = () => {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase' as const, letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Drop</label>
-              <select value={selectedDrop} onChange={e => setSelectedDrop(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '13px', outline: 'none', cursor: 'pointer' }}>
-                <option value="">All Drops</option>
-                {drops.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
-            <div>
               <label style={{ fontSize: '11px', fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase' as const, letterSpacing: '0.08em', display: 'block', marginBottom: '8px' }}>Sort By</label>
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 style={{ width: '100%', padding: '8px 12px', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '13px', outline: 'none', cursor: 'pointer' }}>
@@ -150,12 +137,6 @@ const ShopPage = () => {
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', background: 'rgba(255,0,0,0.08)', border: '1px solid rgba(255,0,0,0.2)', borderRadius: '20px', fontSize: '12px', color: '#ff0000', fontWeight: 600 }}>
               {series.find(s => s.id === selectedSeries)?.name}
               <button onClick={() => setSelectedSeries('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff0000', padding: '0', display: 'flex' }}><X size={11} /></button>
-            </span>
-          )}
-          {selectedDrop && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', background: 'rgba(255,0,0,0.08)', border: '1px solid rgba(255,0,0,0.2)', borderRadius: '20px', fontSize: '12px', color: '#ff0000', fontWeight: 600 }}>
-              {drops.find(d => d.id === selectedDrop)?.name}
-              <button onClick={() => setSelectedDrop('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff0000', padding: '0', display: 'flex' }}><X size={11} /></button>
             </span>
           )}
           {hasFilters && (
