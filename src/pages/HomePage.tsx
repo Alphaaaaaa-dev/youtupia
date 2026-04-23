@@ -331,10 +331,6 @@ const HomePage = () => {
         )}
       </section>
 
-      {/* ── COMMUNITY VOTING ── */}
-      <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px 64px' }}>
-        <DropVotingSection />
-      </section>
 
       {/* ── FEATURED ── */}
       <section style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))' }}>
