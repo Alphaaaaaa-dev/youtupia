@@ -15,7 +15,7 @@ const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'homepage' | 'coupons' | 'tickets' | 'voting';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'homepage' | 'coupons' | 'tickets';
 
 // ── CALENDAR DATE-TIME PICKER ──────────────────────
 const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChange: (iso: string) => void; labelText: string }) => {
@@ -245,16 +245,15 @@ const MultiImageDropzone = ({ images, onChange }: { images: string[]; onChange: 
 // ── SIDEBAR ────────────────────────────────────────
 const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTab) => void; onLogout: () => void }) => {
   const items: { id: AdminTab; icon: any; label: string }[] = [
-    { id: 'overview', icon: BarChart2, label: 'Overview' },
-    { id: 'orders', icon: Package, label: 'Orders' },
-    { id: 'products', icon: ShoppingBag, label: 'Products' },
-    { id: 'series', icon: Settings, label: 'Series' },
-    { id: 'creators', icon: Users, label: 'Creators' },
-    { id: 'homepage', icon: Youtube, label: 'Home Content' },
-    { id: 'coupons', icon: Tag, label: 'Coupons' },
-    { id: 'tickets', icon: MessageSquare, label: 'Support Tickets' },
-    { id: 'voting', icon: BarChart2, label: 'Voting Control' },
-  ];
+  { id: 'overview', icon: BarChart2, label: 'Overview' },
+  { id: 'orders', icon: Package, label: 'Orders' },
+  { id: 'products', icon: ShoppingBag, label: 'Products' },
+  { id: 'series', icon: Settings, label: 'Series' },
+  { id: 'creators', icon: Users, label: 'Creators' },
+  { id: 'homepage', icon: Youtube, label: 'Home Content' },
+  { id: 'coupons', icon: Tag, label: 'Coupons' },
+  { id: 'tickets', icon: MessageSquare, label: 'Support Tickets' },
+];
   return (
     <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 2.5%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
       <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -2079,15 +2078,13 @@ const AdminDashboard = () => {
       <Sidebar tab={tab} setTab={setTab} onLogout={() => { logout(); navigate('/admin'); }} />
       <main style={{ flex: 1, overflowY: 'auto', padding: '32px', minWidth: 0 }}>
         {tab === 'overview' && <OverviewTab />}
-        {tab === 'orders' && <OrdersTab />}
-        {tab === 'products' && <ProductsTab />}
-        {tab === 'series' && <SeriesTab />}
-        {tab === 'creators' && <CreatorsTab />}
-        {tab === 'drops' && <DropControlTab />}
-        {tab === 'homepage' && <HomeContentTab />}
-        {tab === 'coupons' && <CouponsTab />}
-        {tab === 'tickets' && <SupportTicketsTab />}
-        {tab === 'voting' && <VotingControlTab />}
+{tab === 'orders' && <OrdersTab />}
+{tab === 'products' && <ProductsTab />}
+{tab === 'series' && <SeriesTab />}
+{tab === 'creators' && <CreatorsTab />}
+{tab === 'homepage' && <HomeContentTab />}
+{tab === 'coupons' && <CouponsTab />}
+{tab === 'tickets' && <SupportTicketsTab />}
       </main>
     </div>
   );
