@@ -1,10 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Youtupia <onboarding@resend.dev>';
 
 async function sendEmail(to: string, subject: string, html: string) {
@@ -12,21 +11,12 @@ async function sendEmail(to: string, subject: string, html: string) {
     console.warn('RESEND_API_KEY not set - skipping email send');
     return { id: 'skipped' };
   }
-
-  console.log(`Sending email to ${to} from ${FROM_EMAIL}`);
-
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-    },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
     body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
   });
-
-  const data = await res.json();
-  console.log('Resend response:', JSON.stringify(data));
-  return data;
+  return res.json();
 }
 
 const otpEmail = (name: string, code: string, purpose: string) => `
@@ -39,10 +29,7 @@ const otpEmail = (name: string, code: string, purpose: string) => `
       <tr><td style="background:linear-gradient(90deg,#ff0000,#cc0000);height:4px;"></td></tr>
       <tr>
         <td style="padding:32px 36px 24px;text-align:center;border-bottom:1px solid #1a1a1a;">
-          <div style="display:inline-flex;align-items:center;gap:10px;">
-            <img src="https://youtupia.in/favicon.ico" width="42" height="42" style="border-radius:10px;display:block;" alt="Youtupia" />
-            <span style="color:#f1f5f9;font-size:24px;font-weight:900;letter-spacing:-0.5px;">Youtupia</span>
-          </div>
+          <span style="color:#f1f5f9;font-size:24px;font-weight:900;letter-spacing:-0.5px;">Youtupia</span>
           <p style="color:#475569;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin:8px 0 0;">WEAR YOUR DREAMS</p>
         </td>
       </tr>
@@ -64,7 +51,6 @@ const otpEmail = (name: string, code: string, purpose: string) => `
       </tr>
       <tr>
         <td style="background:#0a0a0a;padding:20px 36px;text-align:center;border-top:1px solid #1a1a1a;">
-          <p style="color:#1e293b;font-size:11px;margin:0 0 4px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">YOUTUPIA · WEAR YOUR DREAMS</p>
           <p style="color:#334155;font-size:11px;margin:0;">
             Questions? <a href="mailto:support@youtupia.in" style="color:#ff0000;text-decoration:none;">support@youtupia.in</a>
           </p>
@@ -75,18 +61,41 @@ const otpEmail = (name: string, code: string, purpose: string) => `
 </table>
 </body></html>`;
 
-const sbAdmin = (path: string, method = 'GET', body?: object) => {
-  const baseUrl = (SUPABASE_URL || '').replace(/\/$/, '');
-  return fetch(`${baseUrl}/auth/v1${path}`, {
+// ── Supabase Admin helper ──────────────────────────────────────────────────
+async function sbAdmin(path: string, method = 'GET', body?: object) {
+  const url = `${SUPABASE_URL}/auth/v1${path}`;
+  console.log(`[sbAdmin] ${method} ${url}`);
+  const res = await fetch(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      apikey: SUPABASE_SERVICE_KEY!,
+      apikey: SUPABASE_SERVICE_KEY,
       Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
-  }).then(r => r.json());
-};
+  });
+  const text = await res.text();
+  console.log(`[sbAdmin] ${method} ${path} → ${res.status}: ${text.slice(0, 300)}`);
+  try { return JSON.parse(text); } catch { return { _raw: text, _status: res.status }; }
+}
+
+// ── Supabase REST helper ───────────────────────────────────────────────────
+async function sbRest(path: string, method = 'GET', body?: object, extraHeaders?: Record<string, string>) {
+  const url = `${SUPABASE_URL}/rest/v1${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: SUPABASE_SERVICE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+      ...extraHeaders,
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const text = await res.text();
+  try { return { ok: res.ok, status: res.status, data: JSON.parse(text) }; }
+  catch { return { ok: res.ok, status: res.status, data: text }; }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -95,31 +104,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Validate env vars and log them (masked) for debugging
+  console.log('[auth] Env check:', {
+    SUPABASE_URL: SUPABASE_URL ? SUPABASE_URL.replace(/\/\/.*@/, '//***@') : 'MISSING',
+    SUPABASE_ANON_KEY: SUPABASE_ANON_KEY ? SUPABASE_ANON_KEY.slice(0, 20) + '...' : 'MISSING',
+    SUPABASE_SERVICE_KEY: SUPABASE_SERVICE_KEY ? SUPABASE_SERVICE_KEY.slice(0, 20) + '...' : 'MISSING',
+    RESEND_API_KEY: RESEND_API_KEY ? 'SET' : 'MISSING',
+  });
+
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_KEY) {
-    console.error('Missing env vars:', {
-      SUPABASE_URL: !!SUPABASE_URL,
-      SUPABASE_ANON_KEY: !!SUPABASE_ANON_KEY,
-      SUPABASE_SERVICE_KEY: !!SUPABASE_SERVICE_KEY,
-    });
-    return res.status(500).json({ error: 'Server configuration error - missing env vars' });
+    return res.status(500).json({ error: 'Server configuration error — missing Supabase environment variables. Please set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_KEY in Vercel.' });
+  }
+
+  // Validate SUPABASE_URL format
+  if (!SUPABASE_URL.startsWith('https://') || !SUPABASE_URL.includes('.supabase.co')) {
+    console.error('[auth] Invalid SUPABASE_URL format:', SUPABASE_URL);
+    return res.status(500).json({ error: `Invalid SUPABASE_URL format: "${SUPABASE_URL}". It must be like: https://xxxxxxxxxxxx.supabase.co` });
   }
 
   const { action, email, password, name, phone, code, userId, newPassword } = req.body || {};
 
   try {
+
     // ── LOGIN ──────────────────────────────────────────────────────────────
     if (action === 'login') {
-      const baseUrl = (SUPABASE_URL || '').replace(/\/$/, '');
-      const data = await fetch(`${baseUrl}/auth/v1/token?grant_type=password`, {
+      const loginRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
         body: JSON.stringify({ email, password }),
-      }).then(r => r.json());
+      });
+      const data = await loginRes.json();
 
       if (data.error || data.error_code) {
         const msg = (data.error_description || data.msg || '').toLowerCase();
         if (msg.includes('email not confirmed'))
-          return res.status(400).json({ error: 'Please verify your email first. Check your inbox for the OTP.' });
+          return res.status(400).json({ error: 'Please verify your email first.' });
         return res.status(400).json({ error: 'Invalid email or password.' });
       }
 
@@ -137,73 +156,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── SIGNUP ─────────────────────────────────────────────────────────────
     if (action === 'signup') {
-      console.log('Signup attempt for:', email);
+      console.log('[auth] Signup for:', email);
 
       if (!RESEND_API_KEY) {
-        console.error('RESEND_API_KEY is not set in environment variables');
-        return res.status(500).json({
-          error: 'Email service not configured. Please contact support or set RESEND_API_KEY in Vercel environment variables.',
-        });
+        return res.status(500).json({ error: 'Email service not configured. Please set RESEND_API_KEY in Vercel environment variables.' });
       }
 
+      // Step 1: Create user via Admin API
       let createData = await sbAdmin('/admin/users', 'POST', {
         email,
         password,
         email_confirm: false,
-        user_metadata: {
-          name: name || '',
-          full_name: name || '',
-          phone: phone || '',
-          role: 'user',
-        },
+        user_metadata: { name: name || '', full_name: name || '', phone: phone || '', role: 'user' },
       });
-
-      console.log('Supabase create user response:', JSON.stringify(createData));
 
       let createdUser = createData?.user || createData;
       let createError = createData?.error || createData?.msg || createData?.message || createData?.error_description;
 
-      if (!createdUser?.id && String(createError || '').toLowerCase().includes('database error creating new user')) {
-        console.warn('Admin create user failed with DB error; retrying via /auth/v1/signup');
-        const signupResponse = await fetch(`${(SUPABASE_URL || '').replace(/\/$/, '')}/auth/v1/signup`, {
+      // Step 2: Fallback to public signup if admin API failed
+      if (!createdUser?.id) {
+        console.warn('[auth] Admin create failed, error:', createError, '— trying public signup fallback');
+        const fallbackRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: SUPABASE_ANON_KEY,
-          },
+          headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
           body: JSON.stringify({
             email,
             password,
-            data: {
-              name: name || '',
-              full_name: name || '',
-              phone: phone || '',
-              role: 'user',
-            },
+            data: { name: name || '', full_name: name || '', phone: phone || '', role: 'user' },
           }),
         });
-        const signupData = await signupResponse.json();
-        console.log('Supabase fallback signup response:', JSON.stringify(signupData));
-
-        createData = signupData;
-        createdUser = signupData?.user || signupData;
-        createError = signupData?.error || signupData?.msg || signupData?.message || signupData?.error_description;
+        const fallbackData = await fallbackRes.json();
+        console.log('[auth] Fallback signup response:', JSON.stringify(fallbackData).slice(0, 300));
+        createdUser = fallbackData?.user || fallbackData;
+        createError = fallbackData?.error || fallbackData?.msg || fallbackData?.message || fallbackData?.error_description;
       }
 
-      const hasError = Boolean(createError) || !createdUser?.id;
-      if (hasError) {
+      if (!createdUser?.id) {
         const raw = String(createError || '').toLowerCase();
-        console.error('Supabase signup error:', JSON.stringify(createData));
-        if (raw.includes('already') || raw.includes('duplicate') || raw.includes('unique') || raw.includes('registered'))
+        if (raw.includes('already') || raw.includes('duplicate') || raw.includes('registered'))
           return res.status(400).json({ error: 'This email is already registered. Please sign in instead.' });
-        return res.status(400).json({ error: `Signup failed: ${createError || 'Unknown error'}` });
+        return res.status(400).json({ error: `Signup failed: ${createError || 'Unknown error from Supabase'}` });
       }
 
       const uid = createdUser.id;
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiry = Date.now() + 15 * 60 * 1000;
 
-      console.log(`Generated OTP ${otp} for user ${uid}`);
+      console.log('[auth] Created user:', uid, '— storing OTP');
 
       await sbAdmin(`/admin/users/${uid}`, 'PUT', {
         user_metadata: { name: name || '', phone: phone || '', otp_code: otp, otp_expiry: expiry },
@@ -217,21 +216,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const emailFailed = !emailResult?.id || emailResult?.statusCode >= 400 || emailResult?.name === 'validation_error';
       if (emailFailed) {
-        console.error('Resend email send failed:', JSON.stringify(emailResult));
+        console.error('[auth] Email send failed:', JSON.stringify(emailResult));
         await sbAdmin(`/admin/users/${uid}`, 'DELETE');
-
-        if (emailResult?.name === 'validation_error' || emailResult?.message?.includes('domain')) {
-          return res.status(500).json({
-            error: 'Email sending failed: The FROM_EMAIL domain is not verified in Resend. Please verify your domain at resend.com/domains or set FROM_EMAIL to "Youtupia <onboarding@resend.dev>" in Vercel environment variables.',
-          });
-        }
-
         return res.status(500).json({
-          error: `Could not send verification email: ${emailResult?.message || 'Unknown error'}. Please check your RESEND_API_KEY and FROM_EMAIL settings.`,
+          error: `Could not send verification email: ${emailResult?.message || 'Check RESEND_API_KEY and FROM_EMAIL in Vercel settings.'}`,
         });
       }
 
-      console.log('OTP email sent successfully, id:', emailResult.id);
       return res.status(200).json({ needsOTP: true, userId: uid });
     }
 
@@ -249,26 +240,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         user_metadata: { name: meta.name, phone: meta.phone, otp_code: null, otp_expiry: null },
       });
 
-      // Non-blocking profile insert — won't crash signup if profiles table missing or has issues
+      // Non-blocking profile insert
       try {
-        await fetch(`${(SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/profiles`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: SUPABASE_SERVICE_KEY!,
-            Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-            Prefer: 'resolution=merge-duplicates',
-          },
-          body: JSON.stringify({
-            id: userId,
-            email: userData.email,
-            name: meta.name || '',
-            phone: meta.phone || '',
-            role: 'user',
-          }),
-        });
-      } catch (profileErr) {
-        console.warn('Profile insert failed (non-blocking):', profileErr);
+        await sbRest('/profiles', 'POST', {
+          id: userId,
+          email: userData.email,
+          name: meta.name || '',
+          phone: meta.phone || '',
+          role: 'user',
+        }, { Prefer: 'resolution=merge-duplicates' });
+      } catch (e) {
+        console.warn('[auth] Profile insert failed (non-blocking):', e);
       }
 
       return res.status(200).json({ success: true });
@@ -313,8 +295,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(400).json({ error: 'Invalid action' });
-  } catch (err) {
-    console.error('Auth handler error:', err);
+
+  } catch (err: any) {
+    console.error('[auth] Unhandled error:', err);
     return res.status(500).json({ error: 'Server error. Please try again.' });
   }
 }
