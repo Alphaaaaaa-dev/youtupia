@@ -37,7 +37,7 @@ const ThemeToggle = () => {
 // ── LEFT SIDEBAR DRAWER (Souled Store style) ─────────────────
 const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const { theme } = useTheme();
-  const { products, series, drops, creators } = useStore();
+  cconst { products, series, creators } = useStore();
   const isDark = theme === 'dark';
   const [expandedSection, setExpandedSection] = useState<string | null>('collections');
 
@@ -49,7 +49,7 @@ const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) 
   const sectionBg = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
 
   const featuredProducts = products.filter(p => p.featured).slice(0, 4);
-  const latestDrop = drops.slice().sort((a, b) => b.dropNumber - a.dropNumber)[0];
+
 
   const toggle = (key: string) => setExpandedSection(prev => prev === key ? null : key);
 
@@ -83,26 +83,12 @@ const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) 
           </button>
         </div>
 
-        {/* Latest Drop Banner */}
-        {latestDrop && (
-          <Link to="/drops" onClick={onClose} style={{ display: 'block', margin: '12px 12px 4px', borderRadius: '12px', overflow: 'hidden', textDecoration: 'none', position: 'relative' }}>
-            <div style={{ background: 'linear-gradient(135deg, #ff0000 0%, #8b0000 100%)', padding: '14px 16px' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: '9px', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.12em', marginBottom: '4px' }}>🔥 LIVE NOW</div>
-              <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '14px', color: 'white' }}>{latestDrop.name}</div>
-              <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '11px', color: 'rgba(255,255,255,0.75)', marginTop: '2px' }}>{latestDrop.theme}</div>
-              <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '20px', padding: '4px 10px', fontSize: '11px', color: 'white', fontWeight: 700 }}>
-                Shop Drop <ChevronRight size={11} />
-              </div>
-            </div>
-          </Link>
-        )}
 
         {/* Quick Links */}
         <div style={{ padding: '8px 12px', borderBottom: border }}>
           {[
             { to: '/', emoji: '🏠', label: 'Home' },
             { to: '/shop', emoji: '🛍️', label: 'All Products' },
-            { to: '/drops', emoji: '⚡', label: 'Drops' },
             { to: '/catalogue', emoji: '📖', label: 'Catalogue' },
           ].map(item => (
             <Link key={item.to} to={item.to} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 8px', borderRadius: '10px', textDecoration: 'none', color: textMain, transition: 'background 0.15s', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 500 }}
@@ -244,7 +230,6 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/shop', label: 'Shop' },
-    { to: '/drops', label: 'Drops' },
     { to: '/catalogue', label: 'Catalogue' },
     { to: '/about', label: 'About' },
     { to: '/contact', label: 'Contact' },
