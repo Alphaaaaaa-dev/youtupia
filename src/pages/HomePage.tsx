@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Truck, Shield, RefreshCw, TrendingUp, Zap, Package, Users, Sparkles } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
-import DropVotingSection from '@/components/DropVotingSection';
 
 // Scroll reveal hook
 const useReveal = () => {
@@ -41,7 +40,7 @@ const Counter = ({ target, suffix = '' }: { target: number; suffix?: string }) =
 
 // ── Dynamic stats — pulled from server ──
 const useDynamicStats = () => {
-  const { orders, drops } = useStore();
+  const { orders } = useStore();
   const [liveStats, setLiveStats] = useState<{ itemsSold: number; customers: number } | null>(null);
 
   useEffect(() => {
@@ -66,10 +65,8 @@ const useDynamicStats = () => {
   return {
     itemsSold: liveStats?.itemsSold ?? 0,
     customers: liveStats?.customers ?? 0,
-    drops: drops.length,
   };
 };
-
 const DropCountdown = ({ endsAt }: { endsAt: string }) => {
   const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0 });
   useEffect(() => {
@@ -113,7 +110,7 @@ const ProductSkeleton = () => (
 );
 
 const HomePage = () => {
-  const { products, series, creators, drops, addToCart, homePromo, dbLoading } = useStore();
+ const { products, series, creators, addToCart, homePromo, dbLoading } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const featured = products.filter(p => p.featured);
@@ -193,20 +190,18 @@ const HomePage = () => {
 
               {/* ── DYNAMIC STATS ── */}
               <div style={{ display: 'flex', gap: '32px', marginTop: '48px', paddingTop: '32px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap' }}>
-                {[
-                  { label: 'Items Sold', value: dynStats.itemsSold, suffix: dynStats.itemsSold > 0 ? '' : '+' },
-                  { label: 'Happy Customers', value: dynStats.customers, suffix: '' },
-                  { label: 'Limited Drops', value: dynStats.drops, suffix: '' },
-                ].map(s => (
-                  <div key={s.label}>
-                    <div style={{ fontSize: '26px', fontWeight: 900, color: '#ff0000', lineHeight: 1 }}>
-                      <Counter target={Math.max(s.value, 1)} suffix={s.suffix} />
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', marginTop: '4px', fontWeight: 500 }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+  {[
+    { label: 'Items Sold', value: dynStats.itemsSold, suffix: '' },
+    { label: 'Happy Customers', value: dynStats.customers, suffix: '' },
+  ].map(s => (
+    <div key={s.label}>
+      <div style={{ fontSize: '26px', fontWeight: 900, color: '#ff0000', lineHeight: 1 }}>
+        <Counter target={Math.max(s.value, 1)} suffix={s.suffix} />
+      </div>
+      <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', marginTop: '4px', fontWeight: 500 }}>{s.label}</div>
+    </div>
+  ))}
+</div>
 
             {/* RIGHT — promo video + product strip */}
             <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
