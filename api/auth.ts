@@ -75,8 +75,9 @@ const otpEmail = (name: string, code: string, purpose: string) => `
 </table>
 </body></html>`;
 
-const sbAdmin = (path: string, method = 'GET', body?: object) =>
-  fetch(`${SUPABASE_URL}/auth/v1${path}`, {
+const sbAdmin = (path: string, method = 'GET', body?: object) => {
+  const baseUrl = (SUPABASE_URL || '').replace(/\/$/, '');
+  return fetch(`${baseUrl}/auth/v1${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -85,6 +86,7 @@ const sbAdmin = (path: string, method = 'GET', body?: object) =>
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   }).then(r => r.json());
+};
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -107,7 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // ── LOGIN ──────────────────────────────────────────────────────────────
     if (action === 'login') {
-      const data = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      const baseUrl = (SUPABASE_URL || '').replace(/\/$/, '');
+      const data = await fetch(`${baseUrl}/auth/v1/token?grant_type=password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
         body: JSON.stringify({ email, password }),
@@ -162,7 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (!createdUser?.id && String(createError || '').toLowerCase().includes('database error creating new user')) {
         console.warn('Admin create user failed with DB error; retrying via /auth/v1/signup');
-        const signupResponse = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+        const signupResponse = await fetch(`${(SUPABASE_URL || '').replace(/\/$/, '')}/auth/v1/signup`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -248,7 +251,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Non-blocking profile insert — won't crash signup if profiles table missing or has issues
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+        await fetch(`${(SUPABASE_URL || '').replace(/\/$/, '')}/rest/v1/profiles`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
