@@ -37,7 +37,7 @@ const ThemeToggle = () => {
 // ── LEFT SIDEBAR DRAWER (Souled Store style) ─────────────────
 const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
   const { theme } = useTheme();
-  cconst { products, series, creators } = useStore();
+  const { products, series, creators } = useStore();
   const isDark = theme === 'dark';
   const [expandedSection, setExpandedSection] = useState<string | null>('collections');
 
@@ -49,7 +49,6 @@ const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) 
   const sectionBg = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)';
 
   const featuredProducts = products.filter(p => p.featured).slice(0, 4);
-
 
   const toggle = (key: string) => setExpandedSection(prev => prev === key ? null : key);
 
@@ -82,7 +81,6 @@ const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) 
             <X size={20} />
           </button>
         </div>
-
 
         {/* Quick Links */}
         <div style={{ padding: '8px 12px', borderBottom: border }}>
