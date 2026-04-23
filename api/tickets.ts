@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SB_URL = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
 const RESEND_API_KEY       = process.env.RESEND_API_KEY;
 const FROM_EMAIL           = process.env.FROM_EMAIL || 'Youtupia <noreply@youtupia.in>';
 const ADMIN_EMAIL          = process.env.ADMIN_EMAIL || 'admin@youtupia.in';
@@ -89,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── GET — fetch all tickets (admin) ─────────────────────────────────────
   if (req.method === 'GET') {
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/tickets?order=created_at.desc&select=*`,
+      `${SB_URL}/rest/v1/tickets?order=created_at.desc&select=*`,
       { headers: sbHeaders() }
     );
     if (!r.ok) {
@@ -106,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!name || !email || !subject || !message)
       return res.status(400).json({ error: 'Missing required fields' });
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/tickets`, {
+    const r = await fetch(`${SB_URL}/rest/v1/tickets`, {
       method:  'POST',
       headers: sbHeaders(),
       body: JSON.stringify({
@@ -140,7 +141,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { id, status } = req.body || {};
     if (!id || !status) return res.status(400).json({ error: 'Missing id or status' });
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/tickets?id=eq.${id}`, {
+    const r = await fetch(`${SB_URL}/rest/v1/tickets?id=eq.${id}`, {
       method:  'PATCH',
       headers: sbHeaders(),
       body:    JSON.stringify({ status }),
