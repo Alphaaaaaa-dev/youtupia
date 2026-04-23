@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogOut, Package, ShoppingBag, Clock, TrendingUp, Plus, Edit2, Trash2,
   X, Save, Image as ImageIcon, BarChart2, Settings, CheckCircle, Users,
-  Upload, Link as LinkIcon, Youtube, Zap, Tag, ToggleLeft, ToggleRight, Palette, MessageSquare, AlertCircle, RefreshCw
+  Upload, Link as LinkIcon, Youtube, Tag, ToggleLeft, ToggleRight, Palette, MessageSquare, AlertCircle, RefreshCw
 } from 'lucide-react';
 import { Product, Series, Creator, HomePromo, DiscountCoupon, TopBanner } from '../contexts/StoreContext';
 
@@ -15,7 +15,7 @@ const card = { background: 'hsl(0 0% 11%)', border: '1px solid rgba(255,255,255,
 const label = { fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em' } as const;
 const inputStyle = { width: '100%', padding: '9px 12px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const };
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'homepage' | 'coupons' | 'tickets' | 'voting';
+type AdminTab = 'overview' | 'orders' | 'products' | 'series' | 'creators' | 'homepage' | 'coupons' | 'tickets';
 
 // ── CALENDAR DATE-TIME PICKER ──────────────────────
 const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChange: (iso: string) => void; labelText: string }) => {
@@ -258,7 +258,6 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
     { id: 'homepage', icon: Youtube, label: 'Home Content' },
     { id: 'coupons', icon: Tag, label: 'Coupons' },
     { id: 'tickets', icon: MessageSquare, label: 'Support Tickets' },
-    { id: 'voting', icon: BarChart2, label: 'Voting Control' },
   ];
   return (
     <aside style={{ width: '220px', flexShrink: 0, height: '100vh', background: 'hsl(0 0% 6%)', borderRight: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
@@ -656,7 +655,7 @@ const OrdersTab = () => {
 
 // ── PRODUCT MODAL ──────────────────────────────────
 const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> | null; onSave: (p: Product) => void; onClose: () => void }) => {
-  const { series, creators, drops } = useStore();
+  const { series, creators } = useStore();
   const isNew = !product?.id;
   const [form, setForm] = useState<Partial<Product>>(product || {
     name: '', series: '', seriesId: '', price: 0, description: '',
@@ -691,13 +690,6 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
             <select value={form.seriesId || ''} onChange={e => { const s = series.find(ss => ss.id === e.target.value); setForm(f => ({ ...f, seriesId: e.target.value, series: s?.name || '' })); }} style={inputStyle}>
               <option value="">Select series...</option>
               {series.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={{ ...label, marginBottom: '6px' }}>DROP</div>
-            <select value={form.dropId || ''} onChange={e => setField('dropId', e.target.value)} style={inputStyle}>
-              <option value="">No drop assigned</option>
-              {drops.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
         </div>
@@ -1014,8 +1006,6 @@ const CreatorsTab = () => {
     </div>
   );
 };
-
-// ── DROP CONTROL TAB ───────────────────────────────
 
 
 // ── HOME CONTENT TAB ───────────────────────────────
@@ -1567,114 +1557,6 @@ const generateInvoice = (order: any) => {
   setTimeout(() => win.print(), 500);
 };
 
-// ── VOTING CONTROL TAB ────────────────────────────────
-const VotingControlTab = () => {
-  const { series } = useStore();
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-  const [resetting, setResetting] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const totalVotes = Object.values(counts).reduce((s, n) => s + n, 0);
-
-  const loadVotes = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/drop-votes');
-      if (res.ok) { const data = await res.json(); setCounts(data.counts || {}); }
-    } catch { /* ignore */ } finally { setLoading(false); }
-  };
-
-  useEffect(() => { loadVotes(); }, []);
-
-  const resetVotes = async () => {
-    if (!confirm('Reset ALL votes to zero? This cannot be undone.')) return;
-    setResetting(true);
-    try {
-      const res = await fetch('/api/drop-votes', { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
-      if (res.ok) { setCounts({}); sonnerToast.success('All votes reset to zero!'); }
-      else sonnerToast.error('Reset failed — check your /api/drop-votes endpoint.');
-    } catch { sonnerToast.error('Reset failed.'); } finally { setResetting(false); }
-  };
-
-  const setManualCount = async (optionId: string, value: number) => {
-    try {
-      await fetch('/api/drop-votes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ optionId, count: value }) });
-      setCounts(prev => ({ ...prev, [optionId]: value }));
-      setSaved(true); setTimeout(() => setSaved(false), 2000);
-    } catch { sonnerToast.error('Failed to update vote count'); }
-  };
-
-  return (
-    <div>
-      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Voting Control</h1>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Manage community vote counts for the homepage. Votes are stored globally in Supabase — visible to everyone worldwide.</p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-        {[
-          { label: 'TOTAL VOTES', value: totalVotes.toLocaleString(), color: '#ff6666' },
-          { label: 'OPTIONS', value: series.slice(0, 6).length, color: '#60a5fa' },
-          { label: 'LEADING', value: series.slice(0, 6).sort((a, b) => (counts[b.id] || 0) - (counts[a.id] || 0))[0]?.name || '—', color: '#4ade80' },
-        ].map(s => (
-          <div key={s.label} style={{ ...card, padding: '14px 16px' }}>
-            <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: s.color }}>{s.value}</div>
-            <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginTop: '4px' }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ ...card, padding: '20px', maxWidth: '700px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9' }}>Vote Counts</div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={loadVotes} style={{ padding: '7px 13px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}><RefreshCw size={12} /> Refresh</button>
-            <button onClick={resetVotes} disabled={resetting} style={{ padding: '7px 13px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: resetting ? 'not-allowed' : 'pointer' }}>
-              {resetting ? 'Resetting...' : 'Reset All Votes'}
-            </button>
-          </div>
-        </div>
-
-        {loading ? (
-          <div style={{ padding: '32px', textAlign: 'center', color: '#475569', fontFamily: 'Roboto, sans-serif', fontSize: '13px' }}>Loading votes...</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {series.slice(0, 6).map(s => {
-              const votes = counts[s.id] || 0;
-              const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
-              return (
-                <div key={s.id} style={{ ...card, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9', marginBottom: '6px' }}>{s.name}</div>
-                      <div style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg,#ff0000,#ff6b6b)', borderRadius: '3px', transition: 'width 0.4s' }} />
-                      </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '4px' }}>{pct}% — {votes.toLocaleString()} votes</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      <input type="number" min={0} value={votes}
-                        onChange={e => setCounts(prev => ({ ...prev, [s.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
-                        style={{ width: '80px', padding: '6px 10px', background: 'hsl(0 0% 7%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#f1f5f9', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 700, textAlign: 'center', outline: 'none' }} />
-                      <button onClick={() => setManualCount(s.id, counts[s.id] || 0)}
-                        style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Set</button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {saved && <div style={{ marginTop: '12px', padding: '8px 12px', background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', borderRadius: '8px', fontSize: '12px', color: '#4ade80', fontFamily: 'Roboto, sans-serif' }}>Vote count updated globally in Supabase</div>}
-      </div>
-
-      <div style={{ ...card, padding: '16px 20px', maxWidth: '700px', border: '1px solid rgba(59,130,246,0.2)' }}>
-        <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '13px', color: '#60a5fa', marginBottom: '8px' }}>How Global Voting Works</div>
-        <div style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#64748b', lineHeight: 1.7 }}>
-          Votes are stored in Supabase <code style={{ color: '#94a3b8' }}>yt_votes</code> and <code style={{ color: '#94a3b8' }}>yt_vote_log</code> tables. All visitors worldwide see the same real-time counts via <code style={{ color: '#94a3b8' }}>/api/drop-votes</code>. Each user/device can only vote once. You can manually override counts above to seed initial data.
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ── MAIN ADMIN ─────────────────────────────────────
 const AdminDashboard = () => {
@@ -1697,7 +1579,6 @@ const AdminDashboard = () => {
         {tab === 'homepage' && <HomeContentTab />}
         {tab === 'coupons' && <CouponsTab />}
         {tab === 'tickets' && <SupportTicketsTab />}
-        {tab === 'voting' && <VotingControlTab />}
       </main>
     </div>
   );
