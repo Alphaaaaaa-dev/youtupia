@@ -176,7 +176,7 @@ const NotFound = () => {
           </div>
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
             {[
-              { to: '/drops', icon: Zap, label: 'Drops' },
+            
               { to: '/catalogue', icon: ShoppingBag, label: 'Catalogue' },
               { to: '/about', icon: null, label: 'About Us' },
               { to: '/contact', icon: null, label: 'Contact' },
