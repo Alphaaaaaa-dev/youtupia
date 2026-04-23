@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? `?user_id=eq.${userId}&order=created_at.desc`
       : `?order=created_at.desc&select=*`;
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/orders${filter}`, { headers: headers() });
+    const r = await fetch(`${SB_URL}/rest/v1/orders${filter}`, { headers: headers() });
     if (!r.ok) {
       const e = await r.json();
       return res.status(500).json({ error: e?.message || 'Failed to fetch orders' });
@@ -86,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       created_at:      new Date().toISOString(),
     };
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
+    const r = await fetch(`${SB_URL}/rest/v1/orders`, {
       method:  'POST',
       headers: { ...headers(), Prefer: 'return=representation' },
       body:    JSON.stringify(orderData),
@@ -115,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (updates.notes        !== undefined) dbUpdates.notes         = updates.notes;
     if (updates.cancelReason !== undefined) dbUpdates.cancel_reason = updates.cancelReason;
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${id}`, {
+    const r = await fetch(`${SB_URL}/rest/v1/orders?id=eq.${id}`, {
       method:  'PATCH',
       headers: { ...headers(), Prefer: 'return=representation' },
       body:    JSON.stringify(dbUpdates),
@@ -133,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const id = req.body?.id;
     if (!id) return res.status(400).json({ error: 'Missing order id' });
 
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${encodeURIComponent(id)}`, {
+    const r = await fetch(`${SB_URL}/rest/v1/orders?id=eq.${encodeURIComponent(id)}`, {
       method:  'DELETE',
       headers: headers(),
     });
