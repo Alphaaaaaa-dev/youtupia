@@ -99,12 +99,11 @@ const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) 
 
         {/* Quick Links */}
         <div style={{ padding: '8px 12px', borderBottom: border }}>
-          {[
-            { to: '/', emoji: '🏠', label: 'Home' },
-            { to: '/shop', emoji: '🛍️', label: 'All Products' },
-            { to: '/drops', emoji: '⚡', label: 'Drops' },
-            { to: '/catalogue', emoji: '📖', label: 'Catalogue' },
-          ].map(item => (
+         {[
+  { to: '/', emoji: '🏠', label: 'Home' },
+  { to: '/shop', emoji: '🛍️', label: 'All Products' },
+  { to: '/catalogue', emoji: '📖', label: 'Catalogue' },
+].map(item => (
             <Link key={item.to} to={item.to} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 8px', borderRadius: '10px', textDecoration: 'none', color: textMain, transition: 'background 0.15s', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 500 }}
               onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
@@ -241,14 +240,13 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
     if (search.trim()) { navigate('/shop?q=' + encodeURIComponent(search.trim())); setSearch(''); }
   };
 
-  const navLinks = [
-    { to: '/', label: 'Home' },
-    { to: '/shop', label: 'Shop' },
-    { to: '/catalogue', label: 'Catalogue' },
-    { to: '/about', label: 'About' },
-    { to: '/contact', label: 'Contact' },
-  ];
-
+ const navLinks = [
+  { to: '/', label: 'Home' },
+  { to: '/shop', label: 'Shop' },
+  { to: '/catalogue', label: 'Catalogue' },
+  { to: '/about', label: 'About' },
+  { to: '/contact', label: 'Contact' },
+];
   const iconBtn: React.CSSProperties = {
     background: 'none', border: 'none', cursor: 'pointer',
     color: 'hsl(var(--foreground))', padding: '6px', borderRadius: '50%',
