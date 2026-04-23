@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Truck, Shield, RefreshCw, TrendingUp, Zap, Package, Users, Sparkles } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
-
 // Scroll reveal hook
 const useReveal = () => {
   useEffect(() => {
@@ -79,8 +78,11 @@ const DropCountdown = ({ endsAt }: { endsAt: string }) => {
 };
 
 const HomePage = () => {
-  const { products, series, creators, drops, addToCart, homePromo } = useStore();
   const { products, series, creators, addToCart, homePromo } = useStore();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const featured = products.filter(p => p.featured);
+  const [heroImgIdx, setHeroImgIdx] = useState(0);
   useReveal();
 
   // Cycle hero product images
@@ -110,7 +112,7 @@ const HomePage = () => {
               <div className="glow-pill" style={{ marginBottom: '28px', width: 'fit-content' }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff0000', display: 'inline-block', animation: 'glowPulse 1.5s ease-in-out infinite' }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>
-                 NEW COLLECTION LIVE {latestDrop ? `#${String(latestDrop.dropNumber).padStart(3, '0')}` : ''}
+                  NEW COLLECTION LIVE
                 </span>
               </div>
 
@@ -124,9 +126,6 @@ const HomePage = () => {
               <p style={{ fontSize: '17px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.75, marginBottom: '36px', maxWidth: '440px' }}>
                 Premium merch drops from Youtupia. Every piece is limited, every series tells a story. No fast fashion, no compromises.
               </p>
-
-              {/* Latest Drop Spotlight */}
-             
 
               {/* Tags */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '36px' }}>
@@ -146,7 +145,7 @@ const HomePage = () => {
 
               {/* Stats row */}
               <div style={{ display: 'flex', gap: '32px', marginTop: '48px', paddingTop: '32px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap' }}>
-                {[{ label: 'Items Sold', value: 2400, suffix: '+' }, { label: 'Happy Customers', value: 1800, suffix: '+' }, { label: 'Limited Drops', value: 12, suffix: '' }].map(s => (
+                {[{ label: 'Items Sold', value: 2400, suffix: '+' }, { label: 'Happy Customers', value: 1800, suffix: '+' }, { label: 'Collections', value: 12, suffix: '' }].map(s => (
                   <div key={s.label}>
                     <div style={{ fontSize: '26px', fontWeight: 900, color: '#ff0000', lineHeight: 1 }}><Counter target={s.value} suffix={s.suffix} /></div>
                     <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', marginTop: '4px', fontWeight: 500 }}>{s.label}</div>
@@ -210,7 +209,7 @@ const HomePage = () => {
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 24px', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}>
                     {homePromo.title && <div style={{ color: 'white', fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{homePromo.title}{homePromo.subtitle ? ` — ${homePromo.subtitle}` : ''}</div>}
                     {homePromo.ctaText && (
-                      <Link to={homePromo.ctaLink || '/drops'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ff0000', color: 'white', textDecoration: 'none', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, marginTop: '6px' }}>
+                      <Link to={homePromo.ctaLink || '/shop'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ff0000', color: 'white', textDecoration: 'none', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, marginTop: '6px' }}>
                         {homePromo.ctaText} →
                       </Link>
                     )}
@@ -308,8 +307,6 @@ const HomePage = () => {
           ))}
         </div>
       </section>
-
-     
 
       {/* ── FEATURED ── */}
       <section style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))' }}>
@@ -452,7 +449,7 @@ const HomePage = () => {
             </div>
           </div>
           {[
-            { heading: 'Shop', links: [['All Products', '/shop'], ['New Arrivals', '/shop'], ['Creators', '/shop'], ['Wishlist', '/wishlist'], ['New Arrivals', '/shop']] },
+            { heading: 'Shop', links: [['All Products', '/shop'], ['New Arrivals', '/shop'], ['Creators', '/shop'], ['Wishlist', '/wishlist'], ['Collections', '/shop']] },
             { heading: 'Info', links: [['About Us', '/about'], ['Track Order', '/track-order'], ['FAQ', '/faq'], ['Contact', '/contact'], ['Policies', '/policy']] },
             { heading: 'Connect', links: [['📧 hello@youtupia.com', '/contact'], ['📱 +91 00000 00000', '/contact'], ['📸 @youtupia', '/contact'], ['💬 WhatsApp', '/contact']] },
           ].map(col => (
