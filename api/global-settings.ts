@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SB_URL = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
 
 const headers = () => ({
   'Content-Type': 'application/json',
@@ -26,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/yt_settings?key=eq.${encodeURIComponent(key)}&select=*`,
+        `${SB_URL}/rest/v1/yt_settings?key=eq.${encodeURIComponent(key)}&select=*`,
         { headers: headers() }
       );
       if (!r.ok) return res.status(200).json({ value: null });
@@ -41,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'POST') {
     const { value } = req.body || {};
     try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/yt_settings`, {
+      const r = await fetch(`${SB_URL}/rest/v1/yt_settings`, {
         method: 'POST',
         headers: { ...headers(), Prefer: 'resolution=merge-duplicates,return=representation' },
         body: JSON.stringify({ key, value }),
