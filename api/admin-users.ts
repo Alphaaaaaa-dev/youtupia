@@ -14,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Uses service role key to access auth.users
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
+    const response = await fetch(`${SB_URL}/auth/v1/admin/users`, {
       headers: {
         'apikey': SERVICE_KEY,
         'Authorization': `Bearer ${SERVICE_KEY}`,
