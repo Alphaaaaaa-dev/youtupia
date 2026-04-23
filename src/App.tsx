@@ -36,10 +36,6 @@ import { useStore } from './contexts/StoreContext';
 
 const queryClient = new QueryClient();
 
-// FIX: PageWrapper now only animates the container — it does NOT try to freeze/swap children.
-// The old approach stored `children` in state and swapped them after a delay, which caused
-// the product page to be blank because <Routes> returns a new JSX object every render,
-// making the stale `displayed` state show the old page while the URL had already changed.
 const PageWrapper = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const [visible, setVisible] = useState(true);
@@ -81,7 +77,6 @@ const StoreLayout = () => {
   const { topBanner } = useStore();
 
   const bannerHeight = topBanner.enabled ? 32 : 0;
-  // Navbar has two rows: top bar (58px) + nav links bar (~40px) = ~98px total
   const navbarHeight = 98;
   const topOffset = bannerHeight + navbarHeight;
 
@@ -93,7 +88,6 @@ const StoreLayout = () => {
       <Navbar onCartOpen={() => setCartOpen(true)} />
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
 
-      {/* Page content — offset from fixed navbar */}
       <div style={{ marginTop: `${topOffset}px` }}>
         <PageWrapper>
           <Routes>
