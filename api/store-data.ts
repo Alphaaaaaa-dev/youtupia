@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SB_URL = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
 
 function headers() {
   return {
@@ -34,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── GET — fetch all rows ────────────────────────────────────────────────
     if (req.method === 'GET') {
-      const url = `${SUPABASE_URL}/rest/v1/${table}?select=*&order=updated_at.asc`;
+      const url = `${SB_URL}/rest/v1/${table}?select=*&order=updated_at.asc`;
       console.log(`[store-data] GET ${url}`);
 
       const r = await fetch(url, { headers: headers() });
@@ -70,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // If empty array, delete all rows first
       if (rows.length === 0) {
         const delR = await fetch(
-          `${SUPABASE_URL}/rest/v1/${table}?id=not.is.null`,
+          `${SB_URL}/rest/v1/${table}?id=not.is.null`,
           { method: 'DELETE', headers: headers() }
         );
         if (!delR.ok) {
@@ -86,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         payload: row.payload !== undefined ? row.payload : row,
       }));
 
-      const ins = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      const ins = await fetch(`${SB_URL}/rest/v1/${table}`, {
         method: 'POST',
         headers: {
           ...headers(),
@@ -127,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`[store-data] PUT upsert ${table} id=${dbRow.id}`);
 
-      const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      const upsertRes = await fetch(`${SB_URL}/rest/v1/${table}`, {
         method: 'POST',
         headers: {
           ...headers(),
@@ -159,7 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log(`[store-data] DELETE ${table} id=${id}`);
 
       const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}`,
+        `${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(String(id))}`,
         { method: 'DELETE', headers: headers() }
       );
 
