@@ -1,207 +1,280 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+```tsx
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
+  Search,
+  ShoppingCart,
+  Sun,
+  Moon,
   Menu,
   X,
-  ShoppingCart,
   User,
-  Package,
+  LogOut,
+  ChevronDown,
   Heart,
-  LogOut
-} from "lucide-react";
-import { useStore } from "../contexts/StoreContext";
-import { useAuth } from "../contexts/AuthContext";
+  ChevronRight,
+  Zap,
+  Tag,
+  Package
+} from 'lucide-react';
 
-const Navbar = () => {
-  const { products, series, creators, cart } = useStore();
-  const { user, logout } = useAuth();
+import { useTheme } from '../contexts/ThemeContext';
+import { useStore } from '../contexts/StoreContext';
+import { useAuth } from '../contexts/AuthContext';
 
-  const [open, setOpen] = useState(false);
 
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+const FaviconLogo = ({ size = 28 }: { size?: number }) => (
+  <img
+    src="/favicon.ico"
+    alt="Youtupia"
+    width={size}
+    height={size}
+    style={{
+      borderRadius: '6px',
+      objectFit: 'contain',
+      display: 'block'
+    }}
+    onError={e => {
+      const el = e.target as HTMLImageElement;
+      el.style.display = 'none';
+
+      const fb = el.nextSibling as HTMLElement;
+      if (fb) fb.style.display = 'flex';
+    }}
+  />
+);
+
+
+
+const ThemeToggle = () => {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
+
+  const [animating, setAnimating] = useState(false);
+
+  const handleToggle = () => {
+    setAnimating(true);
+    toggleTheme();
+    setTimeout(() => setAnimating(false), 400);
+  };
 
   return (
-    <>
-      <header
+    <button
+      onClick={handleToggle}
+      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      style={{
+        width: '52px',
+        height: '26px',
+        borderRadius: '13px',
+        border: 'none',
+        cursor: 'pointer',
+        background: isDark ? 'hsl(0 0% 24%)' : 'hsl(0 0% 85%)',
+        position: 'relative',
+        transition: 'background 0.3s ease',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '2px',
+        flexShrink: 0,
+        boxShadow: isDark
+          ? 'inset 0 1px 3px rgba(0,0,0,0.4)'
+          : 'inset 0 1px 3px rgba(0,0,0,0.1)'
+      }}
+    >
+
+      <span
         style={{
-          position: "fixed",
-          top: 0,
-          width: "100%",
-          height: 56,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 20px",
-          background: "hsl(var(--background))",
-          borderBottom: "1px solid hsl(var(--border))",
-          zIndex: 100
+          position: 'absolute',
+          left: '5px',
+          fontSize: '9px',
+          opacity: isDark ? 0 : 1,
+          transition: 'opacity 0.25s'
         }}
       >
-        {/* LEFT */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button
-            onClick={() => setOpen(true)}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer"
-            }}
-          >
-            <Menu size={22} />
-          </button>
+        ☀️
+      </span>
 
-          <Link
-            to="/"
-            style={{
-              fontWeight: 900,
-              fontSize: 20,
-              textDecoration: "none",
-              color: "inherit"
-            }}
-          >
-            YOUTUPIA
-          </Link>
-        </div>
+      <span
+        style={{
+          position: 'absolute',
+          right: '5px',
+          fontSize: '9px',
+          opacity: isDark ? 1 : 0,
+          transition: 'opacity 0.25s'
+        }}
+      >
+        🌙
+      </span>
 
-        {/* RIGHT */}
-        <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-          <Link to="/wishlist">
-            <Heart size={20} />
-          </Link>
+      <div
+        style={{
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          background: isDark ? '#ff0000' : 'white',
+          position: 'absolute',
+          left: isDark ? 'calc(100% - 23px)' : '3px',
+          boxShadow: isDark
+            ? '0 0 8px rgba(255,0,0,0.5)'
+            : '0 2px 4px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '9px',
+          transition: 'left 0.28s cubic-bezier(0.34,1.56,0.64,1), background 0.25s',
+          transform: animating ? 'scale(0.85)' : 'scale(1)'
+        }}
+      >
+        {isDark ? '🌙' : '☀️'}
+      </div>
 
-          <Link to="/cart" style={{ position: "relative" }}>
-            <ShoppingCart size={20} />
-            {cartCount > 0 && (
-              <span
-                style={{
-                  position: "absolute",
-                  top: -6,
-                  right: -8,
-                  fontSize: 11,
-                  background: "#ff0000",
-                  color: "#fff",
-                  borderRadius: 50,
-                  padding: "2px 6px"
-                }}
-              >
-                {cartCount}
-              </span>
-            )}
-          </Link>
-
-          <Link to={user ? "/account" : "/login"}>
-            <User size={20} />
-          </Link>
-        </div>
-      </header>
-
-      {/* SIDEBAR */}
-      {open && (
-        <>
-          {/* Overlay */}
-          <div
-            onClick={() => setOpen(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.4)",
-              zIndex: 200
-            }}
-          />
-
-          {/* Sidebar */}
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: 300,
-              height: "100vh",
-              background: "hsl(var(--background))",
-              borderRight: "1px solid hsl(var(--border))",
-              zIndex: 300,
-              padding: 24,
-              overflowY: "auto"
-            }}
-          >
-            {/* Close */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 20
-              }}
-            >
-              <strong>Menu</strong>
-
-              <button
-                onClick={() => setOpen(false)}
-                style={{ background: "transparent", border: "none" }}
-              >
-                <X />
-              </button>
-            </div>
-
-            {/* Navigation */}
-            <nav style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Link to="/" onClick={() => setOpen(false)}>
-                Home
-              </Link>
-
-              <Link to="/shop" onClick={() => setOpen(false)}>
-                Shop
-              </Link>
-
-              <Link to="/catalogue" onClick={() => setOpen(false)}>
-                Catalogue
-              </Link>
-
-              <Link to="/series" onClick={() => setOpen(false)}>
-                Series ({series.length})
-              </Link>
-
-              <Link to="/creators" onClick={() => setOpen(false)}>
-                Creators ({creators.length})
-              </Link>
-
-              <Link to="/products" onClick={() => setOpen(false)}>
-                All Products ({products.length})
-              </Link>
-
-              <Link to="/orders" onClick={() => setOpen(false)}>
-                <Package size={16} style={{ marginRight: 6 }} />
-                Orders
-              </Link>
-            </nav>
-
-            {/* User Section */}
-            {user && (
-              <div style={{ marginTop: 30 }}>
-                <button
-                  onClick={() => {
-                    logout();
-                    setOpen(false);
-                  }}
-                  style={{
-                    border: "none",
-                    background: "#ff0000",
-                    color: "#fff",
-                    padding: "8px 14px",
-                    borderRadius: 6,
-                    cursor: "pointer"
-                  }}
-                >
-                  <LogOut size={16} style={{ marginRight: 6 }} />
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-    </>
+    </button>
   );
 };
 
-export default Navbar;
+
+
+// ── LEFT SIDEBAR DRAWER (Souled Store style) ─────────────────
+
+const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) => {
+
+  const { theme } = useTheme();
+
+  const {
+    products,
+    series,
+    creators
+  } = useStore();
+
+  const { user, logout } = useAuth();
+
+  const navigate = useNavigate();
+
+
+  const linkStyle = {
+    padding: '12px 0',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    textDecoration: 'none',
+    color: 'inherit',
+    fontWeight: 500,
+    borderBottom: '1px solid rgba(0,0,0,0.06)'
+  };
+
+
+  if (!open) return null;
+
+
+  return (
+    <div>
+
+      {/* Overlay */}
+
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          zIndex: 90
+        }}
+      />
+
+
+      {/* Sidebar */}
+
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '280px',
+          height: '100%',
+          background: theme === 'dark' ? '#111' : '#fff',
+          zIndex: 100,
+          padding: '18px',
+          overflowY: 'auto',
+          boxShadow: '2px 0 10px rgba(0,0,0,0.2)'
+        }}
+      >
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: '20px'
+          }}
+        >
+          <strong>Menu</strong>
+
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <X />
+          </button>
+        </div>
+
+
+        <Link to="/" style={linkStyle} onClick={onClose}>
+          <Zap size={18} />
+          Home
+        </Link>
+
+        <Link to="/shop" style={linkStyle} onClick={onClose}>
+          <Tag size={18} />
+          Shop
+        </Link>
+
+        <Link to="/series" style={linkStyle} onClick={onClose}>
+          <Package size={18} />
+          Series ({series.length})
+        </Link>
+
+        <Link to="/creators" style={linkStyle} onClick={onClose}>
+          <User size={18} />
+          Creators ({creators.length})
+        </Link>
+
+        <Link to="/products" style={linkStyle} onClick={onClose}>
+          <Package size={18} />
+          Products ({products.length})
+        </Link>
+
+
+        {user && (
+          <button
+            onClick={() => {
+              logout();
+              onClose();
+              navigate('/');
+            }}
+            style={{
+              marginTop: '20px',
+              padding: '10px',
+              width: '100%',
+              background: '#ff0000',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <LogOut size={16} style={{ marginRight: '6px' }} />
+            Logout
+          </button>
+        )}
+
+      </div>
+
+    </div>
+  );
+};
+
+
+export default LeftSidebar;
+```
