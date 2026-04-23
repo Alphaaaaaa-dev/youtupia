@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Truck, Shield, RefreshCw, TrendingUp, Zap, Package, Users, Sparkles } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
-import DropVotingSection from '@/components/DropVotingSection';
 
 // Scroll reveal hook
 const useReveal = () => {
@@ -81,11 +80,7 @@ const DropCountdown = ({ endsAt }: { endsAt: string }) => {
 
 const HomePage = () => {
   const { products, series, creators, drops, addToCart, homePromo } = useStore();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-  const featured = products.filter(p => p.featured);
-  const latestDrop = drops.slice().sort((a, b) => b.dropNumber - a.dropNumber)[0];
-  const [heroImgIdx, setHeroImgIdx] = useState(0);
+  const { products, series, creators, addToCart, homePromo } = useStore();
   useReveal();
 
   // Cycle hero product images
@@ -115,7 +110,7 @@ const HomePage = () => {
               <div className="glow-pill" style={{ marginBottom: '28px', width: 'fit-content' }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff0000', display: 'inline-block', animation: 'glowPulse 1.5s ease-in-out infinite' }} />
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>
-                  LATEST DROP {latestDrop ? `#${String(latestDrop.dropNumber).padStart(3, '0')}` : ''}
+                 NEW COLLECTION LIVE {latestDrop ? `#${String(latestDrop.dropNumber).padStart(3, '0')}` : ''}
                 </span>
               </div>
 
@@ -131,36 +126,7 @@ const HomePage = () => {
               </p>
 
               {/* Latest Drop Spotlight */}
-              {latestDrop && (
-                <div style={{ background: isDark ? 'rgba(255,0,0,0.06)' : 'rgba(255,0,0,0.05)', border: '1px solid rgba(255,0,0,0.16)', borderRadius: 18, padding: 18, marginBottom: 36 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#ff0000' }}>Limited Drop</div>
-                      <div style={{ fontSize: 16, fontWeight: 900, color: 'hsl(var(--foreground))', marginTop: 4 }}>{latestDrop.name}</div>
-                      <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>{latestDrop.theme}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, fontWeight: 900, color: '#f97316', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', padding: '6px 10px', borderRadius: 999 }}>Selling fast</span>
-                      {latestDrop.limited && <span style={{ fontSize: 12, fontWeight: 900, color: '#ff0000', background: 'rgba(255,0,0,0.08)', border: '1px solid rgba(255,0,0,0.16)', padding: '6px 10px', borderRadius: 999 }}>Never restocking</span>}
-                    </div>
-                  </div>
-
-                  {latestDrop.endsAt ? (
-                    <DropCountdown endsAt={latestDrop.endsAt} />
-                  ) : (
-                    <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', fontWeight: 600 }}>Drop is live now.</div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-                    <Link to={`/shop?drop=${latestDrop.id}`} className="btn-yt ripple" style={{ textDecoration: 'none', borderRadius: 12, padding: '12px 18px', fontSize: 14 }}>
-                      Shop Latest Drop <ArrowRight size={16} />
-                    </Link>
-                    <Link to="/drops" className="btn-ghost" style={{ textDecoration: 'none', borderRadius: 12, padding: '12px 18px', fontSize: 14 }}>
-                      View all drops
-                    </Link>
-                  </div>
-                </div>
-              )}
+             
 
               {/* Tags */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '36px' }}>
@@ -343,10 +309,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── COMMUNITY VOTING ── */}
-      <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px 64px' }}>
-        <DropVotingSection />
-      </section>
+     
 
       {/* ── FEATURED ── */}
       <section style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))' }}>
@@ -489,7 +452,7 @@ const HomePage = () => {
             </div>
           </div>
           {[
-            { heading: 'Shop', links: [['All Products', '/shop'], ['Drops', '/drops'], ['Creators', '/shop'], ['Wishlist', '/wishlist'], ['New Arrivals', '/shop']] },
+            { heading: 'Shop', links: [['All Products', '/shop'], ['New Arrivals', '/shop'], ['Creators', '/shop'], ['Wishlist', '/wishlist'], ['New Arrivals', '/shop']] },
             { heading: 'Info', links: [['About Us', '/about'], ['Track Order', '/track-order'], ['FAQ', '/faq'], ['Contact', '/contact'], ['Policies', '/policy']] },
             { heading: 'Connect', links: [['📧 hello@youtupia.com', '/contact'], ['📱 +91 00000 00000', '/contact'], ['📸 @youtupia', '/contact'], ['💬 WhatsApp', '/contact']] },
           ].map(col => (
