@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Home, ShoppingBag, Zap } from 'lucide-react';
+import { ArrowLeft, Home, ShoppingBag } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 
 const NotFound = () => {
@@ -176,7 +176,6 @@ const NotFound = () => {
           </div>
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
             {[
-            
               { to: '/catalogue', icon: ShoppingBag, label: 'Catalogue' },
               { to: '/about', icon: null, label: 'About Us' },
               { to: '/contact', icon: null, label: 'Contact' },
