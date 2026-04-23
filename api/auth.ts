@@ -1,6 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+// Strip any accidental path suffixes like /rest/v1 or /auth/v1 or trailing slashes
+const rawSupabaseUrl = process.env.SUPABASE_URL || '';
+const SUPABASE_URL = rawSupabaseUrl
+  .replace(/\/(rest|auth|v1)(\/[^]*)?$/, '')
+  .replace(/\/$/, '');
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
