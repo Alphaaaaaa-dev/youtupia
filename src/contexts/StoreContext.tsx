@@ -4,17 +4,16 @@ import { toast as sonnerToast } from '@/components/ui/sonner';
 export interface ProductVariant { size: string; stock: number; }
 export interface Review { id: string; userName: string; rating: number; comment: string; createdAt: string; verified: boolean; }
 export interface Product {
-  id: string; name: string; series: string; seriesId: string; creatorId?: string; 
+  id: string; name: string; series: string; seriesId: string; creatorId?: string;
   price: number; originalPrice?: number; description: string; images: string[];
   variants: ProductVariant[]; tags: string[]; featured: boolean; createdAt: string;
-  reviews?: Review[]; viewerCount?: number; limitedEdition?: boolean;  preorder?: boolean;
+  reviews?: Review[]; viewerCount?: number; limitedEdition?: boolean; preorder?: boolean;
 }
 export interface Series { id: string; name: string; description: string; logo: string; banner: string; color: string; }
 export interface Creator {
   id: string; name: string; handle: string; bio: string; avatar: string; banner: string;
   youtubeUrl?: string; youtubeVideoId?: string; subscribers?: string; productIds: string[];
-}
-
+  dropCountdownEnd?: string;
 }
 export interface CartItem { productId: string; size: string; quantity: number; product: Product; }
 export interface Order {
@@ -33,7 +32,7 @@ const DEFAULT_COUPONS: DiscountCoupon[] = [
   { id: 'c1', code: 'YOUTUPIA10', type: 'percentage', value: 10, active: true, description: '10% off for Youtupia community' },
 ];
 const DEFAULT_HOME_PROMO: HomePromo = {
-  videoUrl: '', posterUrl: '', title: 'Promotion Video', subtitle: 'Creator drop preview', ctaText: 'Watch Drop', ctaLink: '/products',
+  videoUrl: '', posterUrl: '', title: 'Promotion Video', subtitle: 'Creator drop preview', ctaText: 'Watch Drop', ctaLink: '/shop',
 };
 const DEFAULT_TOP_BANNER: TopBanner = {
   enabled: true,
@@ -46,7 +45,6 @@ const DEFAULT_TOP_BANNER: TopBanner = {
   bgColor: '#ff0000', textColor: '#ffffff',
 };
 
-// ── Global settings (Supabase-backed) ──
 async function globalGet(key: string): Promise<any> {
   try {
     const res = await fetch(`/api/global-settings?key=${encodeURIComponent(key)}`);
@@ -68,7 +66,6 @@ async function globalSet(key: string, value: any): Promise<void> {
 
 type TableName = 'yt_products' | 'yt_series' | 'yt_creators';
 
-// Load all rows from a table
 async function dbLoad<T>(table: TableName): Promise<T[] | null> {
   try {
     const res = await fetch(`/api/store-data?table=${table}`);
@@ -79,7 +76,6 @@ async function dbLoad<T>(table: TableName): Promise<T[] | null> {
   } catch { return null; }
 }
 
-// Save a single item
 async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item: T): Promise<void> {
   try {
     await fetch(`/api/store-data?table=${table}`, {
@@ -90,7 +86,6 @@ async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item:
   } catch (e) { console.error(`dbSaveSingleRow(${table}) failed:`, e); }
 }
 
-// Save all items
 async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[]): Promise<void> {
   try {
     const rows = items.map(item => ({ id: item.id, payload: item }));
@@ -102,7 +97,6 @@ async function dbSaveAll<T extends { id: string }>(table: TableName, items: T[])
   } catch (e) { console.error(`dbSaveAll(${table}) failed:`, e); }
 }
 
-// Delete a single row
 async function dbDeleteSingleRow(table: TableName, id: string): Promise<void> {
   try {
     await fetch(`/api/store-data?table=${table}`, {
@@ -153,7 +147,6 @@ async function dbLoadOrders(userId?: string | null): Promise<Order[] | null> {
   } catch { return null; }
 }
 
-// ── localStorage helpers — ONLY for cart, wishlist, orders (not store data) ──
 function lsGet<T>(key: string, fallback: T): T {
   try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }
   catch { return fallback; }
@@ -194,20 +187,16 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
-  // ── Store data: START EMPTY, always load from Supabase ──
   const [products, setProductsState] = useState<Product[]>([]);
   const [series, setSeriesState] = useState<Series[]>([]);
   const [creators, setCreatorsState] = useState<Creator[]>([]);
- 
 
-  // ── User data: localStorage is fine (per-user) ──
   const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
   const [orders, setOrdersState] = useState<Order[]>(() => lsGet('youtupia_orders', []));
   const [wishlist, setWishlist] = useState<string[]>(() => lsGet('youtupia_wishlist', []));
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => lsGet('youtupia_recent', []));
   const [coupons, setCouponsState] = useState<DiscountCoupon[]>(() => lsGet('youtupia_coupons', DEFAULT_COUPONS));
 
-  // ── Settings: load from Supabase ──
   const [homePromo, setHomePromoState] = useState<HomePromo>(DEFAULT_HOME_PROMO);
   const [topBanner, setTopBannerState] = useState<TopBanner>(DEFAULT_TOP_BANNER);
 
@@ -227,7 +216,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // ── Load from Supabase on mount — THIS IS THE FIX ──
   useEffect(() => {
     let cancelled = false;
 
@@ -235,7 +223,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setDbLoading(true);
 
       try {
-        // Load all store data in parallel from Supabase
         const [dbProducts, dbSeries, dbCreators] = await Promise.all([
           dbLoad<Product>('yt_products'),
           dbLoad<Series>('yt_series'),
@@ -244,26 +231,18 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
         if (cancelled) return;
 
-        // Always use Supabase data — even if empty array (means no products yet)
-        // This ensures all users see the same data
         if (dbProducts !== null) {
           console.log('[Store] Loaded', dbProducts.length, 'products from Supabase');
           setProductsState(dbProducts);
         }
-        if (dbSeries !== null) {
-          setSeriesState(dbSeries);
-        
-        }
-        if (dbCreators !== null) {
-          setCreatorsState(dbCreators);
-        }
+        if (dbSeries !== null) setSeriesState(dbSeries);
+        if (dbCreators !== null) setCreatorsState(dbCreators);
 
         if (!cancelled) {
           setDbLoading(false);
           setHydrating(false);
         }
 
-        // Load settings and orders in background
         Promise.all([
           globalGet('home_promo'),
           globalGet('top_banner'),
@@ -290,8 +269,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     loadFromDb();
     return () => { cancelled = true; };
   }, [mergeOrders]);
-
-  // ── OPTIMISTIC SETTERS — update state immediately, then save to Supabase ──
 
   const setProducts = useCallback((p: Product[]) => {
     setProductsState(p);
@@ -321,8 +298,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     dbSaveAll('yt_creators', c);
   }, []);
 
-
-
   const setHomePromo = useCallback((p: HomePromo) => {
     setHomePromoState(p);
     globalSet('home_promo', p);
@@ -338,12 +313,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     globalSet('top_banner', b);
   }, []);
 
-  // Persist user-specific data to localStorage
   useEffect(() => { lsSet('youtupia_cart', cart); }, [cart]);
   useEffect(() => { lsSet('youtupia_wishlist', wishlist); }, [wishlist]);
   useEffect(() => { lsSet('youtupia_recent', recentlyViewed); }, [recentlyViewed]);
 
-  // ── Cart actions ──
   const addToCart = (product: Product, size: string, qty = 1) => {
     const variant = product.variants.find(v => v.size === size);
     const variantStock = variant?.stock ?? 0;
@@ -477,7 +450,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     <StoreContext.Provider value={{
       products, series, creators, cart, orders, wishlist, recentlyViewed,
       homePromo, coupons, topBanner, hydrating, dbLoading,
-      setProducts, setProduct, deleteProduct, setSeries, setCreators, 
+      setProducts, setProduct, deleteProduct, setSeries, setCreators,
       setHomePromo, setCoupons, setTopBanner,
       addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount,
       addOrder, updateOrderStatus, updateOrder, deleteOrder,
