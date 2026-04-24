@@ -252,10 +252,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (dbTopBanner) setTopBannerState(dbTopBanner);
         }).catch(() => {});
 
-        dbLoadOrders(null).then(dbAllOrders => {
-          if (cancelled) return;
-          if (dbAllOrders && dbAllOrders.length > 0) mergeOrders(dbAllOrders);
-        }).catch(() => {});
+        
 
       } catch (e) {
         console.warn('[Store] DB load failed:', e);
