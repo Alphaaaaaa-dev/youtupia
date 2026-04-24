@@ -17,9 +17,16 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; em
 const STEPS = ['processing', 'confirmed', 'shipped', 'delivered'];
 
 const OrdersPage = () => {
-  const { orders, addOrder, updateOrder } = useStore();
+  const { orders, addOrder, updateOrder, syncOrdersForUser } = useStore();
   const { user } = useAuth();
-  const userOrders = orders.filter(o => o.customerEmail === (user as any)?.email);
+
+  // FIX: Match on both userId (DB rows) and customerEmail (legacy local rows)
+  // so orders created before the userId field existed still appear.
+  const userOrders = orders.filter(o =>
+    (user?.id && (o as any).userId === user.id) ||
+    o.customerEmail === (user as any)?.email
+  );
+
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [syncing, setSyncing] = useState(false);
@@ -29,20 +36,13 @@ const OrdersPage = () => {
 
   useEffect(() => {
     if (!user?.id) return;
+
     setSyncing(true);
-    fetch(`/api/orders?userId=${user.id}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.orders && Array.isArray(data.orders)) {
-          data.orders.forEach((dbOrder: any) => {
-            const exists = orders.find(o => o.id === dbOrder.id);
-            if (!exists) addOrder(dbOrder);
-          });
-        }
-      })
-      .catch(err => console.error('Failed to sync orders:', err))
-      .finally(() => setSyncing(false));
-  }, [user?.id]);
+    // FIX: Use syncOrdersForUser which calls mergeOrders — this upserts every
+    // DB order (updating status on existing ones) rather than only inserting
+    // orders that are absent from local state.
+    syncOrdersForUser(user.id).finally(() => setSyncing(false));
+  }, [user?.id, syncOrdersForUser]);
 
   const handleCancelRequest = (orderId: string) => {
     setCancellingId(orderId);
@@ -62,7 +62,8 @@ const OrdersPage = () => {
   };
 
   const allFilters = ['all', 'processing', 'preorder_confirmed', 'confirmed', 'shipped', 'delivered', 'cancelled'];
-  const filtered = filter === 'all' ? userOrders : orders.filter(o => o.status === filter);
+  // FIX: both filter branches now consistently use userOrders, not the full orders array
+  const filtered = filter === 'all' ? userOrders : userOrders.filter(o => o.status === filter);
 
   if (userOrders.length === 0 && !syncing) return (
     <div style={{ textAlign: 'center', padding: '80px 24px' }}>
@@ -122,7 +123,7 @@ const OrdersPage = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>My Orders</h1>
-          <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginTop: '4px' }}>{userOrders.length} order{orders.length !== 1 ? 's' : ''} placed</p>
+          <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginTop: '4px' }}>{userOrders.length} order{userOrders.length !== 1 ? 's' : ''} placed</p>
         </div>
         <Link to="/track-order" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#ff0000', textDecoration: 'none', fontWeight: 600 }}>
           <Truck size={14} /> Track with ID
@@ -132,7 +133,7 @@ const OrdersPage = () => {
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {allFilters.map(f => {
-          const count = f === 'all' ? orders.length :userOrders.filter(o => o.status === f).length;
+          const count = f === 'all' ? userOrders.length : userOrders.filter(o => o.status === f).length;
           if (f !== 'all' && count === 0) return null;
           const meta = STATUS_META[f];
           return (
@@ -179,8 +180,8 @@ const OrdersPage = () => {
                   <span style={{ fontSize: '16px' }}>❌</span>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 700, color: '#ef4444' }}>Order Cancelled</div>
-                    {(order as any).cancelReason && (
-                      <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>Reason: {(order as any).cancelReason}</div>
+                    {order.cancelReason && (
+                      <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>Reason: {order.cancelReason}</div>
                     )}
                   </div>
                 </div>
