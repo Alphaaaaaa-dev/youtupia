@@ -23,6 +23,7 @@ export interface Order {
   paymentId?: string; createdAt: string; discountCode?: string; discountAmount?: number;
   paymentMethod: 'razorpay' | 'cod';
   codCharge?: number; trackingId?: string; trackingUrl?: string; notes?: string; cancelReason?: string;
+  userId?: string;
 }
 export interface HomePromo { videoUrl: string; posterUrl?: string; title: string; subtitle: string; ctaText: string; ctaLink: string; }
 export interface DiscountCoupon { id: string; code: string; type: 'percentage' | 'fixed'; value: number; active: boolean; description?: string; }
@@ -182,6 +183,7 @@ interface StoreContextType {
   addReview: (productId: string, review: Omit<Review, 'id' | 'createdAt'>) => void;
   validateDiscountCode: (code: string) => { valid: boolean; pct: number; amount: number; type: 'percentage' | 'fixed'; coupon?: DiscountCoupon };
   updateOrder: (orderId: string, updates: Partial<Order>) => void;
+  syncOrdersForUser: (userId: string) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -203,10 +205,14 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [hydrating, setHydrating] = useState(true);
   const [dbLoading, setDbLoading] = useState(true);
 
+  // FIX: Upserts DB orders over local state — DB is the source of truth for status.
+  // Existing orders are updated (not skipped) so stale local statuses get corrected.
   const mergeOrders = useCallback((dbOrders: Order[]) => {
     setOrdersState(prev => {
       const map = new Map<string, Order>();
+      // Local orders go in first as the base
       prev.forEach(o => map.set(o.id, o));
+      // DB orders overwrite — DB wins on every field (including status)
       dbOrders.forEach(o => map.set(o.id, o));
       const merged = Array.from(map.values()).sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -252,8 +258,6 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           if (dbTopBanner) setTopBannerState(dbTopBanner);
         }).catch(() => {});
 
-        
-
       } catch (e) {
         console.warn('[Store] DB load failed:', e);
         if (!cancelled) {
@@ -265,6 +269,13 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     loadFromDb();
     return () => { cancelled = true; };
+  }, [mergeOrders]);
+
+  // FIX: Exposed so OrdersPage (and any auth-aware component) can trigger a
+  // user-scoped order sync after login, without duplicating fetch logic.
+  const syncOrdersForUser = useCallback(async (userId: string) => {
+    const dbOrders = await dbLoadOrders(userId);
+    if (dbOrders) mergeOrders(dbOrders);
   }, [mergeOrders]);
 
   const setProducts = useCallback((p: Product[]) => {
@@ -452,6 +463,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount,
       addOrder, updateOrderStatus, updateOrder, deleteOrder,
       toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode,
+      syncOrdersForUser,
     }}>
       {children}
     </StoreContext.Provider>
