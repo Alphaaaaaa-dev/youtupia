@@ -32,7 +32,6 @@ const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChang
     <div style={{ marginBottom: '0' }}>
       <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'rgba(148,163,184,0.55)', letterSpacing: '0.1em', marginBottom: '6px' }}>{labelText}</div>
       <div style={{ position: 'relative' }}>
-        {/* Visible styled button */}
         <div
           onClick={() => inputRef.current?.showPicker?.() ?? inputRef.current?.click()}
           style={{
@@ -54,7 +53,6 @@ const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChang
             >×</span>
           )}
         </div>
-        {/* Hidden native input */}
         <input
           ref={inputRef}
           type="datetime-local"
@@ -96,7 +94,6 @@ const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChang
   return (
     <div style={{ marginBottom: '14px' }}>
       <div style={{ ...label, marginBottom: '8px' }}>{lbl}</div>
-      {/* Tab toggle */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
         {(['url', 'upload'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
@@ -221,7 +218,6 @@ const MultiImageDropzone = ({ images, onChange }: { images: string[]; onChange: 
     <div style={{ marginBottom: '14px' }}>
       <div style={{ ...label, marginBottom: '8px' }}>PRODUCT IMAGES</div>
 
-      {/* Drag drop zone */}
       <div
         onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
@@ -234,7 +230,6 @@ const MultiImageDropzone = ({ images, onChange }: { images: string[]; onChange: 
         <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { if (e.target.files) handleFiles(e.target.files); }} />
       </div>
 
-      {/* URL inputs */}
       {images.map((img, i) => (
         <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
           {img && <img src={img} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />}
@@ -292,7 +287,6 @@ const Sidebar = ({ tab, setTab, onLogout }: { tab: AdminTab; setTab: (t: AdminTa
 const OverviewTab = () => {
   const { orders, products } = useStore();
 
-  // ── Revenue buckets ───────────────────────────────
   const pendingOrders    = orders.filter(o => ['processing', 'preorder_confirmed', 'confirmed', 'shipped'].includes(o.status));
   const deliveredOrders  = orders.filter(o => o.status === 'delivered');
   const cancelledOrders  = orders.filter(o => o.status === 'cancelled');
@@ -314,12 +308,9 @@ const OverviewTab = () => {
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', letterSpacing: '-0.02em', margin: '0 0 6px' }}>Store Overview</h1>
       <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Real-time snapshot of your merch store.</p>
 
-      {/* ── Revenue breakdown ── */}
       <div style={{ ...card, padding: '22px', marginBottom: '16px', border: '1px solid rgba(255,255,255,0.07)' }}>
         <div style={{ ...label, marginBottom: '16px', fontSize: '11px' }}>REVENUE BREAKDOWN</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0', position: 'relative' }}>
-
-          {/* Earned (delivered) */}
           <div style={{ padding: '0 20px 0 0', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
@@ -332,8 +323,6 @@ const OverviewTab = () => {
               {deliveredOrders.length} delivered order{deliveredOrders.length !== 1 ? 's' : ''}
             </div>
           </div>
-
-          {/* Pending */}
           <div style={{ padding: '0 20px', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#fbbf24', flexShrink: 0 }} />
@@ -346,8 +335,6 @@ const OverviewTab = () => {
               {activeOrders} active order{activeOrders !== 1 ? 's' : ''}
             </div>
           </div>
-
-          {/* Cancelled */}
           <div style={{ padding: '0 0 0 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '6px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
@@ -362,7 +349,6 @@ const OverviewTab = () => {
           </div>
         </div>
 
-        {/* Progress bar — pending vs earned vs cancelled */}
         {orders.length > 0 && (() => {
           const total = earnedRevenue + pendingRevenue + cancelledValue || 1;
           const earnedPct   = Math.round((earnedRevenue  / total) * 100);
@@ -392,7 +378,6 @@ const OverviewTab = () => {
         })()}
       </div>
 
-      {/* ── Order count stats ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '16px' }}>
         {[
           { label: 'ITEMS SOLD', value: totalSold, color: '#ff6666', icon: TrendingUp },
@@ -410,7 +395,6 @@ const OverviewTab = () => {
         ))}
       </div>
 
-      {/* ── Recent orders ── */}
       <div style={{ ...card, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '14px', color: '#f1f5f9' }}>Recent Orders</span>
@@ -440,7 +424,7 @@ const OverviewTab = () => {
 
 // ── ORDERS TAB ─────────────────────────────────────
 const OrdersTab = () => {
-  const { orders, updateOrderStatus, updateOrder } = useStore();
+  const { orders, updateOrderStatus, updateOrder, deleteOrder } = useStore();
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
@@ -448,12 +432,43 @@ const OrdersTab = () => {
   const [savedTracking, setSavedTracking] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelRemarkInput, setCancelRemarkInput] = useState('');
+  const [dbOrders, setDbOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Fetch all orders from DB on mount and allow refresh
+  const fetchDbOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.orders) setDbOrders(data.orders);
+      }
+    } catch (e) {
+      console.error('Failed to fetch orders from DB', e);
+    }
+    setLoadingOrders(false);
+  };
+
+  useEffect(() => { fetchDbOrders(); }, []);
+
+  // Merge local store orders with DB orders, DB takes priority for status
+  const mergedOrders = (() => {
+    const map = new Map<string, any>();
+    // Start with local
+    orders.forEach(o => map.set(o.id, o));
+    // DB overwrites (more up to date for new orders placed while admin was open)
+    dbOrders.forEach(o => map.set(o.id, { ...map.get(o.id), ...o }));
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  })();
 
   const STATUS_COLOR: Record<string, string> = { processing: '#fbbf24', preorder_confirmed: '#a78bfa', confirmed: '#60a5fa', shipped: '#8b5cf6', delivered: '#4ade80', cancelled: '#ef4444' };
-  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
-  const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
-  const codCount = orders.filter(o => (o as any).paymentMethod === 'cod').length;
-  const onlineCount = orders.filter(o => (o as any).paymentMethod !== 'cod').length;
+  const filtered = filter === 'all' ? mergedOrders : mergedOrders.filter(o => o.status === filter);
+  const totalRevenue = mergedOrders.reduce((s, o) => s + o.total, 0);
+  const codCount = mergedOrders.filter(o => (o as any).paymentMethod === 'cod').length;
+  const onlineCount = mergedOrders.filter(o => (o as any).paymentMethod !== 'cod').length;
 
   const saveTracking = (orderId: string) => {
     const trackingId = (trackingInputs[orderId] || '').trim();
@@ -463,7 +478,7 @@ const OrdersTab = () => {
     if (trackingId) {
       updates.trackingId = trackingId;
       updates.trackingUrl = `https://www.delhivery.com/track/package/${trackingId}`;
-      updates.status = 'shipped'; // auto-mark shipped when tracking added
+      updates.status = 'shipped';
     }
     if (notes) updates.notes = notes;
     updateOrder(orderId, updates);
@@ -472,18 +487,33 @@ const OrdersTab = () => {
     setTimeout(() => setSavedTracking(null), 2500);
   };
 
+  const handleDeleteOrder = (orderId: string) => {
+    if (!confirm('Permanently delete this order? This cannot be undone.')) return;
+    deleteOrder(orderId);
+    setDbOrders(prev => prev.filter(o => o.id !== orderId));
+    sonnerToast.success('Order deleted', { description: orderId });
+  };
+
   return (
     <div>
-      <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Orders</h1>
-      <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>Manage orders, update status, add Delhivery tracking numbers.</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        <div>
+          <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Orders</h1>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Manage orders, update status, add Delhivery tracking numbers.</p>
+        </div>
+        <button onClick={fetchDbOrders} disabled={loadingOrders}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#94a3b8', cursor: 'pointer', fontSize: '12px', fontFamily: 'Roboto, sans-serif' }}>
+          <RefreshCw size={13} style={{ animation: loadingOrders ? 'spin 0.8s linear infinite' : 'none' }} />
+          {loadingOrders ? 'Loading...' : 'Refresh Orders'}
+        </button>
+      </div>
 
-      {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
         {[
-          { label: 'TOTAL ORDERS', value: orders.length, color: '#f1f5f9' },
+          { label: 'TOTAL ORDERS', value: mergedOrders.length, color: '#f1f5f9' },
           { label: 'REVENUE', value: '₹' + totalRevenue.toLocaleString(), color: '#ff6666' },
-          { label: 'PROCESSING', value: orders.filter(o => o.status === 'processing').length, color: STATUS_COLOR.processing },
-          { label: 'SHIPPED', value: orders.filter(o => o.status === 'shipped').length, color: STATUS_COLOR.shipped },
+          { label: 'PROCESSING', value: mergedOrders.filter(o => o.status === 'processing').length, color: STATUS_COLOR.processing },
+          { label: 'SHIPPED', value: mergedOrders.filter(o => o.status === 'shipped').length, color: STATUS_COLOR.shipped },
           { label: 'COD ORDERS', value: codCount, color: '#4ade80' },
           { label: 'ONLINE PAID', value: onlineCount, color: '#60a5fa' },
         ].map(s => (
@@ -494,24 +524,24 @@ const OrdersTab = () => {
         ))}
       </div>
 
-      {/* Filter */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
         {['all','processing','preorder_confirmed','confirmed','shipped','delivered','cancelled'].map(f => (
           <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : STATUS_COLOR[f] || '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
-            {f === 'all' ? `All (${orders.length})` : `${f.replace('_',' ').charAt(0).toUpperCase()+f.replace('_',' ').slice(1)} (${orders.filter(o=>o.status===f).length})`}
+            {f === 'all' ? `All (${mergedOrders.length})` : `${f.replace('_',' ').charAt(0).toUpperCase()+f.replace('_',' ').slice(1)} (${mergedOrders.filter(o=>o.status===f).length})`}
           </button>
         ))}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>No orders found.</div>
+          <div style={{ textAlign: 'center', padding: '48px', color: '#475569', fontFamily: 'Roboto, sans-serif' }}>
+            {loadingOrders ? 'Loading orders...' : 'No orders found.'}
+          </div>
         ) : filtered.map(o => {
           const isCOD = (o as any).paymentMethod === 'cod';
           const isOpen = expanded === o.id;
           return (
             <div key={o.id} style={{ ...card, overflow: 'hidden' }}>
-              {/* Header row */}
               <div style={{ padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                 <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setExpanded(isOpen ? null : o.id)}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '5px' }}>
@@ -527,21 +557,26 @@ const OrdersTab = () => {
                 <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
                   <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '18px', color: '#ff6666' }}>₹{o.total.toLocaleString()}</div>
                   <div style={{ ...label }}>{new Date(o.createdAt).toLocaleDateString('en-IN')}</div>
-                  <button
-                    onClick={e => { e.stopPropagation(); generateInvoice(o); }}
-                    style={{ padding: '5px 11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
-                    🧾 Invoice
-                  </button>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); generateInvoice(o); }}
+                      style={{ padding: '5px 11px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#94a3b8', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                      🧾 Invoice
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDeleteOrder(o.id); }}
+                      style={{ padding: '5px 9px', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#f87171', fontFamily: 'Roboto, sans-serif', fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Trash2 size={11} /> Delete
+                    </button>
+                  </div>
                   <div style={{ ...label, cursor: 'pointer', color: isOpen ? '#ff6666' : '#475569' }} onClick={() => setExpanded(isOpen ? null : o.id)}>{isOpen ? '▲ collapse' : '▼ expand'}</div>
                 </div>
               </div>
 
-              {/* Expanded section */}
               {isOpen && (
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '16px 18px' }}>
-                  {/* Items */}
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    {o.items.map(item => (
+                    {o.items.map((item: any) => (
                       <div key={`${item.productId}-${item.size}`} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(255,255,255,0.04)', borderRadius: '8px', padding: '6px 10px' }}>
                         <img src={item.product.images[0]} alt="" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px' }} onError={e => { (e.target as any).style.display = 'none'; }} />
                         <div>
@@ -552,14 +587,11 @@ const OrdersTab = () => {
                     ))}
                   </div>
 
-                  {/* Status buttons */}
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ ...label, marginBottom: '8px' }}>UPDATE STATUS</div>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {/* Quick action buttons: Confirm or Cancel with remark */}
                       {o.status === 'processing' && (
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', padding: '12px', background: 'rgba(255,165,0,0.06)', border: '1px solid rgba(255,165,0,0.15)', borderRadius: '8px' }}>
-                          <div style={{ ...label, marginBottom: '8px', color: '#fbbf24', fontSize: '10px' }}>NEW ORDER — ACTION REQUIRED</div>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', padding: '12px', background: 'rgba(255,165,0,0.06)', border: '1px solid rgba(255,165,0,0.15)', borderRadius: '8px', width: '100%' }}>
                           <button onClick={() => { updateOrderStatus(o.id, 'confirmed'); sonnerToast.success('Order confirmed!', { description: o.id }); }}
                             style={{ flex: 1, padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(74,222,128,0.3)', background: 'rgba(74,222,128,0.1)', color: '#4ade80', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
                             ✓ Confirm Order
@@ -570,17 +602,16 @@ const OrdersTab = () => {
                           </button>
                         </div>
                       )}
-                      {/* Cancel remark input — shows inline when cancel is clicked */}
                       {cancelTarget === o.id && (
-                        <div style={{ padding: '12px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', marginBottom: '10px' }}>
-                          <div style={{ ...label, marginBottom: '6px', color: '#f87171' }}>CANCELLATION REASON (shown to customer)</div>
+                        <div style={{ padding: '12px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', marginBottom: '10px', width: '100%' }}>
+                          <div style={{ ...label, marginBottom: '6px', color: '#f87171' }}>CANCELLATION REASON</div>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <input value={cancelRemarkInput} onChange={e => setCancelRemarkInput(e.target.value)}
-                              placeholder="e.g. Item out of stock, payment not received..."
+                              placeholder="e.g. Item out of stock..."
                               style={{ ...inputStyle, flex: 1 }} />
                             <button onClick={() => { updateOrder(o.id, { status: 'cancelled', cancelReason: cancelRemarkInput || 'Cancelled by seller' }); setCancelTarget(null); sonnerToast.success('Order cancelled', { description: o.id }); }}
                               style={{ padding: '9px 14px', borderRadius: '8px', border: 'none', background: '#ef4444', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
-                              Confirm Cancel
+                              Confirm
                             </button>
                             <button onClick={() => setCancelTarget(null)}
                               style={{ padding: '9px 10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>
@@ -589,7 +620,6 @@ const OrdersTab = () => {
                           </div>
                         </div>
                       )}
-                      {/* All status buttons */}
                       {(['processing','preorder_confirmed','confirmed','shipped','delivered','cancelled'] as const).map(s => (
                         <button key={s} onClick={() => { updateOrderStatus(o.id, s); sonnerToast.success('Status updated', { description: o.id + ' → ' + s }); }} disabled={o.status === s}
                           style={{ padding: '6px 14px', borderRadius: '6px', border: `1px solid ${o.status === s ? STATUS_COLOR[s] : 'rgba(255,255,255,0.1)'}`, background: o.status === s ? STATUS_COLOR[s] + '18' : 'rgba(255,255,255,0.03)', color: o.status === s ? STATUS_COLOR[s] : '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: o.status === s ? 'default' : 'pointer', textTransform: 'capitalize', transition: 'all 0.15s', fontWeight: o.status === s ? 700 : 400 }}>
@@ -599,7 +629,6 @@ const OrdersTab = () => {
                     </div>
                   </div>
 
-                  {/* Delhivery tracking input */}
                   <div style={{ ...card, padding: '14px', marginBottom: '10px', border: '1px solid rgba(139,92,246,0.2)' }}>
                     <div style={{ ...label, marginBottom: '8px', color: '#a78bfa' }}>DELHIVERY TRACKING NUMBER (AWB)</div>
                     {(o as any).trackingId ? (
@@ -629,16 +658,13 @@ const OrdersTab = () => {
                           <input
                             value={notesInputs[o.id] || ''}
                             onChange={e => setNotesInputs(prev => ({ ...prev, [o.id]: e.target.value }))}
-                            placeholder="e.g. Dispatched from Delhi warehouse"
+                            placeholder="e.g. Dispatched from Jaipur warehouse"
                             style={{ ...inputStyle, flex: 1 }}
                           />
                           <button onClick={() => saveTracking(o.id)}
                             style={{ padding: '9px 16px', borderRadius: '8px', border: 'none', background: savedTracking === o.id ? '#16a34a' : '#8b5cf6', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'background 0.25s', flexShrink: 0 }}>
                             <Save size={12} /> {savedTracking === o.id ? 'Saved!' : 'Save & Mark Shipped'}
                           </button>
-                        </div>
-                        <div style={{ ...label, marginTop: '6px', color: '#475569' }}>
-                          💡 Saving a tracking number automatically marks the order as "Shipped"
                         </div>
                       </div>
                     )}
@@ -649,6 +675,7 @@ const OrdersTab = () => {
           );
         })}
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };
@@ -718,7 +745,6 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
           <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.description || ''} onChange={e => setField('description', e.target.value)} placeholder="Product description..." />
         </div>
 
-        {/* Multi image dropzone */}
         <MultiImageDropzone images={form.images || ['']} onChange={imgs => setField('images', imgs)} />
 
         <div style={{ marginBottom: '14px' }}>
@@ -940,7 +966,6 @@ const CreatorsTab = () => {
         ))}
       </div>
 
-      {/* Creator Modal */}
       {showModal && editing && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={() => { setShowModal(false); setEditing(null); }}>
           <div onClick={e => e.stopPropagation()} style={{ background: 'hsl(0 0% 10%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -1055,7 +1080,6 @@ const HomeContentTab = () => {
       <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Home Content</h1>
       <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Manage the top banner and promo video on the home page.</p>
 
-      {/* TOP BANNER SECTION */}
       <div style={{ ...card, padding: '20px', maxWidth: '760px', marginBottom: '24px', border: '1px solid rgba(255,165,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
@@ -1087,7 +1111,6 @@ const HomeContentTab = () => {
           </div>
         </div>
 
-        {/* Preview */}
         <div style={{ marginBottom: '14px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ height: '32px', background: bannerForm.bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, color: bannerForm.textColor, letterSpacing: '0.03em' }}>
             {bannerForm.messages[0] || 'Preview message here'}
@@ -1117,7 +1140,6 @@ const HomeContentTab = () => {
         </button>
       </div>
 
-      {/* PROMO VIDEO SECTION */}
       <div style={{ ...card, padding: '20px', maxWidth: '760px' }}>
         <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 700, fontSize: '15px', color: '#f1f5f9', marginBottom: '4px' }}>🎬 Home Page Promo Video</div>
         <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '12px', color: '#475569', marginBottom: '16px' }}>
@@ -1142,9 +1164,6 @@ const HomeContentTab = () => {
               onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value.trim() }))}
               placeholder="https://youtu.be/... or instagram.com/reel/... or direct .mp4"
             />
-            <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#475569', marginTop: '5px' }}>
-              YouTube · Instagram Reels · Direct video file (.mp4 / .webm) — all supported
-            </div>
           </div>
         ) : (
           <div style={{ marginBottom: '14px' }}>
@@ -1244,7 +1263,7 @@ const CouponsTab = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
           <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Discount Coupons</h1>
-          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Create and manage coupon codes used at checkout. Supports % or fixed ₹ discounts.</p>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Create and manage coupon codes used at checkout.</p>
         </div>
         <button onClick={() => { resetForm(); setShowForm(true); }}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
@@ -1411,7 +1430,6 @@ const SupportTicketsTab = () => {
         </button>
       </div>
 
-      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
         {(['all', 'open', 'in_progress', 'resolved'] as const).map(s => (
           <button key={s} onClick={() => setFilter(s)}
@@ -1424,7 +1442,7 @@ const SupportTicketsTab = () => {
 
       {error && (
         <div style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '10px', padding: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', color: '#ef4444', fontSize: '13px', fontFamily: 'Roboto, sans-serif' }}>
-          <AlertCircle size={16} /> {error} — make sure the <code>tickets</code> table exists in Supabase and <code>/api/admin-tickets</code> is deployed.
+          <AlertCircle size={16} /> {error}
         </div>
       )}
 
@@ -1507,11 +1525,20 @@ const SupportTicketsTab = () => {
 // ── INVOICE GENERATOR ────────────────────────────────
 const generateInvoice = (order: any) => {
   const subtotal = order.items.reduce((s: number, i: any) => s + i.product.price * i.quantity, 0);
+  const discountAmt = order.discountAmount || 0;
+  const codCharge = order.codCharge || 0;
+  // GST is 5% (2.5% CGST + 2.5% SGST) calculated on taxable amount
+  const taxableAmount = subtotal - discountAmt + codCharge;
+  const cgst = Math.round(taxableAmount * 0.025);
+  const sgst = Math.round(taxableAmount * 0.025);
+  const totalGst = cgst + sgst;
+  const grandTotal = taxableAmount + totalGst;
+
   const rows = order.items.map((item: any, i: number) =>
-    '<tr><td style="color:#999;font-size:12px;">' + (i+1) + '</td><td><strong>' + item.product.name + '</strong></td><td style="color:#666;">' + item.size + '</td><td style="color:#666;">' + item.quantity + '</td><td>&#8377;' + item.product.price.toLocaleString('en-IN') + '</td><td style="font-weight:700;">&#8377;' + (item.product.price * item.quantity).toLocaleString('en-IN') + '</td></tr>'
+    '<tr><td style="color:#999;font-size:12px;">' + (i+1) + '</td><td><strong>' + item.product.name + '</strong></td><td style="color:#666;">' + item.size + '</td><td style="color:#666;">' + item.quantity + '</td><td>&#8377;' + item.product.price.toLocaleString('en-IN') + '</td><td style="font-weight:700;text-align:right;">&#8377;' + (item.product.price * item.quantity).toLocaleString('en-IN') + '</td></tr>'
   ).join('');
-  const discountRow = order.discountAmount ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#16a34a;"><span>Discount (' + order.discountCode + ')</span><span>&#8722;&#8377;' + order.discountAmount.toLocaleString('en-IN') + '</span></div>' : '';
-  const codRow = order.codCharge ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span>COD Handling</span><span>&#8377;' + order.codCharge + '</span></div>' : '';
+  const discountRow = discountAmt ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#16a34a;"><span>Discount (' + order.discountCode + ')</span><span>&#8722;&#8377;' + discountAmt.toLocaleString('en-IN') + '</span></div>' : '';
+  const codRow = codCharge ? '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span>COD Handling</span><span>&#8377;' + codCharge.toLocaleString('en-IN') + '</span></div>' : '';
   const txnRow = order.paymentId ? '<div style="font-size:10px;color:#999;margin-top:6px;font-family:monospace;">Txn: ' + order.paymentId + '</div>' : '';
   const payBg = order.paymentMethod === 'cod' ? '#dcfce7' : '#dbeafe';
   const payColor = order.paymentMethod === 'cod' ? '#16a34a' : '#2563eb';
@@ -1522,32 +1549,36 @@ const generateInvoice = (order: any) => {
     + '<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:40px;}.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:3px solid #ff0000;margin-bottom:28px;}.parties{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px;}.pbox{background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #eee;}.plabel{font-size:9px;font-weight:900;letter-spacing:0.12em;text-transform:uppercase;color:#999;margin-bottom:8px;}table{width:100%;border-collapse:collapse;margin-bottom:24px;}th{background:#ff0000;color:white;padding:10px 14px;text-align:left;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}th:last-child,td:last-child{text-align:right;}td{padding:10px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;}.ftr{margin-top:40px;padding-top:20px;border-top:2px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;}@media print{body{padding:20px;}}</style>'
     + '</head><body>'
     + '<div class="hdr"><div style="display:flex;align-items:center;">'
-    + '<div style="width:48px;height:48px;background:#ff0000;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;margin-right:14px;"><svg width="20" height="18" viewBox="0 0 16 14" fill="none"><path d="M6.5 10L10.5 7L6.5 4V10Z" fill="white"/></svg></div>'
-    + '<div><div style="font-size:26px;font-weight:900;color:#ff0000;">YOUTUPIA</div><div style="font-size:11px;color:#666;">Creator Merchandise Platform</div></div>'
+    + '<img src="https://www.miraenext.in/favicon.ico" alt="YouTupia" style="width:48px;height:48px;border-radius:10px;object-fit:contain;margin-right:14px;" onerror="this.style.display=\'none\'">'
+    + '<div><div style="font-size:26px;font-weight:900;color:#ff0000;">YouTupia Store</div><div style="font-size:11px;color:#666;">Creator Merchandise Platform</div></div>'
     + '</div><div style="text-align:right;">'
     + '<div style="font-size:28px;font-weight:900;">INVOICE</div>'
     + '<div style="font-family:monospace;font-size:14px;color:#ff0000;font-weight:700;margin-top:4px;">' + order.id + '</div>'
     + '<div style="font-size:12px;color:#666;margin-top:4px;">' + dateStr + '</div>'
-    + '<div style="display:inline-block;background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:3px 10px;font-size:11px;color:#cc0000;font-weight:700;margin-top:6px;">GST: 27AABCU9603R1ZM</div>'
+    + '<div style="display:inline-block;background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:3px 10px;font-size:11px;color:#cc0000;font-weight:700;margin-top:6px;">GSTIN: 08CLBPJ3540A1ZP</div>'
     + '</div></div>'
     + '<div class="parties">'
-    + '<div class="pbox"><div class="plabel">Sold By</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">Youtupia Merchandise LLP</div><div style="font-size:12px;color:#555;line-height:1.6;">123, Creator Hub, Bandra West<br/>Mumbai, Maharashtra - 400050<br/>India<br/>support@youtupia.com</div></div>'
+    + '<div class="pbox"><div class="plabel">Sold By</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">YouTupia Store</div><div style="font-size:12px;color:#555;line-height:1.6;">64/158, Pratap Nagar<br/>Jaipur, Rajasthan - 302033<br/>India<br/>youtupiastore@gmail.com</div></div>'
     + '<div class="pbox"><div class="plabel">Bill To / Ship To</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">' + order.customerName + '</div><div style="font-size:12px;color:#555;line-height:1.6;">' + order.address + '<br/>Phone: ' + order.customerPhone + '<br/>Email: ' + order.customerEmail + '</div></div>'
     + '</div>'
     + '<table><thead><tr><th>#</th><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>'
-    + '<div style="margin-left:auto;width:280px;">'
-    + '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#444;"><span>Subtotal</span><span>&#8377;' + subtotal.toLocaleString('en-IN') + '</span></div>'
+    + '<div style="margin-left:auto;width:320px;">'
+    + '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#444;"><span>Subtotal (excl. GST)</span><span>&#8377;' + subtotal.toLocaleString('en-IN') + '</span></div>'
     + discountRow
-    + '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span>Shipping</span><span style="color:#16a34a;">FREE</span></div>'
     + codRow
+    + '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span>Shipping</span><span style="color:#16a34a;">FREE</span></div>'
     + '<hr style="border:none;border-top:1px solid #eee;margin:8px 0;"/>'
-    + '<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;"><span>Total</span><span>&#8377;' + order.total.toLocaleString('en-IN') + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>CGST @ 2.5%</span><span>&#8377;' + cgst.toLocaleString('en-IN') + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>SGST @ 2.5%</span><span>&#8377;' + sgst.toLocaleString('en-IN') + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;font-weight:600;color:#333;border-top:1px solid #eee;margin-top:4px;padding-top:8px;"><span>Total GST (5%)</span><span>&#8377;' + totalGst.toLocaleString('en-IN') + '</span></div>'
+    + '<hr style="border:none;border-top:2px solid #ff0000;margin:8px 0;"/>'
+    + '<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;"><span>Grand Total</span><span>&#8377;' + grandTotal.toLocaleString('en-IN') + '</span></div>'
     + '<div style="margin-top:6px;display:flex;gap:8px;"><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:' + payBg + ';color:' + payColor + ';">' + payLabel + '</span>'
     + '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fff3f3;color:#cc0000;text-transform:capitalize;">' + order.status.replace('_',' ') + '</span></div>'
     + txnRow
     + '</div>'
-    + '<div class="ftr"><div style="font-size:11px;color:#999;line-height:1.7;"><strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>GSTIN: 27AABCU9603R1ZM &middot; CIN: U74999MH2024LLP123456<br/>Computer-generated invoice. No signature required.</div>'
-    + '<div style="text-align:right;"><div style="font-size:16px;font-weight:900;color:#ff0000;">YOUTUPIA</div><div style="font-size:10px;color:#bbb;margin-top:2px;">Creator Merch, Made Real.</div></div></div>'
+    + '<div class="ftr"><div style="font-size:11px;color:#999;line-height:1.7;"><strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>GSTIN: 08CLBPJ3540A1ZP &middot; HSN Code: 6109 (Apparel / T-Shirts)<br/>Computer-generated invoice. No signature required.</div>'
+    + '<div style="text-align:right;"><div style="font-size:16px;font-weight:900;color:#ff0000;">YouTupia Store</div><div style="font-size:10px;color:#bbb;margin-top:2px;">Creator Merch, Made Real.</div></div></div>'
     + '</body></html>';
 
   const win = window.open('', '_blank');
