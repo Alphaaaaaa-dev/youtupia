@@ -3,6 +3,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const SUPABASE_URL         = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// ── FIX: SB_URL was missing in original — this caused all DB calls to fail ──
+const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+
 function headers() {
   return {
     'Content-Type': 'application/json',
@@ -46,11 +49,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── GET /api/orders  ────────────────────────────────────────────────────
   if (req.method === 'GET') {
     const userId = req.query.userId as string | undefined;
-    const filter = userId
-      ? `?user_id=eq.${userId}&order=created_at.desc`
-      : `?order=created_at.desc&select=*`;
 
-    const r = await fetch(`${SB_URL}/rest/v1/orders${filter}`, { headers: headers() });
+    // FIX: original code had SB_URL undefined AND mixed up the query string
+    const url = userId
+      ? `${SB_URL}/rest/v1/orders?user_id=eq.${userId}&order=created_at.desc&select=*`
+      : `${SB_URL}/rest/v1/orders?order=created_at.desc&select=*`;
+
+    const r = await fetch(url, { headers: headers() });
     if (!r.ok) {
       const e = await r.json();
       return res.status(500).json({ error: e?.message || 'Failed to fetch orders' });
@@ -107,7 +112,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!id) return res.status(400).json({ error: 'Missing order id' });
 
-    // Map camelCase → snake_case
     const dbUpdates: any = {};
     if (updates.status       !== undefined) dbUpdates.status        = updates.status;
     if (updates.trackingId   !== undefined) dbUpdates.tracking_id   = updates.trackingId;
@@ -128,7 +132,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── DELETE /api/orders  ─────────────────────────────────────────────────
-  // Body: { id } — permanently deletes an order
   if (req.method === 'DELETE') {
     const id = req.body?.id;
     if (!id) return res.status(400).json({ error: 'Missing order id' });
