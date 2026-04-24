@@ -111,7 +111,7 @@ const CheckoutPage = () => {
   // ── persist to Supabase via our serverless API ──────────────────────────
   const persistOrder = async (order: Order, userId?: string | null) => {
     try {
-      await fetch('/api/save-order', {
+      await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order, userId: userId || null }),
