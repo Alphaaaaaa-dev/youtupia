@@ -12,7 +12,7 @@ const CartDrawer = ({ open, onClose }: { open: boolean; onClose: () => void }) =
   const navigate = useNavigate();
   const isDark = theme === 'dark';
 
-  const shipping = 0;
+  const shipping = 50;
 
   const [discountCode, setDiscountCode] = useState('');
   const [discountPct, setDiscountPct] = useState(0);
