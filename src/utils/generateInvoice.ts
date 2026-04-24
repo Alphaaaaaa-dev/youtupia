@@ -40,7 +40,7 @@ export const generateInvoice = (order: any) => {
     + '</head><body>'
     + '<div class="hdr"><div style="display:flex;align-items:center;gap:14px;">'
     + '<img src="/favicon.ico" alt="Youtupia" style="width:52px;height:52px;border-radius:12px;object-fit:contain;border:2px solid #ffcccc;" onerror="this.style.display=\'none\'">'
-    + '<div><div style="font-size:26px;font-weight:900;color:#ff0000;">YouTupia Store</div><div style="font-size:11px;color:#666;">Creator Merchandise Platform</div></div>'
+    + '<div><div style="font-size:26px;font-weight:900;color:#ff0000;">YouTupia</div><div style="font-size:11px;color:#666;">Creator Merchandise Platform</div></div>'
     + '</div><div style="text-align:right;">'
     + '<div style="font-size:28px;font-weight:900;">INVOICE</div>'
     + '<div style="font-family:monospace;font-size:14px;color:#ff0000;font-weight:700;margin-top:4px;">' + order.id + '</div>'
@@ -48,7 +48,7 @@ export const generateInvoice = (order: any) => {
     + '<div style="display:inline-block;background:#fff3f3;border:1px solid #ffcccc;border-radius:6px;padding:3px 10px;font-size:11px;color:#cc0000;font-weight:700;margin-top:6px;">GSTIN: 08CLBPJ3540A1ZP</div>'
     + '</div></div>'
     + '<div class="parties">'
-    + '<div class="pbox"><div class="plabel">Sold By</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">YouTupia Store</div><div style="font-size:12px;color:#555;line-height:1.6;">64/158, Pratap Nagar<br/>Jaipur, Rajasthan - 302033<br/>India<br/>youtupiastore@gmail.com</div></div>'
+    + '<div class="pbox"><div class="plabel">Sold By</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">YouTupia</div><div style="font-size:12px;color:#555;line-height:1.6;">64/158, Pratap Nagar<br/>Jaipur, Rajasthan - 302033<br/>India<br/>youtupiastore@gmail.com</div></div>'
     + '<div class="pbox"><div class="plabel">Bill To / Ship To</div><div style="font-size:15px;font-weight:700;margin-bottom:4px;">' + order.customerName + '</div><div style="font-size:12px;color:#555;line-height:1.6;">' + order.address + '<br/>Phone: ' + order.customerPhone + '<br/>Email: ' + order.customerEmail + '</div></div>'
     + '</div>'
     + '<table><thead><tr><th>#</th><th>Product</th><th>Size</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr></thead><tbody>' + rows + '</tbody></table>'
@@ -68,7 +68,7 @@ export const generateInvoice = (order: any) => {
     + txnRow
     + '</div>'
     + '<div class="ftr"><div style="font-size:11px;color:#999;line-height:1.7;"><strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>GSTIN: 08CLBPJ3540A1ZP &middot; HSN Code: 6109 (Apparel / T-Shirts)<br/>Computer-generated invoice. No signature required.</div>'
-    + '<div style="text-align:right;"><div style="font-size:16px;font-weight:900;color:#ff0000;">YouTupia Store</div><div style="font-size:10px;color:#bbb;margin-top:2px;">Creator Merch, Made Real.</div></div></div>'
+    + '<div style="text-align:right;"><div style="font-size:16px;font-weight:900;color:#ff0000;">YouTupia</div><div style="font-size:10px;color:#bbb;margin-top:2px;">Creator Merch, Made Real.</div></div></div>'
     + '</body></html>';
 
   const win = window.open('', '_blank');
