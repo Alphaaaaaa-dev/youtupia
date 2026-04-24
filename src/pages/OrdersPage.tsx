@@ -19,6 +19,7 @@ const STEPS = ['processing', 'confirmed', 'shipped', 'delivered'];
 const OrdersPage = () => {
   const { orders, addOrder, updateOrder } = useStore();
   const { user } = useAuth();
+  const userOrders = orders.filter(o => o.customerEmail === (user as any)?.email);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [syncing, setSyncing] = useState(false);
@@ -61,9 +62,9 @@ const OrdersPage = () => {
   };
 
   const allFilters = ['all', 'processing', 'preorder_confirmed', 'confirmed', 'shipped', 'delivered', 'cancelled'];
-  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const filtered = filter === 'all' ? userOrders : orders.filter(o => o.status === filter);
 
-  if (orders.length === 0 && !syncing) return (
+  if (userOrders.length === 0 && !syncing) return (
     <div style={{ textAlign: 'center', padding: '80px 24px' }}>
       <Package size={52} style={{ margin: '0 auto 20px', opacity: 0.2 }} />
       <h2 style={{ fontWeight: 700, marginBottom: '12px' }}>No orders yet</h2>
@@ -121,7 +122,7 @@ const OrdersPage = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '26px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>My Orders</h1>
-          <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginTop: '4px' }}>{orders.length} order{orders.length !== 1 ? 's' : ''} placed</p>
+          <p style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))', marginTop: '4px' }}>{userOrders.length} order{orders.length !== 1 ? 's' : ''} placed</p>
         </div>
         <Link to="/track-order" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#ff0000', textDecoration: 'none', fontWeight: 600 }}>
           <Truck size={14} /> Track with ID
@@ -131,7 +132,7 @@ const OrdersPage = () => {
       {/* Filter tabs */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {allFilters.map(f => {
-          const count = f === 'all' ? orders.length : orders.filter(o => o.status === f).length;
+          const count = f === 'all' ? orders.length :userOrders.filter(o => o.status === f).length;
           if (f !== 'all' && count === 0) return null;
           const meta = STATUS_META[f];
           return (
