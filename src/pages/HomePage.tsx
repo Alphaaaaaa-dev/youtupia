@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Truck, Shield, RefreshCw, TrendingUp, Zap, Package, Users, Sparkles } from 'lucide-react';
+import { ArrowRight, Star, Truck, Shield, RefreshCw, TrendingUp, Zap, Package, Users, Sparkles, Flame, Clock, Lock } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
 // Scroll reveal hook
@@ -13,28 +13,6 @@ const useReveal = () => {
     els.forEach(el => obs.observe(el));
     return () => obs.disconnect();
   });
-};
-
-// Animated counter
-const Counter = ({ target, suffix = '' }: { target: number; suffix?: string }) => {
-  const [count, setCount] = useState(0);
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) return;
-      obs.disconnect();
-      let start = 0;
-      const step = target / 40;
-      const timer = setInterval(() => {
-        start += step;
-        if (start >= target) { setCount(target); clearInterval(timer); }
-        else setCount(Math.floor(start));
-      }, 30);
-    }, { threshold: 0.5 });
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, [target]);
-  return <span ref={ref}>{count.toLocaleString()}{suffix}</span>;
 };
 
 const DropCountdown = ({ endsAt }: { endsAt: string }) => {
@@ -143,15 +121,43 @@ const HomePage = () => {
                 </Link>
               </div>
 
-              {/* Stats row */}
-              <div style={{ display: 'flex', gap: '32px', marginTop: '48px', paddingTop: '32px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap' }}>
-                {[{ label: 'Items Sold', value: 2400, suffix: '+' }, { label: 'Happy Customers', value: 1800, suffix: '+' }, { label: 'Collections', value: 12, suffix: '' }].map(s => (
-                  <div key={s.label}>
-                    <div style={{ fontSize: '26px', fontWeight: 900, color: '#ff0000', lineHeight: 1 }}><Counter target={s.value} suffix={s.suffix} /></div>
-                    <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', marginTop: '4px', fontWeight: 500 }}>{s.label}</div>
+              {/* ── REPLACED STATS ROW — urgency + trust pills ── */}
+              <div style={{ display: 'flex', gap: '10px', marginTop: '40px', paddingTop: '32px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap' }}>
+                {/* Limited stock pill */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '12px', background: 'rgba(255,0,0,0.06)', border: '1px solid rgba(255,0,0,0.15)', transition: 'transform 0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
+                  <Flame size={15} style={{ color: '#ff0000', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#ff0000', lineHeight: 1 }}>Limited Stock</div>
+                    <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))', marginTop: '2px' }}>Once gone, gone forever</div>
                   </div>
-                ))}
+                </div>
+
+                {/* COD pill */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '12px', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: '1px solid hsl(var(--border))', transition: 'transform 0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
+                  <Lock size={15} style={{ color: '#16a34a', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, lineHeight: 1 }}>Pay on Delivery</div>
+                    <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))', marginTop: '2px' }}>COD available</div>
+                  </div>
+                </div>
+
+                {/* Fast dispatch pill */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '12px', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: '1px solid hsl(var(--border))', transition: 'transform 0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
+                  <Clock size={15} style={{ color: '#2563eb', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, lineHeight: 1 }}>Fast Dispatch</div>
+                    <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))', marginTop: '2px' }}>Ships within 24–48 hrs</div>
+                  </div>
+                </div>
               </div>
+              {/* ── END REPLACED SECTION ── */}
+
             </div>
 
             {/* RIGHT — promo video + product strip */}
