@@ -3,15 +3,19 @@
 // ============================================================
 
 export const generateInvoice = (order: any) => {
-  const subtotal = order.items.reduce((s: number, i: any) => s + i.product.price * i.quantity, 0);
+  // Prices are GST-inclusive (grand total = listed price after all charges)
+  const subtotalInclGst = order.items.reduce((s: number, i: any) => s + i.product.price * i.quantity, 0);
   const discountAmt = order.discountAmount || 0;
   const codCharge = order.codCharge || 0;
-  // GST is 5% (2.5% CGST + 2.5% SGST) calculated on taxable amount
-  const taxableAmount = subtotal - discountAmt + codCharge;
-  const cgst = Math.round(taxableAmount * 0.025);
-  const sgst = Math.round(taxableAmount * 0.025);
-  const totalGst = cgst + sgst;
-  const grandTotal = taxableAmount + totalGst;
+  // Grand total is exactly what the customer pays (no extra GST added)
+  const grandTotal = subtotalInclGst - discountAmt + codCharge;
+  // Back-calculate GST from the grand total: base = total / 1.05
+  const taxableAmount = Math.round(grandTotal / 1.05);
+  const totalGst = grandTotal - taxableAmount;
+  const cgst = Math.round(totalGst / 2);
+  const sgst = totalGst - cgst;
+  // Subtotal shown on invoice is the pre-GST base amount
+  const subtotal = Math.round(subtotalInclGst / 1.05);
 
   const rows = order.items.map((item: any, i: number) =>
     '<tr><td style="color:#999;font-size:12px;">' + (i+1) + '</td><td><strong>' + item.product.name + '</strong></td><td style="color:#666;">' + item.size + '</td><td style="color:#666;">' + item.quantity + '</td><td>&#8377;' + item.product.price.toLocaleString('en-IN') + '</td><td style="font-weight:700;text-align:right;">&#8377;' + (item.product.price * item.quantity).toLocaleString('en-IN') + '</td></tr>'
