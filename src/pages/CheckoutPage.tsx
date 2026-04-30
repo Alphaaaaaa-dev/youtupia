@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../contexts/StoreContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Shield, Lock, Truck, CreditCard, Banknote, ChevronDown, MapPin, User, Phone, Mail, Home } from 'lucide-react';
+import { Shield, Lock, Truck, CreditCard, Banknote, MapPin, User, Phone, Mail, Home } from 'lucide-react';
 import { Order } from '../contexts/StoreContext';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 
@@ -18,6 +18,9 @@ const CheckoutPage = () => {
   const isDark = theme === 'dark';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Track if Razorpay script is already in the DOM
+  const razorpayScriptRef = useRef<boolean>(false);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('razorpay');
   const [discountCode, setDiscountCode] = useState('');
@@ -54,6 +57,19 @@ const CheckoutPage = () => {
       setDiscountApplied(true);
     }
   }, [discountFromUrl]);
+
+  // Pre-load Razorpay script on mount so it's ready when user clicks Pay
+  useEffect(() => {
+    if (razorpayScriptRef.current) return;
+    if ((window as any).Razorpay) { razorpayScriptRef.current = true; return; }
+    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existingScript) { razorpayScriptRef.current = true; return; }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => { razorpayScriptRef.current = true; };
+    document.body.appendChild(script);
+  }, []);
 
   if (cart.length === 0) {
     return (
@@ -108,7 +124,6 @@ const CheckoutPage = () => {
     createdAt:     new Date().toISOString(),
   });
 
-  // ── persist to Supabase via our serverless API ──────────────────────────
   const persistOrder = async (order: Order, userId?: string | null) => {
     try {
       await fetch('/api/orders', {
@@ -118,26 +133,56 @@ const CheckoutPage = () => {
       });
     } catch (err) {
       console.error('Failed to persist order:', err);
+      // Non-fatal — order is still saved locally
     }
   };
 
-  // ── Razorpay ─────────────────────────────────────────────────────────────
-  const handleRazorpay = () => {
-    if (!validate()) { sonnerToast.error('Please fix the form errors'); return; }
+  // ── Razorpay ──────────────────────────────────────────────────────────────
+  const handleRazorpay = async () => {
+    if (!validate()) {
+      sonnerToast.error('Please fix the form errors');
+      return;
+    }
+
     setLoading(true);
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    document.body.appendChild(script);
-    script.onload = async () => {
+
+    try {
+      // Ensure Razorpay SDK is loaded (with a timeout fallback)
+      if (!(window as any).Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          // If script already in DOM, wait for it
+          const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+          if (existingScript) {
+            let waited = 0;
+            const poll = setInterval(() => {
+              waited += 200;
+              if ((window as any).Razorpay) { clearInterval(poll); resolve(); }
+              else if (waited >= 8000) { clearInterval(poll); reject(new Error('Razorpay SDK timeout')); }
+            }, 200);
+            return;
+          }
+          // Otherwise inject it fresh
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load Razorpay'));
+          document.body.appendChild(script);
+          // Safety timeout
+          setTimeout(() => reject(new Error('Razorpay SDK load timeout')), 10000);
+        });
+      }
+
       let rzpKey = '';
       try {
         const keyRes = await fetch('/api/razorpay-key');
         const keyData = await keyRes.json();
         rzpKey = keyData.key || '';
-      } catch { rzpKey = ''; }
+      } catch {
+        rzpKey = '';
+      }
 
       if (!rzpKey) {
-        sonnerToast.error('Razorpay not configured');
+        sonnerToast.error('Payment gateway not configured. Please use Cash on Delivery.');
         setLoading(false);
         return;
       }
@@ -147,36 +192,78 @@ const CheckoutPage = () => {
         amount: total * 100,
         currency: 'INR',
         name: 'Youtupia',
+        description: `Order for ${cart.length} item(s)`,
         prefill: { name: form.name, email: form.email, contact: form.phone },
+        theme: { color: '#ff0000' },
+        modal: {
+          ondismiss: () => {
+            // User closed the modal — reset loading
+            setLoading(false);
+          },
+        },
         handler: async (response: any) => {
-          const order = buildOrder(response.razorpay_payment_id);
-          addOrder(order);
-          await persistOrder(order, (user as any)?.id);
-          clearCart();
-          sonnerToast.success('Payment successful!', { description: 'Order ID: ' + order.id });
-          navigate('/order-success?id=' + order.id);
+          try {
+            const order = buildOrder(response.razorpay_payment_id);
+            addOrder(order);
+            await persistOrder(order, (user as any)?.id);
+            clearCart();
+            sonnerToast.success('Payment successful!', { description: 'Order ID: ' + order.id });
+            navigate('/order-success?id=' + order.id);
+          } catch (err) {
+            console.error('Post-payment error:', err);
+            sonnerToast.error('Order saved but confirmation failed. Check My Orders.');
+            setLoading(false);
+          }
         },
       };
 
       const rzp = new (window as any).Razorpay(options);
+
+      rzp.on('payment.failed', (response: any) => {
+        console.error('Razorpay payment failed:', response.error);
+        sonnerToast.error('Payment failed: ' + (response.error?.description || 'Unknown error'));
+        setLoading(false);
+      });
+
       rzp.open();
+      // Note: loading stays true until handler or ondismiss fires
+    } catch (err: any) {
+      console.error('Razorpay error:', err);
+      sonnerToast.error(err?.message || 'Could not launch payment. Try Cash on Delivery.');
       setLoading(false);
-    };
+    }
   };
 
   // ── COD ──────────────────────────────────────────────────────────────────
-  const handleCOD = () => {
-    if (!validate()) { sonnerToast.error('Please fix the form errors'); return; }
+  const handleCOD = async () => {
+    if (!validate()) {
+      sonnerToast.error('Please fix the form errors');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(async () => {
+
+    try {
       const order = buildOrder();
       addOrder(order);
-      await persistOrder(order, (user as any)?.id);
+      // Fire-and-forget persist — don't block navigation
+      persistOrder(order, (user as any)?.id).catch(console.error);
       clearCart();
       sonnerToast.success('Order placed!', { description: 'Pay ₹' + total + ' on delivery.' });
       navigate('/order-success?id=' + order.id);
+    } catch (err) {
+      console.error('COD order error:', err);
+      sonnerToast.error('Something went wrong. Please try again.');
       setLoading(false);
-    }, 600);
+    }
+  };
+
+  const handlePlaceOrder = () => {
+    if (paymentMethod === 'razorpay') {
+      handleRazorpay();
+    } else {
+      handleCOD();
+    }
   };
 
   const inp = (
@@ -291,20 +378,30 @@ const CheckoutPage = () => {
             <div style={{ marginBottom: '14px' }}>
               {!discountApplied ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input value={discountCode} onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError(''); }}
+                  <input
+                    value={discountCode}
+                    onChange={e => { setDiscountCode(e.target.value.toUpperCase()); setDiscountError(''); }}
                     placeholder="Discount code"
-                    style={{ flex: 1, padding: '9px 12px', background: isDark ? 'hsl(0 0% 8%)' : 'hsl(var(--secondary))', border: `1px solid ${discountError ? '#ef4444' : 'hsl(var(--border))'}`, borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '13px', outline: 'none', fontFamily: 'Roboto, sans-serif' }} />
-                  <button onClick={() => {
-                    const result = validateDiscountCode(discountCode);
-                    if (result.valid) { setDiscountPct(result.pct); setDiscountFixed(result.amount); setDiscountType(result.type); setDiscountApplied(true); setDiscountError(''); }
-                    else { setDiscountError('Invalid code'); }
-                  }} style={{ padding: '9px 14px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>Apply</button>
+                    style={{ flex: 1, padding: '9px 12px', background: isDark ? 'hsl(0 0% 8%)' : 'hsl(var(--secondary))', border: `1px solid ${discountError ? '#ef4444' : 'hsl(var(--border))'}`, borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '13px', outline: 'none', fontFamily: 'Roboto, sans-serif' }}
+                  />
+                  <button
+                    onClick={() => {
+                      const result = validateDiscountCode(discountCode);
+                      if (result.valid) { setDiscountPct(result.pct); setDiscountFixed(result.amount); setDiscountType(result.type); setDiscountApplied(true); setDiscountError(''); }
+                      else { setDiscountError('Invalid code'); }
+                    }}
+                    style={{ padding: '9px 14px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+                    Apply
+                  </button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.2)', borderRadius: '8px' }}>
                   <span style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a' }}>✓ {discountCode}</span>
-                  <button onClick={() => { setDiscountCode(''); setDiscountPct(0); setDiscountFixed(0); setDiscountApplied(false); setDiscountError(''); }}
-                    style={{ fontSize: '12px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}>Remove</button>
+                  <button
+                    onClick={() => { setDiscountCode(''); setDiscountPct(0); setDiscountFixed(0); setDiscountApplied(false); setDiscountError(''); }}
+                    style={{ fontSize: '12px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    Remove
+                  </button>
                 </div>
               )}
               {discountError && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px' }}>{discountError}</div>}
@@ -336,11 +433,34 @@ const CheckoutPage = () => {
 
             {/* Place order button */}
             <button
-              onClick={paymentMethod === 'razorpay' ? handleRazorpay : handleCOD}
+              onClick={handlePlaceOrder}
               disabled={loading}
               className="btn-yt ripple"
-              style={{ width: '100%', justifyContent: 'center', borderRadius: '12px', padding: '14px', fontSize: '15px', fontWeight: 700, opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {loading ? 'Processing...' : paymentMethod === 'razorpay' ? '💳 Pay ₹' + total.toLocaleString() : '📦 Place Order — Pay on Delivery'}
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                borderRadius: '12px',
+                padding: '14px',
+                fontSize: '15px',
+                fontWeight: 700,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+              {loading
+                ? (
+                  <>
+                    <span style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                    Processing...
+                  </>
+                )
+                : paymentMethod === 'razorpay'
+                  ? `💳 Pay ₹${total.toLocaleString()}`
+                  : `📦 Place Order — Pay on Delivery`
+              }
             </button>
 
             {/* Trust badges */}
@@ -358,6 +478,8 @@ const CheckoutPage = () => {
           </div>
         </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };
