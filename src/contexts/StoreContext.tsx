@@ -123,7 +123,7 @@ async function dbUpdateOrder(orderId: string, updates: Partial<Order>): Promise<
     await fetch('/api/orders', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: orderId, ...updates }),
+      body: JSON.stringify({ id: orderId, updates }),
     });
   } catch (e) { console.error('dbUpdateOrder failed:', e); }
 }
@@ -175,7 +175,7 @@ interface StoreContextType {
   clearCart: () => void;
   cartTotal: number;
   cartCount: number;
-  addOrder: (order: Order) => void;
+  addOrder: (order: Order, userId?: string | null) => Promise<void>;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   deleteOrder: (orderId: string) => void;
   toggleWishlist: (productId: string) => void;
@@ -184,6 +184,7 @@ interface StoreContextType {
   validateDiscountCode: (code: string) => { valid: boolean; pct: number; amount: number; type: 'percentage' | 'fixed'; coupon?: DiscountCoupon };
   updateOrder: (orderId: string, updates: Partial<Order>) => void;
   syncOrdersForUser: (userId: string) => Promise<void>;
+  refreshAllOrders: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -194,6 +195,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [creators, setCreatorsState] = useState<Creator[]>([]);
 
   const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
+  // Orders: start from localStorage as a seed only — DB always wins on sync
   const [orders, setOrdersState] = useState<Order[]>(() => lsGet('youtupia_orders', []));
   const [wishlist, setWishlist] = useState<string[]>(() => lsGet('youtupia_wishlist', []));
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => lsGet('youtupia_recent', []));
@@ -205,22 +207,35 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [hydrating, setHydrating] = useState(true);
   const [dbLoading, setDbLoading] = useState(true);
 
-  // FIX: Upserts DB orders over local state — DB is the source of truth for status.
-  // Existing orders are updated (not skipped) so stale local statuses get corrected.
+  /**
+   * mergeOrders: DB is always the source of truth for STATUS and server-side fields.
+   * Local orders (from localStorage) are only kept if they are NOT in DB yet
+   * (i.e., a brand-new order just placed that hasn't been persisted yet).
+   */
   const mergeOrders = useCallback((dbOrders: Order[]) => {
     setOrdersState(prev => {
-      const map = new Map<string, Order>();
-      // Local orders go in first as the base
-      prev.forEach(o => map.set(o.id, o));
-      // DB orders overwrite — DB wins on every field (including status)
-      dbOrders.forEach(o => map.set(o.id, o));
-      const merged = Array.from(map.values()).sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      const dbMap = new Map<string, Order>();
+      dbOrders.forEach(o => dbMap.set(o.id, o));
+
+      // Keep local orders that don't exist in DB yet (just placed, not yet synced)
+      const localOnlyOrders = prev.filter(o => !dbMap.has(o.id));
+
+      // Final list: all DB orders + any local-only orders not yet in DB
+      const merged = [
+        ...dbOrders,
+        ...localOnlyOrders,
+      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
       lsSet('youtupia_orders', merged);
       return merged;
     });
   }, []);
+
+  // Load all orders from DB (no userId filter = all orders for admin use too)
+  const refreshAllOrders = useCallback(async () => {
+    const dbOrders = await dbLoadOrders(null);
+    if (dbOrders) mergeOrders(dbOrders);
+  }, [mergeOrders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,13 +264,16 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
           setHydrating(false);
         }
 
+        // Load global settings & orders in background
         Promise.all([
           globalGet('home_promo'),
           globalGet('top_banner'),
-        ]).then(([dbHomePromo, dbTopBanner]) => {
+          dbLoadOrders(null), // load ALL orders so admin sees everything
+        ]).then(([dbHomePromo, dbTopBanner, dbOrders]) => {
           if (cancelled) return;
           if (dbHomePromo) setHomePromoState(dbHomePromo);
           if (dbTopBanner) setTopBannerState(dbTopBanner);
+          if (dbOrders) mergeOrders(dbOrders);
         }).catch(() => {});
 
       } catch (e) {
@@ -271,8 +289,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     return () => { cancelled = true; };
   }, [mergeOrders]);
 
-  // FIX: Exposed so OrdersPage (and any auth-aware component) can trigger a
-  // user-scoped order sync after login, without duplicating fetch logic.
+  /**
+   * syncOrdersForUser: called after login to pull user-specific orders from DB.
+   * DB always wins over local state.
+   */
   const syncOrdersForUser = useCallback(async (userId: string) => {
     const dbOrders = await dbLoadOrders(userId);
     if (dbOrders) mergeOrders(dbOrders);
@@ -381,13 +401,24 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
-  const addOrder = useCallback((order: Order) => {
+  /**
+   * addOrder: saves to local state immediately, then persists to DB.
+   * After DB save, re-fetches to ensure local state matches DB exactly.
+   */
+  const addOrder = useCallback(async (order: Order, userId?: string | null) => {
+    // 1. Add to local state immediately so UI is responsive
     setOrdersState(prev => {
       const next = [order, ...prev.filter(o => o.id !== order.id)];
       lsSet('youtupia_orders', next);
       return next;
     });
-    dbSaveOrder(order);
+
+    // 2. Persist to DB
+    try {
+      await dbSaveOrder(order, userId);
+    } catch (e) {
+      console.error('addOrder: dbSaveOrder failed', e);
+    }
   }, []);
 
   const updateOrderStatus = useCallback((orderId: string, status: Order['status']) => {
@@ -463,7 +494,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       addToCart, removeFromCart, updateCartQty, clearCart, cartTotal, cartCount,
       addOrder, updateOrderStatus, updateOrder, deleteOrder,
       toggleWishlist, addRecentlyViewed, addReview, validateDiscountCode,
-      syncOrdersForUser,
+      syncOrdersForUser, refreshAllOrders,
     }}>
       {children}
     </StoreContext.Provider>
