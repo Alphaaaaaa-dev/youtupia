@@ -17,11 +17,10 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; em
 const STEPS = ['processing', 'confirmed', 'shipped', 'delivered'];
 
 const OrdersPage = () => {
-  const { orders, addOrder, updateOrder, syncOrdersForUser } = useStore();
+  const { orders, updateOrder, syncOrdersForUser } = useStore();
   const { user } = useAuth();
 
-  // FIX: Match on both userId (DB rows) and customerEmail (legacy local rows)
-  // so orders created before the userId field existed still appear.
+  // Match on both userId (DB rows) and customerEmail (legacy local rows)
   const userOrders = orders.filter(o =>
     (user?.id && (o as any).userId === user.id) ||
     o.customerEmail === (user as any)?.email
@@ -36,11 +35,7 @@ const OrdersPage = () => {
 
   useEffect(() => {
     if (!user?.id) return;
-
     setSyncing(true);
-    // FIX: Use syncOrdersForUser which calls mergeOrders — this upserts every
-    // DB order (updating status on existing ones) rather than only inserting
-    // orders that are absent from local state.
     syncOrdersForUser(user.id).finally(() => setSyncing(false));
   }, [user?.id, syncOrdersForUser]);
 
@@ -62,8 +57,15 @@ const OrdersPage = () => {
   };
 
   const allFilters = ['all', 'processing', 'preorder_confirmed', 'confirmed', 'shipped', 'delivered', 'cancelled'];
-  // FIX: both filter branches now consistently use userOrders, not the full orders array
   const filtered = filter === 'all' ? userOrders : userOrders.filter(o => o.status === filter);
+
+  if (syncing && userOrders.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '80px 24px' }}>
+      <div style={{ width: '32px', height: '32px', border: '3px solid rgba(255,0,0,0.2)', borderTopColor: '#ff0000', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+      <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '14px' }}>Loading your orders...</p>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   if (userOrders.length === 0 && !syncing) return (
     <div style={{ textAlign: 'center', padding: '80px 24px' }}>
@@ -71,14 +73,6 @@ const OrdersPage = () => {
       <h2 style={{ fontWeight: 700, marginBottom: '12px' }}>No orders yet</h2>
       <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '24px', fontSize: '14px' }}>Your orders will appear here after you shop.</p>
       <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none', borderRadius: '10px' }}>Start Shopping</Link>
-    </div>
-  );
-
-  if (syncing && orders.length === 0) return (
-    <div style={{ textAlign: 'center', padding: '80px 24px' }}>
-      <div style={{ width: '32px', height: '32px', border: '3px solid rgba(255,0,0,0.2)', borderTopColor: '#ff0000', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-      <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '14px' }}>Loading your orders...</p>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
