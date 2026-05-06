@@ -19,7 +19,6 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Track if Razorpay script is already in the DOM
   const razorpayScriptRef = useRef<boolean>(false);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('razorpay');
@@ -58,7 +57,6 @@ const CheckoutPage = () => {
     }
   }, [discountFromUrl]);
 
-  // Pre-load Razorpay script on mount so it's ready when user clicks Pay
   useEffect(() => {
     if (razorpayScriptRef.current) return;
     if ((window as any).Razorpay) { razorpayScriptRef.current = true; return; }
@@ -122,20 +120,8 @@ const CheckoutPage = () => {
     discountCode:  discountApplied ? discountCode : undefined,
     discountAmount: discountApplied ? discountAmount : undefined,
     createdAt:     new Date().toISOString(),
+    userId:        (user as any)?.id || undefined,
   });
-
-  const persistOrder = async (order: Order, userId?: string | null) => {
-    try {
-      await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order, userId: userId || null }),
-      });
-    } catch (err) {
-      console.error('Failed to persist order:', err);
-      // Non-fatal — order is still saved locally
-    }
-  };
 
   // ── Razorpay ──────────────────────────────────────────────────────────────
   const handleRazorpay = async () => {
@@ -147,10 +133,8 @@ const CheckoutPage = () => {
     setLoading(true);
 
     try {
-      // Ensure Razorpay SDK is loaded (with a timeout fallback)
       if (!(window as any).Razorpay) {
         await new Promise<void>((resolve, reject) => {
-          // If script already in DOM, wait for it
           const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
           if (existingScript) {
             let waited = 0;
@@ -161,13 +145,11 @@ const CheckoutPage = () => {
             }, 200);
             return;
           }
-          // Otherwise inject it fresh
           const script = document.createElement('script');
           script.src = 'https://checkout.razorpay.com/v1/checkout.js';
           script.onload = () => resolve();
           script.onerror = () => reject(new Error('Failed to load Razorpay'));
           document.body.appendChild(script);
-          // Safety timeout
           setTimeout(() => reject(new Error('Razorpay SDK load timeout')), 10000);
         });
       }
@@ -197,15 +179,13 @@ const CheckoutPage = () => {
         theme: { color: '#ff0000' },
         modal: {
           ondismiss: () => {
-            // User closed the modal — reset loading
             setLoading(false);
           },
         },
         handler: async (response: any) => {
           try {
             const order = buildOrder(response.razorpay_payment_id);
-            addOrder(order);
-            await persistOrder(order, (user as any)?.id);
+            await addOrder(order, (user as any)?.id);
             clearCart();
             sonnerToast.success('Payment successful!', { description: 'Order ID: ' + order.id });
             navigate('/order-success?id=' + order.id);
@@ -226,7 +206,6 @@ const CheckoutPage = () => {
       });
 
       rzp.open();
-      // Note: loading stays true until handler or ondismiss fires
     } catch (err: any) {
       console.error('Razorpay error:', err);
       sonnerToast.error(err?.message || 'Could not launch payment. Try Cash on Delivery.');
@@ -245,9 +224,7 @@ const CheckoutPage = () => {
 
     try {
       const order = buildOrder();
-      addOrder(order);
-      // Fire-and-forget persist — don't block navigation
-      persistOrder(order, (user as any)?.id).catch(console.error);
+      await addOrder(order, (user as any)?.id);
       clearCart();
       sonnerToast.success('Order placed!', { description: 'Pay ₹' + total + ' on delivery.' });
       navigate('/order-success?id=' + order.id);
