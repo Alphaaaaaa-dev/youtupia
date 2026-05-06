@@ -35,7 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── GET — fetch all rows ────────────────────────────────────────────────
     if (req.method === 'GET') {
-      const url = `${SB_URL}/rest/v1/${table}?select=*&order=updated_at.asc`;
+      // NOTE: Do NOT order by updated_at — that column may not exist.
+      // Use id ordering instead which always exists.
+      const url = `${SB_URL}/rest/v1/${table}?select=*`;
       console.log(`[store-data] GET ${url}`);
 
       const r = await fetch(url, { headers: headers() });
@@ -46,9 +48,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: `Fetch failed: ${responseText}` });
       }
 
-      const rows = JSON.parse(responseText);
+      let rows: any[];
+      try {
+        rows = JSON.parse(responseText);
+      } catch {
+        console.error('[store-data] Failed to parse GET response:', responseText.slice(0, 200));
+        return res.status(500).json({ error: 'Invalid JSON from Supabase' });
+      }
+
+      if (!Array.isArray(rows)) {
+        console.error('[store-data] GET response is not an array:', rows);
+        return res.status(500).json({ error: 'Unexpected response shape from Supabase' });
+      }
+
       // Unwrap payload
-      const data = (rows || []).map((row: any) => {
+      const data = rows.map((row: any) => {
         if (row.payload && typeof row.payload === 'object') {
           return { ...row.payload, id: row.id };
         }
@@ -102,7 +116,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: `Upsert failed: ${insText}` });
       }
 
-      const saved = JSON.parse(insText);
+      let saved: any[];
+      try {
+        saved = JSON.parse(insText);
+      } catch {
+        return res.status(500).json({ error: 'Invalid JSON response from Supabase after upsert' });
+      }
+
       const data = (saved || []).map((row: any) => {
         if (row.payload && typeof row.payload === 'object') {
           return { ...row.payload, id: row.id };
@@ -143,7 +163,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: `Upsert failed: ${upsertText}` });
       }
 
-      const saved = JSON.parse(upsertText);
+      let saved: any[];
+      try {
+        saved = JSON.parse(upsertText);
+      } catch {
+        return res.status(500).json({ error: 'Invalid JSON from Supabase' });
+      }
+
       const data = (saved || []).map((r: any) =>
         r.payload && typeof r.payload === 'object' ? { ...r.payload, id: r.id } : r
       );
