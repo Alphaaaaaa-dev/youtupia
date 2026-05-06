@@ -425,7 +425,7 @@ const OverviewTab = () => {
 
 // ── ORDERS TAB ─────────────────────────────────────
 const OrdersTab = () => {
-  const { orders, updateOrderStatus, updateOrder, deleteOrder } = useStore();
+  const { orders, updateOrderStatus, updateOrder, deleteOrder, refreshAllOrders } = useStore();
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [trackingInputs, setTrackingInputs] = useState<Record<string, string>>({});
@@ -433,39 +433,25 @@ const OrdersTab = () => {
   const [savedTracking, setSavedTracking] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelRemarkInput, setCancelRemarkInput] = useState('');
-  const [dbOrders, setDbOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  const fetchDbOrders = async () => {
+  // On mount, refresh all orders from DB into the store
+  useEffect(() => {
     setLoadingOrders(true);
-    try {
-      const res = await fetch('/api/orders');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.orders) setDbOrders(data.orders);
-      }
-    } catch (e) {
-      console.error('Failed to fetch orders from DB', e);
-    }
+    refreshAllOrders().finally(() => setLoadingOrders(false));
+  }, []);
+
+  const handleRefresh = async () => {
+    setLoadingOrders(true);
+    await refreshAllOrders();
     setLoadingOrders(false);
   };
 
-  useEffect(() => { fetchDbOrders(); }, []);
-
-  const mergedOrders = (() => {
-    const map = new Map<string, any>();
-    orders.forEach(o => map.set(o.id, o));
-    dbOrders.forEach(o => map.set(o.id, { ...map.get(o.id), ...o }));
-    return Array.from(map.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-  })();
-
   const STATUS_COLOR: Record<string, string> = { processing: '#fbbf24', preorder_confirmed: '#a78bfa', confirmed: '#60a5fa', shipped: '#8b5cf6', delivered: '#4ade80', cancelled: '#ef4444' };
-  const filtered = filter === 'all' ? mergedOrders : mergedOrders.filter(o => o.status === filter);
-  const totalRevenue = mergedOrders.reduce((s, o) => s + o.total, 0);
-  const codCount = mergedOrders.filter(o => (o as any).paymentMethod === 'cod').length;
-  const onlineCount = mergedOrders.filter(o => (o as any).paymentMethod !== 'cod').length;
+  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
+  const codCount = orders.filter(o => (o as any).paymentMethod === 'cod').length;
+  const onlineCount = orders.filter(o => (o as any).paymentMethod !== 'cod').length;
 
   const saveTracking = (orderId: string) => {
     const trackingId = (trackingInputs[orderId] || '').trim();
@@ -487,7 +473,6 @@ const OrdersTab = () => {
   const handleDeleteOrder = (orderId: string) => {
     if (!confirm('Permanently delete this order? This cannot be undone.')) return;
     deleteOrder(orderId);
-    setDbOrders(prev => prev.filter(o => o.id !== orderId));
     sonnerToast.success('Order deleted', { description: orderId });
   };
 
@@ -498,7 +483,7 @@ const OrdersTab = () => {
           <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Orders</h1>
           <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>Manage orders, update status, add Delhivery tracking numbers.</p>
         </div>
-        <button onClick={fetchDbOrders} disabled={loadingOrders}
+        <button onClick={handleRefresh} disabled={loadingOrders}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#94a3b8', cursor: 'pointer', fontSize: '12px', fontFamily: 'Roboto, sans-serif' }}>
           <RefreshCw size={13} style={{ animation: loadingOrders ? 'spin 0.8s linear infinite' : 'none' }} />
           {loadingOrders ? 'Loading...' : 'Refresh Orders'}
@@ -507,10 +492,10 @@ const OrdersTab = () => {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', marginBottom: '20px' }}>
         {[
-          { label: 'TOTAL ORDERS', value: mergedOrders.length, color: '#f1f5f9' },
+          { label: 'TOTAL ORDERS', value: orders.length, color: '#f1f5f9' },
           { label: 'REVENUE', value: '₹' + totalRevenue.toLocaleString(), color: '#ff6666' },
-          { label: 'PROCESSING', value: mergedOrders.filter(o => o.status === 'processing').length, color: STATUS_COLOR.processing },
-          { label: 'SHIPPED', value: mergedOrders.filter(o => o.status === 'shipped').length, color: STATUS_COLOR.shipped },
+          { label: 'PROCESSING', value: orders.filter(o => o.status === 'processing').length, color: STATUS_COLOR.processing },
+          { label: 'SHIPPED', value: orders.filter(o => o.status === 'shipped').length, color: STATUS_COLOR.shipped },
           { label: 'COD ORDERS', value: codCount, color: '#4ade80' },
           { label: 'ONLINE PAID', value: onlineCount, color: '#60a5fa' },
         ].map(s => (
@@ -524,7 +509,7 @@ const OrdersTab = () => {
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
         {['all','processing','preorder_confirmed','confirmed','shipped','delivered','cancelled'].map(f => (
           <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: '20px', border: `1px solid ${filter === f ? '#ff0000' : 'rgba(255,255,255,0.1)'}`, background: filter === f ? 'rgba(255,0,0,0.12)' : 'transparent', color: filter === f ? '#ff6666' : STATUS_COLOR[f] || '#64748b', fontFamily: 'Roboto, sans-serif', fontSize: '12px', cursor: 'pointer', textTransform: 'capitalize' }}>
-            {f === 'all' ? `All (${mergedOrders.length})` : `${f.replace('_',' ').charAt(0).toUpperCase()+f.replace('_',' ').slice(1)} (${mergedOrders.filter(o=>o.status===f).length})`}
+            {f === 'all' ? `All (${orders.length})` : `${f.replace('_',' ').charAt(0).toUpperCase()+f.replace('_',' ').slice(1)} (${orders.filter(o=>o.status===f).length})`}
           </button>
         ))}
       </div>
@@ -1037,7 +1022,6 @@ const HomeContentTab = () => {
   const [bannerForm, setBannerForm] = useState<TopBanner>(topBanner);
   const [saved, setSaved] = useState(false);
   const [bannerSaved, setBannerSaved] = useState(false);
-  const [videoTab, setVideoTab] = useState<'url' | 'upload'>('url');
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setForm(homePromo); }, [homePromo]);
@@ -1143,40 +1127,7 @@ const HomeContentTab = () => {
           Supports YouTube links, Instagram Reel links, or uploaded video files (.mp4 / .webm).
         </p>
 
-        <div style={{ ...label, marginBottom: '8px' }}>VIDEO SOURCE</div>
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-          {(['url', 'upload'] as const).map(t => (
-            <button key={t} onClick={() => setVideoTab(t)}
-              style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontFamily: 'Roboto, sans-serif', background: videoTab === t ? '#ff0000' : 'rgba(255,255,255,0.06)', color: videoTab === t ? 'white' : '#64748b', transition: 'all 0.15s' }}>
-              {t === 'url' ? 'URL (YouTube / Instagram / Direct)' : 'Upload Video File'}
-            </button>
-          ))}
-        </div>
-
-        {videoTab === 'url' ? (
-          <div style={{ marginBottom: '14px' }}>
-            <input
-              style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }}
-              value={form.videoUrl.startsWith('data:') ? '' : form.videoUrl}
-              onChange={e => setForm(f => ({ ...f, videoUrl: e.target.value.trim() }))}
-              placeholder="https://youtu.be/... or instagram.com/reel/... or direct .mp4"
-            />
-          </div>
-        ) : (
-          <div style={{ marginBottom: '14px' }}>
-            <div onClick={() => fileRef.current?.click()}
-              style={{ border: '2px dashed rgba(255,255,255,0.12)', borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', marginBottom: '8px' }}>
-              <Upload size={20} style={{ color: '#475569', marginBottom: '8px' }} />
-              <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Click to upload video file</div>
-              <div style={{ fontSize: '11px', color: '#334155' }}>MP4, WebM, MOV supported</div>
-              <input ref={fileRef} type="file" accept="video/*" style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleVideoFile(f); }} />
-            </div>
-            {form.videoUrl.startsWith('data:video') && (
-              <div style={{ fontSize: '11px', color: '#4ade80' }}>✓ Video file uploaded successfully</div>
-            )}
-          </div>
-        )}
+        <VideoDropzone value={form.videoUrl} onChange={v => setForm(f => ({ ...f, videoUrl: v }))} label="VIDEO SOURCE" />
 
         {form.videoUrl && (
           <button onClick={removeVideo}
@@ -1378,10 +1329,11 @@ const SupportTicketsTab = () => {
   const [selected, setSelected] = useState<any | null>(null);
   const [updating, setUpdating] = useState('');
 
+  // FIXED: was calling /api/admin-tickets which doesn't exist — correct endpoint is /api/tickets
   const fetchTickets = async () => {
     setLoading(true); setError('');
     try {
-      const res = await fetch('/api/admin-tickets');
+      const res = await fetch('/api/tickets');
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed to load tickets'); setLoading(false); return; }
       const data = await res.json();
       setTickets(data.tickets || []);
@@ -1391,10 +1343,11 @@ const SupportTicketsTab = () => {
 
   useEffect(() => { fetchTickets(); }, []);
 
+  // FIXED: was calling /api/admin-tickets for PATCH too
   const updateStatus = async (ticketId: string, status: string) => {
     setUpdating(ticketId);
     try {
-      await fetch('/api/admin-tickets', {
+      await fetch('/api/tickets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: ticketId, status }),
