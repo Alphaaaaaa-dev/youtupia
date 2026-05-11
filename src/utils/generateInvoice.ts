@@ -10,10 +10,12 @@ export const generateInvoice = (order: any) => {
   // Grand total is exactly what the customer pays (no extra GST added)
   const grandTotal = subtotalInclGst - discountAmt + codCharge;
   // Back-calculate GST from the grand total: base = total / 1.05
-  const taxableAmount = Math.round(grandTotal / 1.05);
-  const totalGst = grandTotal - taxableAmount;
-  const cgst = Math.round(totalGst / 2);
-  const sgst = totalGst - cgst;
+  const taxableAmount = grandTotal / 1.05;
+  const totalGstExact = grandTotal - taxableAmount;
+  const cgstExact = totalGstExact / 2;
+  const sgstExact = totalGstExact / 2;
+  const grandTotalRounded = Math.round(grandTotal);
+  const roundedOff = grandTotalRounded - grandTotal;
   // Subtotal shown on invoice is the pre-GST base amount
   const subtotal = Math.round(subtotalInclGst / 1.05);
 
@@ -62,16 +64,17 @@ export const generateInvoice = (order: any) => {
     + codRow
     + '<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span>Shipping</span><span style="color:#16a34a;">FREE</span></div>'
     + '<hr style="border:none;border-top:1px solid #eee;margin:8px 0;"/>'
-    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>CGST @ 2.5%</span><span>&#8377;' + cgst.toLocaleString('en-IN') + '</span></div>'
-    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>SGST @ 2.5%</span><span>&#8377;' + sgst.toLocaleString('en-IN') + '</span></div>'
-    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;font-weight:600;color:#333;border-top:1px solid #eee;margin-top:4px;padding-top:8px;"><span>Total GST (5%)</span><span>&#8377;' + totalGst.toLocaleString('en-IN') + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>CGST @ 2.5%</span><span>&#8377;' + cgstExact.toFixed(2) + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>SGST @ 2.5%</span><span>&#8377;' + sgstExact.toFixed(2) + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;font-weight:600;color:#333;border-top:1px solid #eee;margin-top:4px;padding-top:8px;"><span>Total GST (5%)</span><span>&#8377;' + totalGstExact.toFixed(2) + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#888;"><span>Rounded Off</span><span>' + (roundedOff >= 0 ? '+' : '') + roundedOff.toFixed(2) + '</span></div>'
     + '<hr style="border:none;border-top:2px solid #ff0000;margin:8px 0;"/>'
-    + '<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;"><span>Grand Total</span><span>&#8377;' + grandTotal.toLocaleString('en-IN') + '</span></div>'
+    + '<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;"><span>Grand Total</span><span>&#8377;' + grandTotalRounded.toLocaleString('en-IN') + '</span></div>'
     + '<div style="margin-top:6px;display:flex;gap:8px;"><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:' + payBg + ';color:' + payColor + ';">' + payLabel + '</span>'
     + '<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fff3f3;color:#cc0000;text-transform:capitalize;">' + order.status.replace('_', ' ') + '</span></div>'
     + txnRow
     + '</div>'
-    + '<div class="ftr"><div style="font-size:11px;color:#999;line-height:1.7;"><strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>GSTIN: 08CLBPJ3540A1ZP &middot; HSN Code: 6109 (Apparel / T-Shirts)<br/>Computer-generated invoice. No signature required.</div>'
+    + '<div class="ftr"><div style="font-size:11px;color:#999;line-height:1.7;"><strong>Terms:</strong> All sales are final. Exchange within 7 days with original invoice.<br/>GSTIN: 08CLBPJ3540A1ZP &middot; HSN Code: 6109 (Apparel / T-Shirts)<br/>Computer-generated invoice. No signature required. &nbsp;<strong>E.&amp;O.E.</strong></div>'
     + '<div style="text-align:right;"><div style="font-size:16px;font-weight:900;color:#ff0000;">YouTupia</div><div style="font-size:10px;color:#bbb;margin-top:2px;">Creator Merch, Made Real.</div></div></div>'
     + '</body></html>';
 
