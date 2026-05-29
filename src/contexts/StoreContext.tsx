@@ -119,35 +119,51 @@ function sbAnonHeaders() {
   };
 }
 
-async function sbFetchTable<T>(table: string): Promise<T[]> {
-  if (!SB_URL || !SB_ANON) {
-    // Fall back to API route if env vars not set
+async function sbFetchDirect<T>(table: string): Promise<T[] | null> {
+  // Returns null on any error or if env vars missing — caller decides fallback
+  if (!SB_URL || !SB_ANON) return null;
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*`, {
+      headers: sbAnonHeaders(),
+    });
+    if (!res.ok) return null;
+    const rows: any[] = await res.json();
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    return rows.map((row: any) =>
+      row.payload && typeof row.payload === 'object'
+        ? { ...row.payload, id: row.id }
+        : row
+    ) as T[];
+  } catch { return null; }
+}
+
+async function apiFetchTable<T>(table: string): Promise<T[]> {
+  // Reliable fallback via your Vercel API route (uses service key server-side)
+  try {
     const res = await fetch(`/api/store-data?table=${table}`);
     if (!res.ok) return [];
     const { data } = await res.json();
     return Array.isArray(data) ? data : [];
-  }
-  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*`, {
-    headers: sbAnonHeaders(),
-  });
-  if (!res.ok) return [];
-  const rows: any[] = await res.json();
-  if (!Array.isArray(rows)) return [];
-  // Unwrap payload wrapper if present (handles both schema styles)
-  return rows.map((row: any) =>
-    row.payload && typeof row.payload === 'object'
-      ? { ...row.payload, id: row.id }
-      : row
-  ) as T[];
+  } catch { return []; }
 }
 
-// Fetches all 3 tables in parallel — direct to Supabase, no Vercel cold start
+// Strategy: try direct Supabase first (fast, no cold start).
+// If that returns null/empty (RLS blocking anon key, or env vars missing),
+// fall back to the API route which uses the service key and always works.
+async function fetchTableWithFallback<T>(table: string): Promise<T[]> {
+  const direct = await sbFetchDirect<T>(table);
+  if (direct !== null) return direct;
+  console.log(`[Store] Direct fetch empty/failed for ${table}, falling back to API route`);
+  return apiFetchTable<T>(table);
+}
+
+// Fetches all 3 tables in parallel
 async function dbLoadAll(): Promise<{ products: Product[]; series: Series[]; creators: Creator[] } | null> {
   try {
     const [products, series, creators] = await Promise.all([
-      sbFetchTable<Product>('yt_products'),
-      sbFetchTable<Series>('yt_series'),
-      sbFetchTable<Creator>('yt_creators'),
+      fetchTableWithFallback<Product>('yt_products'),
+      fetchTableWithFallback<Series>('yt_series'),
+      fetchTableWithFallback<Creator>('yt_creators'),
     ]);
     return { products, series, creators };
   } catch { return null; }
