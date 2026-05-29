@@ -104,6 +104,17 @@ async function dbLoad<T>(table: TableName): Promise<T[] | null> {
   } catch { return null; }
 }
 
+// Fetches all 3 tables in a single request — one cold start, CDN-cached
+async function dbLoadAll(): Promise<{ products: Product[]; series: Series[]; creators: Creator[] } | null> {
+  try {
+    const res = await fetch('/api/store-init');
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data.products)) return null;
+    return data;
+  } catch { return null; }
+}
+
 async function dbSaveSingleRow<T extends { id: string }>(table: TableName, item: T): Promise<void> {
   try {
     await fetch(`/api/store-data?table=${table}`, {
@@ -262,27 +273,21 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setDbLoading(true);
 
       try {
-        // ── Phase 1: products/series/creators in parallel ──────────────────
-        // These are critical for page render. Fire all three simultaneously.
-        const [dbProducts, dbSeries, dbCreators] = await Promise.all([
-          dbLoad<Product>('yt_products'),
-          dbLoad<Series>('yt_series'),
-          dbLoad<Creator>('yt_creators'),
-        ]);
+        // ── Phase 1: single request — one cold start, CDN-cached ─────────
+        // /api/store-init fetches all 3 tables in parallel server-side and
+        // returns them together. Vercel CDN caches the response at edge nodes
+        // close to India so repeat visitors get ~20ms instead of hitting Supabase.
+        const allData = await dbLoadAll();
 
         if (cancelled) return;
 
-        if (dbProducts !== null) {
-          setProductsState(dbProducts);
-          cacheSet(PRODUCT_CACHE_KEY, dbProducts);
-        }
-        if (dbSeries !== null) {
-          setSeriesState(dbSeries);
-          cacheSet(SERIES_CACHE_KEY, dbSeries);
-        }
-        if (dbCreators !== null) {
-          setCreatorsState(dbCreators);
-          cacheSet(CREATOR_CACHE_KEY, dbCreators);
+        if (allData) {
+          setProductsState(allData.products);
+          setSeriesState(allData.series);
+          setCreatorsState(allData.creators);
+          cacheSet(PRODUCT_CACHE_KEY, allData.products);
+          cacheSet(SERIES_CACHE_KEY, allData.series);
+          cacheSet(CREATOR_CACHE_KEY, allData.creators);
         }
 
         // Unblock the UI as soon as core data is ready
