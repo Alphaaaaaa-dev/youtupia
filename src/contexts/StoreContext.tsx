@@ -104,14 +104,52 @@ async function dbLoad<T>(table: TableName): Promise<T[] | null> {
   } catch { return null; }
 }
 
-// Fetches all 3 tables in a single request — one cold start, CDN-cached
+// ── Direct Supabase reads — bypasses Vercel functions entirely ────────────
+// Writes still go through /api/store-data (server-side, needs service key).
+// Reads use the public anon key directly from the browser so there is zero
+// cold start: browser → Supabase CDN edge (~100-200ms, always warm).
+const SB_URL  = (import.meta.env.VITE_SUPABASE_URL  || '').replace(/\/$/, '');
+const SB_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+function sbAnonHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    apikey: SB_ANON,
+    Authorization: ,
+  };
+}
+
+async function sbFetchTable<T>(table: string): Promise<T[]> {
+  if (!SB_URL || !SB_ANON) {
+    // Fall back to API route if env vars not set
+    const res = await fetch();
+    if (!res.ok) return [];
+    const { data } = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
+  const res = await fetch(, {
+    headers: sbAnonHeaders(),
+  });
+  if (!res.ok) return [];
+  const rows: any[] = await res.json();
+  if (!Array.isArray(rows)) return [];
+  // Unwrap payload wrapper if present (handles both schema styles)
+  return rows.map((row: any) =>
+    row.payload && typeof row.payload === 'object'
+      ? { ...row.payload, id: row.id }
+      : row
+  ) as T[];
+}
+
+// Fetches all 3 tables in parallel — direct to Supabase, no Vercel cold start
 async function dbLoadAll(): Promise<{ products: Product[]; series: Series[]; creators: Creator[] } | null> {
   try {
-    const res = await fetch('/api/store-init');
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!Array.isArray(data.products)) return null;
-    return data;
+    const [products, series, creators] = await Promise.all([
+      sbFetchTable<Product>('yt_products'),
+      sbFetchTable<Series>('yt_series'),
+      sbFetchTable<Creator>('yt_creators'),
+    ]);
+    return { products, series, creators };
   } catch { return null; }
 }
 
