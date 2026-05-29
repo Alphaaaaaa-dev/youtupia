@@ -46,6 +46,33 @@ const DEFAULT_TOP_BANNER: TopBanner = {
   bgColor: '#ff0000', textColor: '#ffffff',
 };
 
+// ── Cache helpers ──────────────────────────────────────────────────────────
+const PRODUCT_CACHE_KEY = 'yt_products_cache_v2';
+const SERIES_CACHE_KEY  = 'yt_series_cache_v2';
+const CREATOR_CACHE_KEY = 'yt_creators_cache_v2';
+const CACHE_TTL_MS      = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry<T> { data: T[]; ts: number; }
+
+function cacheGet<T>(key: string): T[] | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as CacheEntry<T>;
+    if (Date.now() - entry.ts > CACHE_TTL_MS) { localStorage.removeItem(key); return null; }
+    return entry.data;
+  } catch { return null; }
+}
+
+function cacheSet<T>(key: string, data: T[]): void {
+  try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
+}
+
+function cacheBust(key: string): void {
+  try { localStorage.removeItem(key); } catch {}
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 async function globalGet(key: string): Promise<any> {
   try {
     const res = await fetch(`/api/global-settings?key=${encodeURIComponent(key)}`);
@@ -190,12 +217,12 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | null>(null);
 
 export const StoreProvider = ({ children }: { children: ReactNode }) => {
-  const [products, setProductsState] = useState<Product[]>([]);
-  const [series, setSeriesState] = useState<Series[]>([]);
-  const [creators, setCreatorsState] = useState<Creator[]>([]);
+  // Seed products/series/creators from localStorage cache immediately — zero flicker
+  const [products, setProductsState]   = useState<Product[]>(() => cacheGet<Product>(PRODUCT_CACHE_KEY) ?? []);
+  const [series,   setSeriesState]     = useState<Series[]>(()  => cacheGet<Series>(SERIES_CACHE_KEY)   ?? []);
+  const [creators, setCreatorsState]   = useState<Creator[]>(() => cacheGet<Creator>(CREATOR_CACHE_KEY) ?? []);
 
   const [cart, setCart] = useState<CartItem[]>(() => lsGet('youtupia_cart', []));
-  // Orders: start from localStorage as a seed only — DB always wins on sync
   const [orders, setOrdersState] = useState<Order[]>(() => lsGet('youtupia_orders', []));
   const [wishlist, setWishlist] = useState<string[]>(() => lsGet('youtupia_wishlist', []));
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => lsGet('youtupia_recent', []));
@@ -204,34 +231,25 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const [homePromo, setHomePromoState] = useState<HomePromo>(DEFAULT_HOME_PROMO);
   const [topBanner, setTopBannerState] = useState<TopBanner>(DEFAULT_TOP_BANNER);
 
-  const [hydrating, setHydrating] = useState(true);
+  // If cache had data, start hydrated — page renders immediately
+  const hasCachedProducts = (cacheGet<Product>(PRODUCT_CACHE_KEY)?.length ?? 0) > 0;
+  const [hydrating, setHydrating] = useState(!hasCachedProducts);
   const [dbLoading, setDbLoading] = useState(true);
 
-  /**
-   * mergeOrders: DB is always the source of truth for STATUS and server-side fields.
-   * Local orders (from localStorage) are only kept if they are NOT in DB yet
-   * (i.e., a brand-new order just placed that hasn't been persisted yet).
-   */
   const mergeOrders = useCallback((dbOrders: Order[]) => {
     setOrdersState(prev => {
       const dbMap = new Map<string, Order>();
       dbOrders.forEach(o => dbMap.set(o.id, o));
-
-      // Keep local orders that don't exist in DB yet (just placed, not yet synced)
       const localOnlyOrders = prev.filter(o => !dbMap.has(o.id));
-
-      // Final list: all DB orders + any local-only orders not yet in DB
       const merged = [
         ...dbOrders,
         ...localOnlyOrders,
       ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
       lsSet('youtupia_orders', merged);
       return merged;
     });
   }, []);
 
-  // Load all orders from DB (no userId filter = all orders for admin use too)
   const refreshAllOrders = useCallback(async () => {
     const dbOrders = await dbLoadOrders(null);
     if (dbOrders) mergeOrders(dbOrders);
@@ -244,6 +262,8 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
       setDbLoading(true);
 
       try {
+        // ── Phase 1: products/series/creators in parallel ──────────────────
+        // These are critical for page render. Fire all three simultaneously.
         const [dbProducts, dbSeries, dbCreators] = await Promise.all([
           dbLoad<Product>('yt_products'),
           dbLoad<Series>('yt_series'),
@@ -253,27 +273,36 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         if (cancelled) return;
 
         if (dbProducts !== null) {
-          console.log('[Store] Loaded', dbProducts.length, 'products from Supabase');
           setProductsState(dbProducts);
+          cacheSet(PRODUCT_CACHE_KEY, dbProducts);
         }
-        if (dbSeries !== null) setSeriesState(dbSeries);
-        if (dbCreators !== null) setCreatorsState(dbCreators);
+        if (dbSeries !== null) {
+          setSeriesState(dbSeries);
+          cacheSet(SERIES_CACHE_KEY, dbSeries);
+        }
+        if (dbCreators !== null) {
+          setCreatorsState(dbCreators);
+          cacheSet(CREATOR_CACHE_KEY, dbCreators);
+        }
 
+        // Unblock the UI as soon as core data is ready
         if (!cancelled) {
           setDbLoading(false);
           setHydrating(false);
         }
 
-        // Load global settings & orders in background
+        // ── Phase 2: non-critical data — fully deferred, never blocks render ──
+        // Orders are NOT loaded here on initial page load.
+        // - Regular users: syncOrdersForUser() is called after login.
+        // - Admins: refreshAllOrders() is called explicitly in the admin panel.
+        // Global settings (home promo, top banner) load quietly in background.
         Promise.all([
           globalGet('home_promo'),
           globalGet('top_banner'),
-          dbLoadOrders(null), // load ALL orders so admin sees everything
-        ]).then(([dbHomePromo, dbTopBanner, dbOrders]) => {
+        ]).then(([dbHomePromo, dbTopBanner]) => {
           if (cancelled) return;
           if (dbHomePromo) setHomePromoState(dbHomePromo);
           if (dbTopBanner) setTopBannerState(dbTopBanner);
-          if (dbOrders) mergeOrders(dbOrders);
         }).catch(() => {});
 
       } catch (e) {
@@ -287,7 +316,7 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
 
     loadFromDb();
     return () => { cancelled = true; };
-  }, [mergeOrders]);
+  }, []);
 
   /**
    * syncOrdersForUser: called after login to pull user-specific orders from DB.
@@ -298,31 +327,41 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
     if (dbOrders) mergeOrders(dbOrders);
   }, [mergeOrders]);
 
+  // Bust caches when admin writes new data so next load reflects changes
   const setProducts = useCallback((p: Product[]) => {
     setProductsState(p);
+    cacheSet(PRODUCT_CACHE_KEY, p);
     dbSaveAll('yt_products', p);
   }, []);
 
   const setProduct = useCallback((p: Product) => {
     setProductsState(prev => {
       const exists = prev.find(x => x.id === p.id);
-      return exists ? prev.map(x => x.id === p.id ? p : x) : [...prev, p];
+      const next = exists ? prev.map(x => x.id === p.id ? p : x) : [...prev, p];
+      cacheSet(PRODUCT_CACHE_KEY, next);
+      return next;
     });
     dbSaveSingleRow('yt_products', p);
   }, []);
 
   const deleteProduct = useCallback((id: string) => {
-    setProductsState(prev => prev.filter(x => x.id !== id));
+    setProductsState(prev => {
+      const next = prev.filter(x => x.id !== id);
+      cacheSet(PRODUCT_CACHE_KEY, next);
+      return next;
+    });
     dbDeleteSingleRow('yt_products', id);
   }, []);
 
   const setSeries = useCallback((s: Series[]) => {
     setSeriesState(s);
+    cacheSet(SERIES_CACHE_KEY, s);
     dbSaveAll('yt_series', s);
   }, []);
 
   const setCreators = useCallback((c: Creator[]) => {
     setCreatorsState(c);
+    cacheSet(CREATOR_CACHE_KEY, c);
     dbSaveAll('yt_creators', c);
   }, []);
 
@@ -401,19 +440,12 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
   const cartTotal = cart.reduce((s, i) => s + i.product.price * i.quantity, 0);
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
-  /**
-   * addOrder: saves to local state immediately, then persists to DB.
-   * After DB save, re-fetches to ensure local state matches DB exactly.
-   */
   const addOrder = useCallback(async (order: Order, userId?: string | null) => {
-    // 1. Add to local state immediately so UI is responsive
     setOrdersState(prev => {
       const next = [order, ...prev.filter(o => o.id !== order.id)];
       lsSet('youtupia_orders', next);
       return next;
     });
-
-    // 2. Persist to DB
     try {
       await dbSaveOrder(order, userId);
     } catch (e) {
@@ -467,7 +499,10 @@ export const StoreProvider = ({ children }: { children: ReactNode }) => {
         p.id === productId ? { ...p, reviews: [...(p.reviews || []), nr] } : p
       );
       const updatedProduct = updated.find(p => p.id === productId);
-      if (updatedProduct) dbSaveSingleRow('yt_products', updatedProduct);
+      if (updatedProduct) {
+        cacheSet(PRODUCT_CACHE_KEY, updated);
+        dbSaveSingleRow('yt_products', updatedProduct);
+      }
       return updated;
     });
   };
