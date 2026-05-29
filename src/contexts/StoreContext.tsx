@@ -115,19 +115,19 @@ function sbAnonHeaders() {
   return {
     'Content-Type': 'application/json',
     apikey: SB_ANON,
-    Authorization: ,
+    Authorization: `Bearer ${SB_ANON}`,
   };
 }
 
 async function sbFetchTable<T>(table: string): Promise<T[]> {
   if (!SB_URL || !SB_ANON) {
     // Fall back to API route if env vars not set
-    const res = await fetch();
+    const res = await fetch(`/api/store-data?table=${table}`);
     if (!res.ok) return [];
     const { data } = await res.json();
     return Array.isArray(data) ? data : [];
   }
-  const res = await fetch(, {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}?select=*`, {
     headers: sbAnonHeaders(),
   });
   if (!res.ok) return [];
