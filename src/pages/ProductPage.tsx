@@ -16,6 +16,15 @@ const StarInput = ({ value, onChange }: { value: number; onChange: (n: number) =
   </div>
 );
 
+// ── Correct size chart from updated measurements ──────────────────────────
+const SIZE_DATA = [
+  ['S',   '20', '27', '20'],
+  ['M',   '21', '28', '21'],
+  ['L',   '22', '29', '22'],
+  ['XL',  '23', '30', '23'],
+  ['XXL', '24', '31', '24'],
+];
+
 const SizeGuideModal = ({ onClose }: { onClose: () => void }) => (
   <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
     <div style={{ background: 'hsl(var(--card))', borderRadius: '20px', padding: '28px', maxWidth: '500px', width: '100%', position: 'relative' }} onClick={e => e.stopPropagation()}>
@@ -30,15 +39,26 @@ const SizeGuideModal = ({ onClose }: { onClose: () => void }) => (
           </tr>
         </thead>
         <tbody>
-          {[['S', '36–38', '27', '17'], ['M', '38–40', '28', '18'], ['L', '40–42', '29', '19'], ['XL', '42–44', '30', '20'], ['XXL', '44–46', '31', '21']].map(([s, c, l, sh]) => (
+          {SIZE_DATA.map(([s, c, l, sh]) => (
             <tr key={s} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
-              {[s, c, l, sh].map((v, i) => <td key={i} style={{ padding: '10px 12px', fontWeight: i === 0 ? 700 : 400 }}>{v}</td>)}
+              {[s, c, l, sh].map((v, i) => (
+                <td key={i} style={{ padding: '10px 12px', fontWeight: i === 0 ? 700 : 400 }}>{v}</td>
+              ))}
             </tr>
           ))}
         </tbody>
       </table>
-      <p style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', marginTop: '16px', lineHeight: 1.6 }}>💡 Tip: Our tees run slightly large. If you're between sizes, size down for a fitted look, or stay true to size for a relaxed fit.</p>
+      <p style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', marginTop: '16px', lineHeight: 1.6 }}>
+        💡 All measurements are in inches (half-chest). For a relaxed fit, size up. For a fitted look, stay true to size.
+      </p>
     </div>
+  </div>
+);
+
+// Skeleton for the main product image while it loads
+const ImageSkeleton = () => (
+  <div style={{ aspectRatio: '3/4', borderRadius: '16px', background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', marginBottom: '12px' }}>
+    <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
   </div>
 );
 
@@ -55,6 +75,7 @@ const ProductPage = () => {
   const [added, setAdded] = useState(false);
   const [sizeGuide, setSizeGuide] = useState(false);
   const [imgZoom, setImgZoom] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const [reviewForm, setReviewForm] = useState({ name: '', rating: 5, comment: '' });
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState('');
@@ -63,7 +84,8 @@ const ProductPage = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
     if (product) addRecentlyViewed(product.id);
-  }, [id]); // depend on `id` from useParams, not product?.id
+    setImgLoaded(false); // reset skeleton when product changes
+  }, [id]);
 
   useEffect(() => {
     if (!product) return;
@@ -71,20 +93,18 @@ const ProductPage = () => {
     try {
       const stored = localStorage.getItem(key);
       const arr = stored ? (JSON.parse(stored) as Array<{ productId: string }>) : [];
-      const already = arr.some((x) => x.productId === product.id);
-      setNotified(already);
-    } catch {
-      setNotified(false);
-    }
+      setNotified(arr.some(x => x.productId === product.id));
+    } catch { setNotified(false); }
   }, [product?.id]);
+
+  // Reset imgLoaded when switching images
+  useEffect(() => { setImgLoaded(false); }, [selectedImg]);
 
   if (!product) return (
     <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
       <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔍</div>
       <h2 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '8px' }}>Product not found</h2>
-      <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '24px', fontSize: '14px' }}>
-        This product may have been removed or the link is broken.
-      </p>
+      <p style={{ color: 'hsl(var(--muted-foreground))', marginBottom: '24px', fontSize: '14px' }}>This product may have been removed or the link is broken.</p>
       <Link to="/shop" className="btn-yt" style={{ textDecoration: 'none' }}>← Back to Shop</Link>
     </div>
   );
@@ -98,10 +118,7 @@ const ProductPage = () => {
 
   const handleBuyNow = () => {
     if (!selectedSize) { alert('Please select a size'); return; }
-    if (!user) {
-      navigate('/login?redirect=/checkout');
-      return;
-    }
+    if (!user) { navigate('/login?redirect=/checkout'); return; }
     addToCart(product, selectedSize);
     navigate('/checkout');
   };
@@ -148,12 +165,23 @@ const ProductPage = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'start' }}>
           {/* Images */}
           <div>
-            <div style={{ aspectRatio: '3/4', borderRadius: '16px', overflow: 'hidden', background: 'hsl(var(--secondary))', marginBottom: '12px', cursor: 'zoom-in', position: 'relative' }} onClick={() => setImgZoom(true)}>
-              <img src={product.images[selectedImg] || product.images[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease' }}
+            {/* Main image with skeleton */}
+            <div style={{ position: 'relative', aspectRatio: '3/4', borderRadius: '16px', overflow: 'hidden', background: 'hsl(var(--secondary))', marginBottom: '12px', cursor: 'zoom-in' }} onClick={() => setImgZoom(true)}>
+              {!imgLoaded && (
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', zIndex: 1 }}>
+                  <style>{`@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+                </div>
+              )}
+              <img
+                src={product.images[selectedImg] || product.images[0]}
+                alt={product.name}
+                onLoad={() => setImgLoaded(true)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', opacity: imgLoaded ? 1 : 0 }}
                 onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.06)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')} />
-              <div style={{ position: 'absolute', bottom: '14px', right: '14px', background: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '10px', padding: '4px 10px', borderRadius: '20px', backdropFilter: 'blur(6px)' }}>Click to zoom</div>
-              {product.limitedEdition && <div style={{ position: 'absolute', top: '14px', left: '14px', background: '#ff0000', color: 'white', fontSize: '10px', fontWeight: 800, padding: '5px 12px', borderRadius: '6px', letterSpacing: '0.05em' }}>LIMITED EDITION</div>}
+                onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+              />
+              {imgLoaded && <div style={{ position: 'absolute', bottom: '14px', right: '14px', background: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '10px', padding: '4px 10px', borderRadius: '20px', backdropFilter: 'blur(6px)' }}>Click to zoom</div>}
+              {product.limitedEdition && <div style={{ position: 'absolute', top: '14px', left: '14px', background: '#ff0000', color: 'white', fontSize: '10px', fontWeight: 800, padding: '5px 12px', borderRadius: '6px', letterSpacing: '0.05em', zIndex: 2 }}>LIMITED EDITION</div>}
             </div>
             {product.images.length > 1 && (
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -168,7 +196,6 @@ const ProductPage = () => {
 
           {/* Details */}
           <div className="fade-in">
-            {/* Viewers */}
             {product.viewerCount && product.viewerCount > 1 && (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,165,0,0.08)', border: '1px solid rgba(255,165,0,0.2)', borderRadius: '20px', padding: '4px 12px', marginBottom: '14px', fontSize: '12px', color: '#f97316' }}>
                 <Eye size={12} /> {product.viewerCount} people viewing this right now
@@ -178,7 +205,6 @@ const ProductPage = () => {
             <div style={{ fontSize: '12px', color: '#ff0000', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{product.series}</div>
             <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '14px', lineHeight: 1.2 }}>{product.name}</h1>
 
-            {/* Rating summary */}
             {avgRating && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                 {[1,2,3,4,5].map(i => <Star key={i} size={14} style={{ fill: i <= Math.round(Number(avgRating)) ? '#fbbf24' : 'none', color: '#fbbf24' }} />)}
@@ -187,7 +213,6 @@ const ProductPage = () => {
               </div>
             )}
 
-            {/* Price */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <span style={{ fontSize: '28px', fontWeight: 800, color: '#ff0000' }}>₹{product.price.toLocaleString()}</span>
               {product.originalPrice && <>
@@ -196,7 +221,6 @@ const ProductPage = () => {
               </>}
             </div>
 
-            {/* Stock / urgency indicators */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
               {totalStock <= 5 && totalStock > 0 && <span style={{ fontSize: '12px', color: '#f97316', fontWeight: 600, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '20px', padding: '4px 12px' }}>⚡ Only {totalStock} left!</span>}
               {product.preorder && <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: 600, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '20px', padding: '4px 12px' }}>📦 Preorder open</span>}
@@ -227,28 +251,20 @@ const ProductPage = () => {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)} placeholder="your@email.com"
                       style={{ flex: 1, padding: '9px 12px', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '13px', outline: 'none', fontFamily: 'Roboto, sans-serif' }} />
-                    <button
-                      onClick={() => {
-                        if (notified) return;
-                        const email = notifyEmail.trim();
-                        if (!email || !email.includes('@')) {
-                          sonnerToast.message('Enter a valid email', { description: 'So we can notify you when this is back in stock.' });
-                          return;
-                        }
-                        const key = 'youtupia_notify_stock';
-                        try {
-                          const stored = localStorage.getItem(key);
-                          const arr = stored ? (JSON.parse(stored) as Array<{ productId: string; email: string; createdAt: string }>) : [];
-                          const next = [{ productId: product.id, email, createdAt: new Date().toISOString() }, ...arr.filter((x) => x.productId !== product.id)].slice(0, 25);
-                          localStorage.setItem(key, JSON.stringify(next));
-                        } catch (e) {
-                          void e;
-                        }
-                        setNotified(true);
-                        sonnerToast.success('You’re in!', { description: 'We’ll email you when it’s back.' });
-                      }}
-                      style={{ background: '#ff0000', color: 'white', border: 'none', borderRadius: '8px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'Roboto, sans-serif' }}
-                    >
+                    <button onClick={() => {
+                      if (notified) return;
+                      const email = notifyEmail.trim();
+                      if (!email || !email.includes('@')) { sonnerToast.message('Enter a valid email', { description: 'So we can notify you when this is back in stock.' }); return; }
+                      const key = 'youtupia_notify_stock';
+                      try {
+                        const stored = localStorage.getItem(key);
+                        const arr = stored ? (JSON.parse(stored) as Array<{ productId: string; email: string; createdAt: string }>) : [];
+                        const next = [{ productId: product.id, email, createdAt: new Date().toISOString() }, ...arr.filter(x => x.productId !== product.id)].slice(0, 25);
+                        localStorage.setItem(key, JSON.stringify(next));
+                      } catch {}
+                      setNotified(true);
+                      sonnerToast.success("You're in!", { description: "We'll email you when it's back." });
+                    }} style={{ background: '#ff0000', color: 'white', border: 'none', borderRadius: '8px', padding: '9px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'Roboto, sans-serif' }}>
                       {notified ? '✓ Done' : 'Notify Me'}
                     </button>
                   </div>
@@ -271,7 +287,7 @@ const ProductPage = () => {
 
             {/* Trust */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '16px', background: 'hsl(var(--secondary))', borderRadius: '12px' }}>
-              {[{ icon: Truck, text: 'Free delivery on every order ' }, { icon: Shield, text: 'Secure payment via Razorpay' }, { icon: CheckCircle, text: 'Premium Quality Assured ' }].map(({ icon: Icon, text }) => (
+              {[{ icon: Truck, text: 'Free delivery on every order' }, { icon: Shield, text: 'Secure payment via Razorpay' }, { icon: CheckCircle, text: 'Premium Quality Assured' }].map(({ icon: Icon, text }) => (
                 <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
                   <Icon size={14} style={{ color: '#ff0000', flexShrink: 0 }} /> {text}
                 </div>
@@ -284,7 +300,6 @@ const ProductPage = () => {
         <div style={{ marginTop: '64px', paddingTop: '40px', borderTop: '1px solid hsl(var(--border))' }}>
           <h2 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '28px' }}>Customer Reviews</h2>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', alignItems: 'start' }}>
-            {/* Existing reviews */}
             <div>
               {reviews.length === 0 ? (
                 <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '14px' }}>No reviews yet. Be the first!</p>
@@ -309,7 +324,6 @@ const ProductPage = () => {
               )}
             </div>
 
-            {/* Write a review */}
             <div style={{ background: 'hsl(var(--card))', borderRadius: '16px', border: '1px solid hsl(var(--border))', padding: '24px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Write a Review</h3>
               {reviewSubmitted ? (
