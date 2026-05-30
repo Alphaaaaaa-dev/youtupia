@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Truck, Shield, RefreshCw, TrendingUp, Zap, Package, Users, Sparkles, Flame, Clock, Lock } from 'lucide-react';
+import { ArrowRight, Star, Truck, Shield, TrendingUp, Zap, Package, Users, Sparkles, Flame, Clock, Lock, ShoppingCart } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
-// Scroll reveal hook
+
 const useReveal = () => {
   useEffect(() => {
     const els = document.querySelectorAll('.reveal');
@@ -15,103 +15,92 @@ const useReveal = () => {
   });
 };
 
-const DropCountdown = ({ endsAt }: { endsAt: string }) => {
-  const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0 });
+// ── Skeleton components ────────────────────────────────────────────────────
+const SkeletonBox = ({ w = '100%', h = '16px', radius = '6px', style = {} }: { w?: string; h?: string; radius?: string; style?: React.CSSProperties }) => (
+  <div style={{ width: w, height: h, borderRadius: radius, background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', flexShrink: 0, ...style }} />
+);
 
-  useEffect(() => {
-    const update = () => {
-      const diff = new Date(endsAt).getTime() - Date.now();
-      if (diff <= 0) return;
-      setTime({
-        d: Math.floor(diff / 86400000),
-        h: Math.floor((diff % 86400000) / 3600000),
-        m: Math.floor((diff % 3600000) / 60000),
-        s: Math.floor((diff % 60000) / 1000),
-      });
-    };
-    update();
-    const t = setInterval(update, 1000);
-    return () => clearInterval(t);
-  }, [endsAt]);
-
-  return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-      {[
-        ['d', time.d],
-        ['h', time.h],
-        ['m', time.m],
-        ['s', time.s],
-      ].map(([label, val]) => (
-        <div key={label} style={{ textAlign: 'center' }}>
-          <div style={{ background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.25)', borderRadius: 12, padding: '10px 14px', fontSize: 18, fontWeight: 900, color: '#ff0000', minWidth: 52, fontVariantNumeric: 'tabular-nums' }}>
-            {String(val).padStart(2, '0')}
-          </div>
-          <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-            {label}
-          </div>
-        </div>
-      ))}
+const ProductCardSkeleton = () => (
+  <div style={{ borderRadius: '16px', overflow: 'hidden', background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+    <SkeletonBox h="0" style={{ paddingBottom: '133%', borderRadius: 0 }} />
+    <div style={{ padding: '12px' }}>
+      <SkeletonBox w="60%" h="10px" style={{ marginBottom: '8px' }} />
+      <SkeletonBox w="85%" h="14px" style={{ marginBottom: '8px' }} />
+      <SkeletonBox w="40%" h="16px" style={{ marginBottom: '12px' }} />
+      <SkeletonBox h="36px" radius="8px" />
     </div>
-  );
-};
+  </div>
+);
+
+const SeriesCardSkeleton = () => (
+  <div style={{ borderRadius: '20px', height: '220px', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', animation: 'shimmer 1.4s infinite', backgroundSize: '200% 100%', backgroundImage: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)' }} />
+);
+
+const HeroStripSkeleton = () => (
+  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', width: '100%' }}>
+    {[0,1,2,3].map(i => (
+      <SkeletonBox key={i} h="0" radius="10px" style={{ paddingBottom: '133%' }} />
+    ))}
+  </div>
+);
+// ──────────────────────────────────────────────────────────────────────────
 
 const HomePage = () => {
-  const { products, series, creators, addToCart, homePromo } = useStore();
+  const { products, series, creators, addToCart, homePromo, hydrating, dbLoading } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const featured = products.filter(p => p.featured);
-  const [heroImgIdx, setHeroImgIdx] = useState(0);
-  useReveal();
+  const isLoading = hydrating || dbLoading;
 
-  // Cycle hero product images
-  useEffect(() => {
-    if (!featured.length) return;
-    const t = setInterval(() => setHeroImgIdx(i => (i + 1) % Math.min(featured.length, 4)), 3000);
-    return () => clearInterval(t);
-  }, [featured.length]);
+  // Sort all products newest first
+  const sortedProducts = [...products].sort((a, b) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const featured = products.filter(p => p.featured);
+  // Hero strip: newest 4 products
+  const heroStrip = sortedProducts.slice(0, 4);
+  // Latest drops section: newest 8
+  const latestProducts = sortedProducts.slice(0, 8);
+
+  useReveal();
 
   return (
     <div style={{ paddingTop: '56px', position: 'relative', zIndex: 1 }}>
 
+      <style>{`
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        @media (max-width: 768px) {
+          .hero-grid { grid-template-columns: 1fr !important; }
+          .hero-strip { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+
       {/* ── HERO ── */}
       <section style={{ position: 'relative', minHeight: '92vh', display: 'flex', alignItems: 'center', overflow: 'hidden', background: isDark ? 'hsl(0 0% 6%)' : 'hsl(0 0% 98%)' }}>
-        {/* Background texture */}
         <div style={{ position: 'absolute', inset: 0, backgroundImage: isDark ? 'radial-gradient(ellipse 80% 50% at 20% 40%, rgba(255,0,0,0.07) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 70%, rgba(255,0,0,0.04) 0%, transparent 50%)' : 'radial-gradient(ellipse 80% 50% at 20% 40%, rgba(255,0,0,0.04) 0%, transparent 60%)', pointerEvents: 'none' }} />
-        {/* Grid overlay */}
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(hsl(var(--border)/0.3) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)/0.3) 1px, transparent 1px)', backgroundSize: '60px 60px', pointerEvents: 'none', opacity: 0.4 }} />
 
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '60px 24px', width: '100%' }}>
-          {/* Two-column on desktop, stacked on mobile */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: '48px', alignItems: 'center' }}>
-            
-            {/* LEFT — text content */}
+          <div className="hero-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', gap: '48px', alignItems: 'center' }}>
+
+            {/* LEFT */}
             <div className="page-enter">
-              {/* Live badge */}
               <div className="glow-pill" style={{ marginBottom: '28px', width: 'fit-content' }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff0000', display: 'inline-block', animation: 'glowPulse 1.5s ease-in-out infinite' }} />
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>
-                  NEW COLLECTION LIVE
-                </span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>NEW COLLECTION LIVE</span>
               </div>
-
-              <h1 style={{ fontSize: 'clamp(36px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '6px' }}>
-                Wear you
-              </h1>
-              <h1 className="gradient-text" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '24px' }}>
-                Dreams.
-              </h1>
-
+              <h1 style={{ fontSize: 'clamp(36px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '6px' }}>Wear your</h1>
+              <h1 className="gradient-text" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '24px' }}>Dreams.</h1>
               <p style={{ fontSize: '17px', color: 'hsl(var(--muted-foreground))', lineHeight: 1.75, marginBottom: '36px', maxWidth: '440px' }}>
                 Premium merch drops from Youtupia. Every piece is limited, every series tells a story. No fast fashion, no compromises.
               </p>
-
-              {/* Tags */}
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '36px' }}>
                 {['Limited Drops', '220gsm+', 'Free Delivery', 'Streetwear'].map(tag => (
                   <span key={tag} style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', letterSpacing: '0.03em', border: '1px solid hsl(var(--border))' }}>{tag}</span>
                 ))}
               </div>
-
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <Link to="/shop" className="btn-yt ripple" style={{ borderRadius: '10px', padding: '14px 28px', fontSize: '15px', textDecoration: 'none', fontWeight: 700 }}>
                   Shop Now <ArrowRight size={16} />
@@ -120,10 +109,7 @@ const HomePage = () => {
                   Browse Catalogue
                 </Link>
               </div>
-
-              {/* ── REPLACED STATS ROW — urgency + trust pills ── */}
               <div style={{ display: 'flex', gap: '10px', marginTop: '40px', paddingTop: '32px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap' }}>
-                {/* Limited stock pill */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '12px', background: 'rgba(255,0,0,0.06)', border: '1px solid rgba(255,0,0,0.15)', transition: 'transform 0.2s' }}
                   onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                   onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
@@ -133,8 +119,6 @@ const HomePage = () => {
                     <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))', marginTop: '2px' }}>Once gone, gone forever</div>
                   </div>
                 </div>
-
-                {/* COD pill */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '12px', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: '1px solid hsl(var(--border))', transition: 'transform 0.2s' }}
                   onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                   onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
@@ -144,8 +128,6 @@ const HomePage = () => {
                     <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))', marginTop: '2px' }}>COD available</div>
                   </div>
                 </div>
-
-                {/* Fast dispatch pill */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '12px', background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: '1px solid hsl(var(--border))', transition: 'transform 0.2s' }}
                   onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
                   onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
@@ -156,11 +138,9 @@ const HomePage = () => {
                   </div>
                 </div>
               </div>
-              {/* ── END REPLACED SECTION ── */}
-
             </div>
 
-            {/* RIGHT — promo video + product strip */}
+            {/* RIGHT — video + product strip */}
             <div className="page-enter" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
               {/* Promo video */}
               <div style={{ borderRadius: '24px', overflow: 'hidden', background: 'rgba(0,0,0,0.35)', aspectRatio: '16/9', position: 'relative', border: isDark ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(0,0,0,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.3)', width: '100%' }}>
@@ -169,85 +149,51 @@ const HomePage = () => {
                   const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
                   const ytId = ytMatch ? ytMatch[1] : null;
                   const isInsta = url.includes('instagram.com');
-                  if (ytId) {
-                    return (
-                      <iframe
-                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=1&modestbranding=1&rel=0`}
-                        title={homePromo.title || 'Promo Video'}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                      />
-                    );
-                  }
-                  if (isInsta) {
-                    const instaPostMatch = url.match(/instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)/);
-                    if (instaPostMatch) {
-                      return (
-                        <iframe
-                          src={`https://www.instagram.com/${instaPostMatch[1]}/${instaPostMatch[2]}/embed`}
-                          title={homePromo.title || 'Promo Video'}
-                          allowFullScreen
-                          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                        />
-                      );
-                    }
-                  }
-                  return (
-                    <video
-                      src={url}
-                      poster={homePromo.posterUrl}
-                      autoPlay muted loop playsInline controls
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
+                  if (ytId) return (
+                    <iframe src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=1&modestbranding=1&rel=0`}
+                      title={homePromo.title || 'Promo Video'} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+                      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
                   );
+                  if (isInsta) {
+                    const m = url.match(/instagram\.com\/(p|reel)\/([A-Za-z0-9_-]+)/);
+                    if (m) return <iframe src={`https://www.instagram.com/${m[1]}/${m[2]}/embed`} title={homePromo.title || 'Promo Video'} allowFullScreen style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />;
+                  }
+                  return <video src={url} poster={homePromo.posterUrl} autoPlay muted loop playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
                 })() : (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(255,0,0,0.08) 0%, rgba(0,0,0,0.6) 100%)', color: 'rgba(255,255,255,0.7)', gap: '12px' }}>
                     <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,0,0,0.15)', border: '2px solid rgba(255,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8 5.14v14.72L19 12 8 5.14z" fill="rgba(255,255,255,0.8)"/></svg>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8 5.14v14.72L19 12 8 5.14z" fill="rgba(255,255,255,0.8)" /></svg>
                     </div>
                     <span style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '0.04em' }}>Promotion Video</span>
                     <span style={{ fontSize: '11px', opacity: 0.5, textAlign: 'center', padding: '0 16px' }}>Paste YouTube / Instagram link in Admin → Home Content</span>
                   </div>
                 )}
-                {/* Video overlay info */}
-                {homePromo.videoUrl && !homePromo.videoUrl.includes('youtube') && !homePromo.videoUrl.includes('youtu.be') && !homePromo.videoUrl.includes('instagram') && (homePromo.title || homePromo.ctaText) && (
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 24px', background: 'linear-gradient(transparent, rgba(0,0,0,0.8))' }}>
-                    {homePromo.title && <div style={{ color: 'white', fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>{homePromo.title}{homePromo.subtitle ? ` — ${homePromo.subtitle}` : ''}</div>}
-                    {homePromo.ctaText && (
-                      <Link to={homePromo.ctaLink || '/shop'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#ff0000', color: 'white', textDecoration: 'none', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, marginTop: '6px' }}>
-                        {homePromo.ctaText} →
-                      </Link>
-                    )}
-                  </div>
-                )}
               </div>
 
-              {/* Small product strip below video */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', width: '100%' }}>
-                {featured.slice(0, 4).map((p) => (
-                  <Link key={p.id} to={`/product/${p.id}`}
-                    style={{ textDecoration: 'none', borderRadius: '10px', overflow: 'hidden', aspectRatio: '3/4', position: 'relative', display: 'block', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}
-                    onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-                    onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
-                    <div className="img-zoom" style={{ width: '100%', height: '100%' }}>
+              {/* Hero product strip — newest 4, skeleton while loading */}
+              {isLoading ? <HeroStripSkeleton /> : (
+                <div className="hero-strip" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', width: '100%' }}>
+                  {heroStrip.map(p => (
+                    <Link key={p.id} to={`/product/${p.id}`}
+                      style={{ textDecoration: 'none', borderRadius: '10px', overflow: 'hidden', aspectRatio: '3/4', position: 'relative', display: 'block', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}
+                      onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
                       <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-                    </div>
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,0.8))' }} />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 8px' }}>
-                      <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '7px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '1px' }}>{p.series}</div>
-                      <div style={{ color: 'white', fontSize: '10px', fontWeight: 700, lineHeight: 1.2 }}>{p.name}</div>
-                      <div style={{ color: '#ff6666', fontSize: '10px', fontWeight: 800, marginTop: '1px' }}>₹{p.price.toLocaleString()}</div>
-                    </div>
-                    {p.originalPrice && <div style={{ position: 'absolute', top: '8px', left: '8px', background: '#ff0000', color: 'white', fontSize: '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.05em' }}>SALE</div>}
-                  </Link>
-                ))}
-              </div>
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,0.8))' }} />
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 8px' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '7px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '1px' }}>{p.series}</div>
+                        <div style={{ color: 'white', fontSize: '10px', fontWeight: 700, lineHeight: 1.2 }}>{p.name}</div>
+                        <div style={{ color: '#ff6666', fontSize: '10px', fontWeight: 800, marginTop: '1px' }}>₹{p.price.toLocaleString()}</div>
+                      </div>
+                      {p.originalPrice && <div style={{ position: 'absolute', top: '8px', left: '8px', background: '#ff0000', color: 'white', fontSize: '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px' }}>SALE</div>}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Scroll indicator */}
         <div style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', opacity: 0.5 }}>
           <span style={{ fontSize: '10px', letterSpacing: '0.15em', color: 'hsl(var(--muted-foreground))' }}>SCROLL</span>
           <div style={{ width: '1px', height: '32px', background: 'linear-gradient(hsl(var(--muted-foreground)), transparent)', animation: 'fadeIn 2s ease infinite' }} />
@@ -258,7 +204,7 @@ const HomePage = () => {
       <div style={{ borderTop: '1px solid hsl(var(--border))', borderBottom: '1px solid hsl(var(--border))', background: isDark ? 'hsl(0 0% 7%)' : 'hsl(var(--secondary))' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0' }}>
           {[
-            { icon: Truck, label: 'Free Delivery', sub: 'On Every order!!!!' },
+            { icon: Truck, label: 'Free Delivery', sub: 'On every order!' },
             { icon: Sparkles, label: 'Unique Design', sub: 'Unique all over internet' },
             { icon: Shield, label: 'Secure Payments', sub: 'Razorpay encrypted' },
             { icon: Star, label: 'Premium Quality', sub: '220+gsm fabrics' },
@@ -278,45 +224,135 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* ── SERIES ── */}
+      {/* ── LATEST DROPS (new section) ── */}
       <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '64px 24px' }}>
         <div className="reveal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>Collections</div>
-            <h2 style={{ fontSize: '28px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Shop by Series</h2>
-            <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginTop: '6px' }}>Each series is a story. Every drop has a reason.</p>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>New Arrivals</div>
+            <h2 style={{ fontSize: '28px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              🔥 Latest Drops
+            </h2>
+            <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginTop: '6px' }}>Freshest pieces — just landed.</p>
           </div>
           <Link to="/shop" className="hover-underline" style={{ fontSize: '13px', color: '#ff0000', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-            View all series <ArrowRight size={14} />
+            View all <ArrowRight size={14} />
           </Link>
         </div>
-        <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-          {series.map(s => (
-            <Link key={s.id} to={`/shop?series=${s.id}`}
-              className="img-zoom"
-              style={{ textDecoration: 'none', borderRadius: '20px', overflow: 'hidden', position: 'relative', height: '220px', display: 'flex', alignItems: 'flex-end', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.3)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
-              {s.banner && <img src={s.banner} alt={s.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 20%, rgba(0,0,0,0.75))' }} />
-              <div style={{ position: 'relative', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%' }}>
-                <div style={{ width: '46px', height: '46px', borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.35)', background: 'rgba(0,0,0,0.3)', flexShrink: 0, transition: 'border-color 0.2s' }}>
-                  {s.logo && <img src={s.logo} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: 'white', fontWeight: 800, fontSize: '16px', letterSpacing: '-0.01em' }}>{s.name}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', marginTop: '2px' }}>{s.description}</div>
-                </div>
-                <ArrowRight size={18} style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }} />
+
+        {/* Skeleton grid while loading */}
+        {isLoading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '16px' }}>
+            {[0,1,2,3,4,5,6,7].map(i => <ProductCardSkeleton key={i} />)}
+          </div>
+        ) : (
+          <>
+            <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '16px' }}>
+              {latestProducts.map(p => {
+                const totalStock = p.variants.reduce((s, v) => s + v.stock, 0);
+                const discount = p.originalPrice ? Math.round((1 - p.price / p.originalPrice) * 100) : 0;
+                return (
+                  <div key={p.id} className="product-card">
+                    <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                      <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))' }}>
+                        <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                        {p.limitedEdition && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em' }}>LIMITED</span>}
+                        {discount > 0 && <span style={{ position: 'absolute', top: p.limitedEdition ? '34px' : '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px' }}>{discount}% OFF</span>}
+                        {totalStock === 0 && !p.preorder && (
+                          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '20px' }}>Sold Out</span>
+                          </div>
+                        )}
+                        {/* NEW badge for products uploaded recently (last 7 days) */}
+                        {Date.now() - new Date(p.createdAt).getTime() < 7 * 24 * 60 * 60 * 1000 && (
+                          <span style={{ position: 'absolute', top: '10px', right: '10px', background: '#16a34a', color: 'white', fontSize: '8px', fontWeight: 800, padding: '3px 7px', borderRadius: '4px', letterSpacing: '0.05em' }}>NEW</span>
+                        )}
+                      </div>
+                      <div style={{ padding: '12px 12px 6px' }}>
+                        <div style={{ fontSize: '10px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
+                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontWeight: 800, fontSize: '16px', color: '#ff0000' }}>₹{p.price.toLocaleString()}</span>
+                          {p.originalPrice && <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', textDecoration: 'line-through' }}>₹{p.originalPrice.toLocaleString()}</span>}
+                        </div>
+                      </div>
+                    </Link>
+                    <div style={{ padding: '6px 12px 12px' }}>
+                      <button onClick={() => {
+                        const v = p.variants.find(v => v.stock > 0) || (p.preorder ? p.variants[0] : undefined);
+                        if (!v) return;
+                        addToCart(p, v.size);
+                      }} className="btn-yt ripple" style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+                        disabled={totalStock === 0 && !p.preorder}>
+                        <ShoppingCart size={13} />
+                        {totalStock === 0 && !p.preorder ? 'Sold Out' : p.preorder ? 'Preorder' : 'Add to Cart'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* View More button */}
+            {products.length > 8 && (
+              <div style={{ textAlign: 'center', marginTop: '40px' }}>
+                <Link to="/shop" className="btn-ghost" style={{ textDecoration: 'none', padding: '14px 40px', borderRadius: '12px', fontSize: '15px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px', border: '2px solid hsl(var(--border))', transition: 'border-color 0.2s, transform 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#ff0000'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; e.currentTarget.style.transform = 'none'; }}>
+                  View All {products.length} Products <ArrowRight size={16} />
+                </Link>
               </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* ── SERIES ── */}
+      <section style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '64px 24px' }}>
+          <div className="reveal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>Collections</div>
+              <h2 style={{ fontSize: '28px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Shop by Series</h2>
+              <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginTop: '6px' }}>Each series is a story. Every drop has a reason.</p>
+            </div>
+            <Link to="/shop" className="hover-underline" style={{ fontSize: '13px', color: '#ff0000', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              View all <ArrowRight size={14} />
             </Link>
-          ))}
+          </div>
+
+          {isLoading ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+              {[0,1,2].map(i => <SeriesCardSkeleton key={i} />)}
+            </div>
+          ) : (
+            <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+              {series.map(s => (
+                <Link key={s.id} to={`/shop?series=${s.id}`} className="img-zoom"
+                  style={{ textDecoration: 'none', borderRadius: '20px', overflow: 'hidden', position: 'relative', height: '220px', display: 'flex', alignItems: 'flex-end', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.3)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}>
+                  {s.banner && <img src={s.banner} alt={s.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 20%, rgba(0,0,0,0.75))' }} />
+                  <div style={{ position: 'relative', padding: '20px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%' }}>
+                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.35)', background: 'rgba(0,0,0,0.3)', flexShrink: 0 }}>
+                      {s.logo && <img src={s.logo} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: 'white', fontWeight: 800, fontSize: '16px', letterSpacing: '-0.01em' }}>{s.name}</div>
+                      <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', marginTop: '2px' }}>{s.description}</div>
+                    </div>
+                    <ArrowRight size={18} style={{ color: 'rgba(255,255,255,0.6)', flexShrink: 0 }} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
       {/* ── FEATURED ── */}
-      <section style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))' }}>
-        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '64px 24px' }}>
+      {!isLoading && featured.length > 0 && (
+        <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '64px 24px' }}>
           <div className="reveal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
             <div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>Trending</div>
@@ -329,14 +365,13 @@ const HomePage = () => {
               See all <ArrowRight size={14} />
             </Link>
           </div>
-
           <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '16px' }}>
             {featured.map(p => (
               <div key={p.id} className="product-card">
                 <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))' }}>
                     <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-                    {p.originalPrice && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em', boxShadow: '0 2px 8px rgba(255,0,0,0.4)' }}>SALE</span>}
+                    {p.originalPrice && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', boxShadow: '0 2px 8px rgba(255,0,0,0.4)' }}>SALE</span>}
                   </div>
                   <div style={{ padding: '12px 12px 6px' }}>
                     <div style={{ fontSize: '10px', color: '#ff0000', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '3px' }}>{p.series}</div>
@@ -349,9 +384,9 @@ const HomePage = () => {
                 </Link>
                 <div style={{ padding: '6px 12px 12px' }}>
                   <button onClick={() => {
-                    const firstAvailable = p.variants.find(v => v.stock > 0) || (p.preorder ? p.variants[0] : undefined);
-                    if (!firstAvailable) return;
-                    addToCart(p, firstAvailable.size || 'M');
+                    const v = p.variants.find(v => v.stock > 0) || (p.preorder ? p.variants[0] : undefined);
+                    if (!v) return;
+                    addToCart(p, v.size || 'M');
                   }} className="btn-yt ripple" style={{ width: '100%', justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '13px', fontWeight: 600 }}>
                     Add to Cart
                   </button>
@@ -359,38 +394,40 @@ const HomePage = () => {
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── CREATORS ── */}
-      <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px 64px' }}>
-        <div className="reveal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>Creators</div>
-            <h2 style={{ fontSize: '28px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Shop by Creator</h2>
-            <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginTop: '6px' }}>Merch from your favourite YouTubers.</p>
+      {!isLoading && creators.length > 0 && (
+        <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px 64px' }}>
+          <div className="reveal" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '32px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '8px' }}>Creators</div>
+              <h2 style={{ fontSize: '28px', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>Shop by Creator</h2>
+              <p style={{ fontSize: '14px', color: 'hsl(var(--muted-foreground))', marginTop: '6px' }}>Merch from your favourite YouTubers.</p>
+            </div>
           </div>
-        </div>
-        <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-          {creators.map(c => (
-            <a key={c.id} href={`/creator/${c.handle}`}
-              style={{ textDecoration: 'none', borderRadius: '20px', overflow: 'hidden', position: 'relative', height: '200px', display: 'flex', alignItems: 'flex-end', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 20px 50px rgba(0,0,0,0.3)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
-              {c.banner && <img src={c.banner} alt={c.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 20%, rgba(0,0,0,0.8))' }} />
-              <div style={{ position: 'relative', padding: '18px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%' }}>
-                <img src={c.avatar} alt={c.name} style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid #ff0000', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: 'white', fontWeight: 800, fontSize: '16px' }}>{c.name}</div>
-                  {c.subscribers && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '2px' }}>{c.subscribers} subscribers</div>}
-                  <div style={{ color: '#ff6666', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>{c.productIds.length} products →</div>
+          <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+            {creators.map(c => (
+              <a key={c.id} href={`/creator/${c.handle}`}
+                style={{ textDecoration: 'none', borderRadius: '20px', overflow: 'hidden', position: 'relative', height: '200px', display: 'flex', alignItems: 'flex-end', background: 'hsl(var(--secondary))', transition: 'transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-4px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 20px 50px rgba(0,0,0,0.3)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+                {c.banner && <img src={c.banner} alt={c.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 20%, rgba(0,0,0,0.8))' }} />
+                <div style={{ position: 'relative', padding: '18px', display: 'flex', alignItems: 'center', gap: '14px', width: '100%' }}>
+                  <img src={c.avatar} alt={c.name} style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid #ff0000', objectFit: 'cover', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: 'white', fontWeight: 800, fontSize: '16px' }}>{c.name}</div>
+                    {c.subscribers && <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px', marginTop: '2px' }}>{c.subscribers} subscribers</div>}
+                    <div style={{ color: '#ff6666', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>{c.productIds.length} products →</div>
+                  </div>
                 </div>
-              </div>
-            </a>
-          ))}
-        </div>
-      </section>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── WHY YOUTUPIA ── */}
       <section style={{ maxWidth: '1280px', margin: '0 auto', padding: '64px 24px' }}>
@@ -400,7 +437,7 @@ const HomePage = () => {
         </div>
         <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           {[
-            { icon: Zap, title: 'Limited Runs Only', desc: 'Every drop is limited. We never restock. Once it\'s gone, it\'s gone forever — that\'s what makes it special.' },
+            { icon: Zap, title: 'Limited Runs Only', desc: "Every drop is limited. We never restock. Once it's gone, it's gone forever — that's what makes it special." },
             { icon: Package, title: 'Obsessed With Quality', desc: 'Minimum 240gsm cotton for tees, 380gsm fleece for hoodies. We wear everything we sell.' },
             { icon: Users, title: 'Community First', desc: 'Every drop is informed by the community. You vote, we drop. Your feedback shapes the next collection.' },
             { icon: Star, title: 'Premium Every Time', desc: 'From packaging to the final stitch — every detail is deliberate. Unwrapping a Youtupia order should feel premium.' },
@@ -486,13 +523,6 @@ const HomePage = () => {
           </div>
         </div>
       </footer>
-
-      {/* Mobile-responsive styles */}
-      <style>{`
-        @media (max-width: 768px) {
-          .hero-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 };
