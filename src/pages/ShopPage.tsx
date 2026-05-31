@@ -6,10 +6,29 @@ import { useTheme } from '../contexts/ThemeContext';
 import ProductQuickViewModal from '../components/ProductQuickViewModal';
 import type { Product } from '../contexts/StoreContext';
 
+// ── Skeleton card for shop grid ────────────────────────────────────────────
+const ShopCardSkeleton = () => (
+  <div style={{ borderRadius: '16px', overflow: 'hidden', background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}>
+    <div style={{
+      aspectRatio: '3/4',
+      background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shopShimmer 1.4s infinite',
+    }} />
+    <div style={{ padding: '12px' }}>
+      <div style={{ height: '10px', width: '55%', borderRadius: '5px', background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)', backgroundSize: '200% 100%', animation: 'shopShimmer 1.4s infinite', marginBottom: '8px' }} />
+      <div style={{ height: '14px', width: '80%', borderRadius: '5px', background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)', backgroundSize: '200% 100%', animation: 'shopShimmer 1.4s infinite', marginBottom: '8px' }} />
+      <div style={{ height: '16px', width: '40%', borderRadius: '5px', background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)', backgroundSize: '200% 100%', animation: 'shopShimmer 1.4s infinite', marginBottom: '12px' }} />
+      <div style={{ height: '36px', width: '100%', borderRadius: '8px', background: 'linear-gradient(90deg, hsl(var(--secondary)) 25%, hsl(var(--border)) 50%, hsl(var(--secondary)) 75%)', backgroundSize: '200% 100%', animation: 'shopShimmer 1.4s infinite' }} />
+    </div>
+  </div>
+);
+
 const ShopPage = () => {
-  const { products, series, addToCart, toggleWishlist, wishlist } = useStore();
+  const { products, series, addToCart, toggleWishlist, wishlist, hydrating, dbLoading } = useStore();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const isLoading = hydrating || dbLoading;
   const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState(searchParams.get('q') || '');
@@ -22,7 +41,6 @@ const ShopPage = () => {
 
   const filtered = useMemo(() => {
     let list = [...products];
-
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(p =>
@@ -32,27 +50,18 @@ const ShopPage = () => {
         p.tags.some(t => t.toLowerCase().includes(q))
       );
     }
-
     if (selectedSeries) list = list.filter(p => p.seriesId === selectedSeries);
     list = list.filter(p => p.price <= priceMax);
-
     switch (sortBy) {
       case 'price-asc': list.sort((a, b) => a.price - b.price); break;
       case 'price-desc': list.sort((a, b) => b.price - a.price); break;
       case 'newest': list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); break;
       case 'featured': list.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0)); break;
     }
-
     return list;
   }, [products, search, selectedSeries, priceMax, sortBy]);
 
-  const clearFilters = () => {
-    setSearch('');
-    setSelectedSeries('');
-    setPriceMax(10000);
-    setSortBy('newest');
-  };
-
+  const clearFilters = () => { setSearch(''); setSelectedSeries(''); setPriceMax(10000); setSortBy('newest'); };
   const hasFilters = search || selectedSeries || priceMax < 10000;
 
   const handleQuickAdd = (p: Product, e: React.MouseEvent) => {
@@ -67,27 +76,26 @@ const ShopPage = () => {
 
   return (
     <div style={{ paddingTop: '0px' }}>
+      <style>{`
+        @keyframes shopShimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+
       {/* Header */}
       <div style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))', borderBottom: '1px solid hsl(var(--border))', padding: '32px 24px' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 900, marginBottom: '16px', letterSpacing: '-0.02em' }}>
-            {selectedSeries
-              ? `Shop — ${series.find(s => s.id === selectedSeries)?.name || ''}`
-              : 'Shop All'}
+            {selectedSeries ? `Shop — ${series.find(s => s.id === selectedSeries)?.name || ''}` : 'Shop All'}
           </h1>
           <div style={{ display: 'flex', gap: '10px', maxWidth: '600px' }}>
             <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
               <Search size={15} style={{ position: 'absolute', left: '13px', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none' }} />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                style={{ width: '100%', padding: '10px 14px 10px 38px', background: isDark ? 'hsl(0 0% 9%)' : 'white', border: '1px solid hsl(var(--border))', borderRadius: '10px', color: 'hsl(var(--foreground))', fontFamily: 'Roboto, sans-serif', fontSize: '14px', outline: 'none', boxSizing: 'border-box' as const }}
-              />
+              <input type="text" placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)}
+                style={{ width: '100%', padding: '10px 14px 10px 38px', background: isDark ? 'hsl(0 0% 9%)' : 'white', border: '1px solid hsl(var(--border))', borderRadius: '10px', color: 'hsl(var(--foreground))', fontFamily: 'Roboto, sans-serif', fontSize: '14px', outline: 'none', boxSizing: 'border-box' as const }} />
             </div>
-            <button
-              onClick={() => setShowFilters(f => !f)}
+            <button onClick={() => setShowFilters(f => !f)}
               style={{ padding: '10px 16px', borderRadius: '10px', border: `1px solid ${showFilters ? '#ff0000' : 'hsl(var(--border))'}`, background: showFilters ? 'rgba(255,0,0,0.06)' : 'transparent', color: showFilters ? '#ff0000' : 'hsl(var(--foreground))', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '7px', fontSize: '14px', fontFamily: 'Roboto, sans-serif', fontWeight: 500 }}>
               <SlidersHorizontal size={15} /> Filters
             </button>
@@ -131,7 +139,9 @@ const ShopPage = () => {
         {/* Count + chips */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' }}>
           <span style={{ fontSize: '13px', color: 'hsl(var(--muted-foreground))' }}>
-            {filtered.length} product{filtered.length !== 1 ? 's' : ''}
+            {isLoading ? (
+              <span style={{ display: 'inline-block', width: '80px', height: '14px', borderRadius: '4px', background: 'hsl(var(--secondary))' }} />
+            ) : `${filtered.length} product${filtered.length !== 1 ? 's' : ''}`}
           </span>
           {selectedSeries && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', background: 'rgba(255,0,0,0.08)', border: '1px solid rgba(255,0,0,0.2)', borderRadius: '20px', fontSize: '12px', color: '#ff0000', fontWeight: 600 }}>
@@ -139,15 +149,17 @@ const ShopPage = () => {
               <button onClick={() => setSelectedSeries('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ff0000', padding: '0', display: 'flex' }}><X size={11} /></button>
             </span>
           )}
-          {hasFilters && (
-            <button onClick={clearFilters} style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'Roboto, sans-serif' }}>
-              Clear all
-            </button>
+          {hasFilters && !isLoading && (
+            <button onClick={clearFilters} style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'Roboto, sans-serif' }}>Clear all</button>
           )}
         </div>
 
-        {/* Grid */}
-        {filtered.length === 0 ? (
+        {/* ── SKELETON GRID while loading ── */}
+        {isLoading ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '16px' }}>
+            {Array.from({ length: 12 }).map((_, i) => <ShopCardSkeleton key={i} />)}
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 24px', color: 'hsl(var(--muted-foreground))' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
             <h3 style={{ fontWeight: 700, marginBottom: '8px' }}>No products found</h3>
@@ -161,27 +173,17 @@ const ShopPage = () => {
               const isWishlisted = wishlist.includes(p.id);
               const isAdded = addedIds.has(p.id);
               const discount = p.originalPrice ? Math.round((1 - p.price / p.originalPrice) * 100) : 0;
-
               return (
                 <div key={p.id} className="product-card" style={{ position: 'relative' }}>
-                  <button
-                    onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(p.id); }}
+                  <button onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(p.id); }}
                     style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10, background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: isWishlisted ? '#ff0000' : 'white', backdropFilter: 'blur(4px)' }}>
                     <Heart size={14} fill={isWishlisted ? '#ff0000' : 'none'} />
                   </button>
-
                   <Link to={`/product/${p.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     <div className="img-zoom" style={{ position: 'relative', aspectRatio: '3/4', background: 'hsl(var(--secondary))' }}>
-                      <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
-                      {p.limitedEdition && (
-                        <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em' }}>LIMITED</span>
-                      )}
-                      {discount > 0 && (
-                        <span style={{ position: 'absolute', top: p.limitedEdition ? '34px' : '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px' }}>
-                          {discount}% OFF
-                        </span>
-                      )}
+                      <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                      {p.limitedEdition && <span style={{ position: 'absolute', top: '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em' }}>LIMITED</span>}
+                      {discount > 0 && <span style={{ position: 'absolute', top: p.limitedEdition ? '34px' : '10px', left: '10px', background: '#ff0000', color: 'white', fontSize: '9px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px' }}>{discount}% OFF</span>}
                       {totalStock === 0 && !p.preorder && (
                         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <span style={{ background: 'rgba(0,0,0,0.7)', color: 'white', fontSize: '12px', fontWeight: 700, padding: '6px 14px', borderRadius: '20px' }}>Sold Out</span>
@@ -197,19 +199,13 @@ const ShopPage = () => {
                       </div>
                     </div>
                   </Link>
-
                   <div style={{ padding: '6px 10px 10px', display: 'flex', gap: '6px' }}>
-                    <button
-                      onClick={e => handleQuickAdd(p, e)}
-                      disabled={totalStock === 0 && !p.preorder}
-                      className="btn-yt ripple"
+                    <button onClick={e => handleQuickAdd(p, e)} disabled={totalStock === 0 && !p.preorder} className="btn-yt ripple"
                       style={{ flex: 1, justifyContent: 'center', borderRadius: '8px', padding: '9px', fontSize: '12px', fontWeight: 600, background: isAdded ? '#16a34a' : '#ff0000', transition: 'background 0.3s', display: 'flex', alignItems: 'center', gap: '5px', opacity: totalStock === 0 && !p.preorder ? 0.5 : 1, border: 'none', cursor: totalStock === 0 && !p.preorder ? 'not-allowed' : 'pointer', fontFamily: 'Roboto, sans-serif' }}>
                       <ShoppingCart size={12} />
                       {isAdded ? 'Added!' : totalStock === 0 && !p.preorder ? 'Sold Out' : 'Add'}
                     </button>
-                    <button
-                      onClick={e => { e.preventDefault(); setQuickView(p); }}
-                      className="btn-ghost"
+                    <button onClick={e => { e.preventDefault(); setQuickView(p); }} className="btn-ghost"
                       style={{ padding: '9px 12px', borderRadius: '8px', fontSize: '12px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                       View
                     </button>
@@ -221,11 +217,7 @@ const ShopPage = () => {
         )}
       </div>
 
-      <ProductQuickViewModal
-        open={quickView !== null}
-        product={quickView}
-        onClose={() => setQuickView(null)}
-      />
+      <ProductQuickViewModal open={quickView !== null} product={quickView} onClose={() => setQuickView(null)} />
     </div>
   );
 };
