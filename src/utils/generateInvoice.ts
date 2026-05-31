@@ -6,21 +6,34 @@ export const generateInvoice = (order: any) => {
   // Prices are GST-inclusive (grand total = listed price after all charges)
   const subtotalInclGst = order.items.reduce((s: number, i: any) => s + i.product.price * i.quantity, 0);
   const discountAmt = order.discountAmount || 0;
-  const codCharge = order.codCharge || 0;
-  // Grand total is exactly what the customer pays (no extra GST added)
-  const grandTotal = subtotalInclGst - discountAmt + codCharge;
-  // Back-calculate GST from the grand total: base = total / 1.05
-  const taxableAmount = grandTotal / 1.05;
-  const totalGstExact = grandTotal - taxableAmount;
-  const cgstExact = totalGstExact / 2;
-  const sgstExact = totalGstExact / 2;
-  const grandTotalRounded = Math.round(grandTotal);
-  const roundedOff = grandTotalRounded - grandTotal;
-  // Subtotal shown on invoice is the pre-GST base amount
-  const subtotal = Math.round(subtotalInclGst / 1.05);
+  const codCharge   = order.codCharge || 0;
+
+  // Exact grand total before rounding (float)
+  const grandTotalExact = subtotalInclGst - discountAmt + codCharge;
+
+  // Back-calculate GST: prices are GST-inclusive at 5%
+  const taxableAmount  = grandTotalExact / 1.05;
+  const totalGstExact  = grandTotalExact - taxableAmount;
+  const cgstExact      = totalGstExact / 2;
+  const sgstExact      = totalGstExact / 2;
+
+  // Round off = difference between rounded and exact total
+  // e.g. exact = 1897.14 → rounded = 1897 → round-off = -0.14
+  const grandTotalRounded = Math.round(grandTotalExact);
+  const roundedOff        = grandTotalRounded - grandTotalExact; // negative = rounded down, positive = rounded up
+
+  // Subtotal shown on invoice is the pre-GST base
+  const subtotal = Math.round(taxableAmount);
 
   const rows = order.items.map((item: any, i: number) =>
-    '<tr><td style="color:#999;font-size:12px;">' + (i+1) + '</td><td><strong>' + item.product.name + '</strong></td><td style="color:#666;">' + item.size + '</td><td style="color:#666;">' + item.quantity + '</td><td>&#8377;' + item.product.price.toLocaleString('en-IN') + '</td><td style="font-weight:700;text-align:right;">&#8377;' + (item.product.price * item.quantity).toLocaleString('en-IN') + '</td></tr>'
+    '<tr>'
+    + '<td style="color:#999;font-size:12px;">' + (i + 1) + '</td>'
+    + '<td><strong>' + item.product.name + '</strong></td>'
+    + '<td style="color:#666;">' + item.size + '</td>'
+    + '<td style="color:#666;">' + item.quantity + '</td>'
+    + '<td>&#8377;' + item.product.price.toLocaleString('en-IN') + '</td>'
+    + '<td style="font-weight:700;text-align:right;">&#8377;' + (item.product.price * item.quantity).toLocaleString('en-IN') + '</td>'
+    + '</tr>'
   ).join('');
 
   const discountRow = discountAmt
@@ -33,6 +46,16 @@ export const generateInvoice = (order: any) => {
 
   const txnRow = order.paymentId
     ? '<div style="font-size:10px;color:#999;margin-top:6px;font-family:monospace;">Txn: ' + order.paymentId + '</div>'
+    : '';
+
+  // Round-off: show only when non-zero, no + sign, always show sign naturally via toFixed
+  // e.g. -0.14 shows as "-0.14", +0.86 shows as "0.86" (no + prefix)
+  const roundOffAbs     = Math.abs(roundedOff);
+  const showRoundOff    = roundOffAbs >= 0.01; // only show if at least 1 paisa difference
+  const roundOffDisplay = '&#8377;' + roundOffAbs.toFixed(2);
+
+  const roundOffRow = showRoundOff
+    ? '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#888;"><span>Rounded Off</span><span>' + roundOffDisplay + '</span></div>'
     : '';
 
   const payBg    = order.paymentMethod === 'cod' ? '#dcfce7' : '#dbeafe';
@@ -67,7 +90,7 @@ export const generateInvoice = (order: any) => {
     + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>CGST @ 2.5%</span><span>&#8377;' + cgstExact.toFixed(2) + '</span></div>'
     + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#555;"><span>SGST @ 2.5%</span><span>&#8377;' + sgstExact.toFixed(2) + '</span></div>'
     + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;font-weight:600;color:#333;border-top:1px solid #eee;margin-top:4px;padding-top:8px;"><span>Total GST (5%)</span><span>&#8377;' + totalGstExact.toFixed(2) + '</span></div>'
-    + '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#888;"><span>Rounded Off</span><span>' + (roundedOff >= 0 ? '+' : '') + roundedOff.toFixed(2) + '</span></div>'
+    + roundOffRow
     + '<hr style="border:none;border-top:2px solid #ff0000;margin:8px 0;"/>'
     + '<div style="display:flex;justify-content:space-between;padding:10px 0;font-size:18px;font-weight:900;color:#ff0000;"><span>Grand Total</span><span>&#8377;' + grandTotalRounded.toLocaleString('en-IN') + '</span></div>'
     + '<div style="margin-top:6px;display:flex;gap:8px;"><span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:' + payBg + ';color:' + payColor + ';">' + payLabel + '</span>'
