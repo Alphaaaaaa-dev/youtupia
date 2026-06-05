@@ -47,48 +47,90 @@ const DateTimePicker = ({ value, onChange, labelText }: { value: string; onChang
 };
 
 // ── IMAGE UPLOAD DROPZONE ──────────────────────────
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+async function uploadToCloudinary(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('folder', 'youtupia');
+
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    { method: 'POST', body: formData }
+  );
+  const data = await res.json();
+  if (!data.secure_url) throw new Error('Upload failed');
+  return data.secure_url; // permanent https://res.cloudinary.com/... URL
+}
+// ── SINGLE IMAGE DROPZONE (Cloudinary) ─────────────
 const ImageDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
   const [isDragging, setIsDragging] = useState(false);
-  const [tab, setTab] = useState<'url' | 'upload'>('url');
-  const [preview, setPreview] = useState(value);
+  const [tab, setTab] = useState<'url' | 'upload'>('upload'); // default to upload now
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const handleFile = (file: File) => {
+
+  const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = (e) => { const url = e.target?.result as string; setPreview(url); onChange(url); };
-    reader.readAsDataURL(file);
+    setUploading(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      onChange(url);
+    } catch {
+      sonnerToast.error('Upload failed', { description: 'Check Cloudinary env vars.' });
+    } finally {
+      setUploading(false);
+    }
   };
-  const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) handleFile(file); }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }, []);
+
   return (
     <div style={{ marginBottom: '14px' }}>
       <div style={{ ...label, marginBottom: '8px' }}>{lbl}</div>
       <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-        {(['url', 'upload'] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{ padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontFamily: 'Roboto, sans-serif', background: tab === t ? '#ff0000' : 'rgba(255,255,255,0.06)', color: tab === t ? 'white' : '#64748b', transition: 'all 0.15s' }}>
-            {t === 'url' ? <><LinkIcon size={9} style={{ display: 'inline', marginRight: '4px' }} />URL</> : <><Upload size={9} style={{ display: 'inline', marginRight: '4px' }} />Upload</>}
+        {(['upload', 'url'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{ padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '11px', fontFamily: 'Roboto, sans-serif', background: tab === t ? '#ff0000' : 'rgba(255,255,255,0.06)', color: tab === t ? 'white' : '#64748b' }}>
+            {t === 'url' ? <><LinkIcon size={9} style={{ display: 'inline', marginRight: '4px' }} />URL</> : <><Upload size={9} style={{ display: 'inline', marginRight: '4px' }} />Upload to Cloudinary</>}
           </button>
         ))}
       </div>
+
       {tab === 'url' ? (
-        <input style={inputStyle} value={value} onChange={e => { onChange(e.target.value); setPreview(e.target.value); }} placeholder="https://images.unsplash.com/..." />
+        <input style={inputStyle} value={value} onChange={e => onChange(e.target.value)} placeholder="https://res.cloudinary.com/..." />
       ) : (
-        <div onDragOver={e => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop} onClick={() => fileRef.current?.click()}
-          style={{ border: `2px dashed ${isDragging ? '#ff0000' : 'rgba(255,255,255,0.12)'}`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: 'pointer', background: isDragging ? 'rgba(255,0,0,0.05)' : 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}>
-          <Upload size={20} style={{ color: isDragging ? '#ff0000' : '#475569', marginBottom: '8px' }} />
-          <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Drag & drop image here</div>
-          <div style={{ fontSize: '11px', color: '#334155' }}>or click to select from device</div>
+        <div
+          onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => !uploading && fileRef.current?.click()}
+          style={{ border: `2px dashed ${isDragging ? '#ff0000' : 'rgba(255,255,255,0.12)'}`, borderRadius: '10px', padding: '24px', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer', background: isDragging ? 'rgba(255,0,0,0.05)' : 'rgba(255,255,255,0.02)', transition: 'all 0.2s' }}>
+          {uploading
+            ? <div style={{ fontSize: '13px', color: '#60a5fa' }}>⏳ Uploading to Cloudinary...</div>
+            : <>
+                <Upload size={20} style={{ color: isDragging ? '#ff0000' : '#475569', marginBottom: '8px' }} />
+                <div style={{ fontSize: '12px', color: '#64748b' }}>Drag & drop or click to upload</div>
+                <div style={{ fontSize: '10px', color: '#4ade80', marginTop: '4px' }}>✓ Saves to Cloudinary CDN — zero Supabase egress</div>
+              </>}
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
         </div>
       )}
-      {preview && (
+
+      {value && (
         <div style={{ marginTop: '8px', position: 'relative', display: 'inline-block' }}>
-          <img src={preview} alt="Preview" style={{ height: '72px', width: '72px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-          <button onClick={() => { setPreview(''); onChange(''); }} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ff0000', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={10} /></button>
+          <img src={value} alt="Preview" style={{ height: '72px', width: '72px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <button onClick={() => onChange('')} style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ff0000', border: 'none', borderRadius: '50%', width: '18px', height: '18px', cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={10} /></button>
         </div>
       )}
     </div>
   );
 };
+
 
 // ── VIDEO UPLOAD DROPZONE ──────────────────────────
 const VideoDropzone = ({ value, onChange, label: lbl }: { value: string; onChange: (url: string) => void; label: string }) => {
@@ -134,34 +176,51 @@ const VideoDropzone = ({ value, onChange, label: lbl }: { value: string; onChang
   );
 };
 
-// ── MULTI IMAGE DROPZONE ───────────────────────────
+// ── MULTI IMAGE DROPZONE (Cloudinary) ──────────────
 const MultiImageDropzone = ({ images, onChange }: { images: string[]; onChange: (imgs: string[]) => void }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const handleFiles = (files: FileList) => {
-    Array.from(files).forEach(file => {
-      if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = (e) => { const url = e.target?.result as string; onChange([...images.filter(Boolean), url]); };
-      reader.readAsDataURL(file);
-    });
+
+  const handleFiles = async (files: FileList) => {
+    setUploading(true);
+    try {
+      const uploads = await Promise.all(
+        Array.from(files)
+          .filter(f => f.type.startsWith('image/'))
+          .map(f => uploadToCloudinary(f))
+      );
+      onChange([...images.filter(Boolean), ...uploads]);
+    } catch {
+      sonnerToast.error('Some uploads failed');
+    } finally {
+      setUploading(false);
+    }
   };
+
   return (
     <div style={{ marginBottom: '14px' }}>
       <div style={{ ...label, marginBottom: '8px' }}>PRODUCT IMAGES</div>
-      <div onDragOver={e => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)}
+      <div
+        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
         onDrop={e => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files); }}
-        onClick={() => fileRef.current?.click()}
-        style={{ border: `2px dashed ${isDragging ? '#ff0000' : 'rgba(255,255,255,0.12)'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: 'pointer', background: isDragging ? 'rgba(255,0,0,0.05)' : 'rgba(255,255,255,0.02)', transition: 'all 0.2s', marginBottom: '10px' }}>
-        <Upload size={18} style={{ color: isDragging ? '#ff0000' : '#475569', marginBottom: '6px' }} />
-        <div style={{ fontSize: '12px', color: '#64748b' }}>Drag & drop images or <span style={{ color: '#ff6666' }}>click to upload</span></div>
-        <div style={{ fontSize: '10px', color: '#334155', marginTop: '3px' }}>Multiple files supported · Use URLs for best performance</div>
+        onClick={() => !uploading && fileRef.current?.click()}
+        style={{ border: `2px dashed ${isDragging ? '#ff0000' : 'rgba(255,255,255,0.12)'}`, borderRadius: '10px', padding: '20px', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer', background: isDragging ? 'rgba(255,0,0,0.05)' : 'rgba(255,255,255,0.02)', transition: 'all 0.2s', marginBottom: '10px' }}>
+        {uploading
+          ? <div style={{ fontSize: '13px', color: '#60a5fa' }}>⏳ Uploading to Cloudinary CDN...</div>
+          : <>
+              <Upload size={18} style={{ color: isDragging ? '#ff0000' : '#475569', marginBottom: '6px' }} />
+              <div style={{ fontSize: '12px', color: '#64748b' }}>Drag & drop images or <span style={{ color: '#4ade80' }}>upload to Cloudinary</span></div>
+              <div style={{ fontSize: '10px', color: '#334155', marginTop: '3px' }}>Multiple files · No egress cost · Global CDN</div>
+            </>}
         <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { if (e.target.files) handleFiles(e.target.files); }} />
       </div>
+
       {images.map((img, i) => (
         <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' }}>
           {img && <img src={img} alt="" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />}
-          <input style={{ ...inputStyle }} value={img} onChange={e => { const imgs = [...images]; imgs[i] = e.target.value; onChange(imgs); }} placeholder="https://... (paste image URL)" />
+          <input style={{ ...inputStyle }} value={img} onChange={e => { const imgs = [...images]; imgs[i] = e.target.value; onChange(imgs); }} placeholder="https://res.cloudinary.com/..." />
           <button onClick={() => { const imgs = [...images]; imgs.splice(i, 1); onChange(imgs.length ? imgs : ['']); }}
             style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '6px', padding: '8px', cursor: 'pointer', color: '#f87171', flexShrink: 0 }}><X size={12} /></button>
         </div>
