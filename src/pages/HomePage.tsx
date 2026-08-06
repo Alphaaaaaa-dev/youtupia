@@ -494,7 +494,7 @@ const HomePage = () => {
           {[
             { heading: 'Shop', links: [['All Products', '/shop'], ['New Arrivals', '/shop'], ['Creators', '/shop'], ['Wishlist', '/wishlist'], ['Collections', '/shop']] },
             { heading: 'Info', links: [['About Us', '/about'], ['Track Order', '/track-order'], ['FAQ', '/faq'], ['Contact', '/contact'], ['Policies', '/policy']] },
-            { heading: 'Connect', links: [['📧 hello@youtupia.com', '/contact'], ['📱 +91 00000 00000', '/contact'], ['📸 @youtupia', '/contact'], ['💬 WhatsApp', '/contact']] },
+            { heading: 'Connect', links: [['📧 youtupiastore@gmail.com', '/contact'], ['📱 +91 97647 09216', '/contact'], ['📸 @youtupia', '/contact'], ['💬 WhatsApp', '/contact']] },
           ].map(col => (
             <div key={col.heading}>
               <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '16px', letterSpacing: '0.02em' }}>{col.heading}</div>
