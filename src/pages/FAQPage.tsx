@@ -11,6 +11,7 @@ const FAQS = [
   { cat: 'Shipping', q: 'Do you offer free shipping?', a: 'Yes! We offer free shipping on all orders.' },
   { cat: 'Shipping', q: 'Do you ship internationally?', a: 'Currently India only. International shipping is on the roadmap — follow our Instagram for updates.' },
   { cat: 'Returns', q: 'What is your return policy?', a: 'Returns are accepted only in case of genuine errors from our side (like damaged or incorrect products). For any issues, contact us at youtupiastore@gmail.com.' },
+  { cat: 'Returns', q: 'What are the conditions for returns?', a: 'Returns are accepted only if the product is received damaged or torn, if you receive the wrong product, or if there is a printing defect due to our error. Returns are not accepted for any other reasons.' },
   { cat: 'Payments', q: 'Is my payment secure?', a: 'Yes — we use Razorpay, one of India\'s most trusted gateways. We never store your card details. All transactions are encrypted.' },
   { cat: 'Products', q: 'Are the products limited edition?', a: 'Yes, every drop is limited. We don\'t do restocks — when a size is gone, it\'s gone. That\'s kind of the whole point.' },
 ];
