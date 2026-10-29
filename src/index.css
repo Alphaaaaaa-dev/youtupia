@@ -374,3 +374,28 @@
   }
 
 }
+
+/* ═══════════════════ FESTIVAL (Diwali) EFFECTS ═══════════════════ */
+@keyframes diyaFlame { 0%,100%{transform:scale(1,1) skewX(0)} 25%{transform:scale(.93,1.09) skewX(-3deg)} 50%{transform:scale(1.05,.93) skewX(2deg)} 75%{transform:scale(.97,1.06) skewX(-2deg)} }
+@keyframes diyaGlow { 0%,100%{opacity:.5} 50%{opacity:.95} }
+@keyframes emberRise { 0%{transform:translate(0,0);opacity:0} 15%{opacity:.9} 100%{transform:translate(var(--sway,20px),-110vh);opacity:0} }
+@keyframes burst { 0%{transform:translate(0,0) scale(1);opacity:1} 100%{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0} }
+@keyframes welcomeIn { from{opacity:0;transform:translateY(18px) scale(.97)} to{opacity:1;transform:none} }
+@keyframes goldShine { to { background-position: 200% center } }
+.diya-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: diyaFlame 1.5s ease-in-out infinite; }
+.diya-glow { animation: diyaGlow 2.4s ease-in-out infinite; }
+.gold-shine { background: linear-gradient(90deg,#f5a524,#fff1b8,#f5a524); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: goldShine 3s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .diya-flame,.diya-glow,.gold-shine { animation: none !important; }
+  .ember,.burst-p { display: none !important; }
+}
+
+/* ── Diwali Sale page ── */
+@keyframes dsMarquee { to { transform: translateX(-50%); } }
+@keyframes dsSpin { to { transform: rotate(360deg); } }
+@keyframes dsShimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+.ds-card { position: relative; overflow: hidden; border-radius: 16px; background: #150d0d; border: 1px solid rgba(245,165,36,0.2); transition: transform .15s ease-out, border-color .3s, box-shadow .3s; will-change: transform; }
+.ds-card:hover { border-color: #f5a524; box-shadow: 0 18px 44px rgba(245,120,20,0.25); }
+.ds-glare { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s; background: radial-gradient(circle at var(--gx,50%) var(--gy,50%), rgba(255,230,160,0.22), transparent 55%); }
+.ds-card:hover .ds-glare { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ds-spin, .ds-marquee { animation: none !important; } }
