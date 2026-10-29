@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../contexts/StoreContext';
+import { useFestival, FESTIVAL } from '../config/festival';
 
 /**
  * PromoBanner — dynamic scrolling ticker at the very top of the site.
@@ -7,7 +8,11 @@ import { useStore } from '../contexts/StoreContext';
  * Close button removed to prevent layout gap glitch.
  */
 const PromoBanner = () => {
-  const { topBanner } = useStore();
+  const { topBanner: storeBanner } = useStore();
+  const { phase } = useFestival();
+  // During the campaign, put the Diwali message first; admin messages follow.
+  const diwaliMsg = phase === 'live' ? `🪔 ${FESTIVAL.name} Sale is live!` : phase === 'teaser' ? `🪔 ${FESTIVAL.name} Sale starts ${FESTIVAL.saleStartLabel}` : null;
+  const topBanner = diwaliMsg ? { ...storeBanner, messages: [diwaliMsg, ...storeBanner.messages] } : storeBanner;
   const [idx, setIdx] = useState(0);
   const [fade, setFade] = useState(true);
 
