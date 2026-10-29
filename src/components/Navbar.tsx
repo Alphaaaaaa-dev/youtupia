@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getFestivalPhase } from '../config/festival';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Search, ShoppingCart, Sun, Moon, Menu, X, User, LogOut, ChevronDown, Heart, ChevronRight, Zap, Tag, Package } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
@@ -88,6 +89,7 @@ const LeftSidebar = ({ open, onClose }: { open: boolean; onClose: () => void }) 
             { to: '/', emoji: '🏠', label: 'Home' },
             { to: '/shop', emoji: '🛍️', label: 'All Products' },
             { to: '/catalogue', emoji: '📖', label: 'Catalogue' },
+            ...(getFestivalPhase() !== 'off' ? [{ to: '/diwali-sale', emoji: '🪔', label: 'Diwali Sale' }] : []),
           ].map(item => (
             <Link key={item.to} to={item.to} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 8px', borderRadius: '10px', textDecoration: 'none', color: textMain, transition: 'background 0.15s', fontFamily: 'Roboto, sans-serif', fontSize: '14px', fontWeight: 500 }}
               onMouseEnter={e => (e.currentTarget.style.background = hoverBg)}
@@ -228,6 +230,7 @@ const Navbar = ({ onCartOpen }: { onCartOpen: () => void }) => {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/shop', label: 'Shop' },
+    ...(getFestivalPhase() !== 'off' ? [{ to: '/diwali-sale', label: '🪔 Diwali Sale' }] : []),
     { to: '/catalogue', label: 'Catalogue' },
     { to: '/about', label: 'About' },
     { to: '/contact', label: 'Contact' },
