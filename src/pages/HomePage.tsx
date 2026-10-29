@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Truck, Shield, TrendingUp, Zap, Package, Users, Sparkles, Flame, Clock, Lock, ShoppingCart } from 'lucide-react';
 import { useStore } from '../contexts/StoreContext';
 import { useTheme } from '../contexts/ThemeContext';
+import DiwaliBanner from '../components/DiwaliBanner';
+import DiwaliLights from '../components/DiwaliLights';
+import DiwaliWelcome from '../components/DiwaliWelcome';
+import DiwaliSaleBanner from '../components/DiwaliSaleBanner';
+import { useFestival } from '../config/festival';
 
 const useReveal = () => {
   useEffect(() => {
@@ -50,6 +55,7 @@ const HomePage = () => {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const isLoading = hydrating || dbLoading;
+  const { phase: festivalPhase } = useFestival();
 
   // Sort all products newest first
   const sortedProducts = [...products].sort((a, b) =>
@@ -66,6 +72,8 @@ const HomePage = () => {
   return (
     <div style={{ paddingTop: '56px', position: 'relative', zIndex: 1 }}>
 
+      <DiwaliWelcome />
+
       <style>{`
         @keyframes shimmer {
           0% { background-position: 200% 0; }
@@ -79,6 +87,7 @@ const HomePage = () => {
 
       {/* ── HERO ── */}
       <section style={{ position: 'relative', minHeight: '92vh', display: 'flex', alignItems: 'center', overflow: 'hidden', background: isDark ? 'hsl(0 0% 6%)' : 'hsl(0 0% 98%)' }}>
+        <DiwaliLights />
         <div style={{ position: 'absolute', inset: 0, backgroundImage: isDark ? 'radial-gradient(ellipse 80% 50% at 20% 40%, rgba(255,0,0,0.07) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 70%, rgba(255,0,0,0.04) 0%, transparent 50%)' : 'radial-gradient(ellipse 80% 50% at 20% 40%, rgba(255,0,0,0.04) 0%, transparent 60%)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(hsl(var(--border)/0.3) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)/0.3) 1px, transparent 1px)', backgroundSize: '60px 60px', pointerEvents: 'none', opacity: 0.4 }} />
 
@@ -89,7 +98,7 @@ const HomePage = () => {
             <div className="page-enter">
               <div className="glow-pill" style={{ marginBottom: '28px', width: 'fit-content' }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#ff0000', display: 'inline-block', animation: 'glowPulse 1.5s ease-in-out infinite' }} />
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>NEW COLLECTION LIVE</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ff0000', letterSpacing: '0.08em' }}>{festivalPhase === 'live' ? 'DIWALI SALE IS LIVE' : festivalPhase === 'teaser' ? 'DIWALI SALE COMING SOON' : 'NEW COLLECTION LIVE'}</span>
               </div>
               <h1 style={{ fontSize: 'clamp(36px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '6px' }}>Wear your</h1>
               <h1 className="gradient-text" style={{ fontSize: 'clamp(36px, 5.5vw, 68px)', fontWeight: 900, lineHeight: 1.02, letterSpacing: '-0.03em', marginBottom: '24px' }}>Dreams.</h1>
@@ -200,6 +209,9 @@ const HomePage = () => {
         </div>
       </section>
 
+      {/* ── DIWALI BANNER (auto-hides outside campaign dates) ── */}
+      <DiwaliBanner />
+
       {/* ── TRUST STRIP ── */}
       <div style={{ borderTop: '1px solid hsl(var(--border))', borderBottom: '1px solid hsl(var(--border))', background: isDark ? 'hsl(0 0% 7%)' : 'hsl(var(--secondary))' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '20px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0' }}>
@@ -305,6 +317,9 @@ const HomePage = () => {
           </>
         )}
       </section>
+
+      {/* ── DIWALI SALE BANNER (auto-hides outside campaign dates) ── */}
+      <DiwaliSaleBanner />
 
       {/* ── SERIES ── */}
       <section style={{ background: isDark ? 'hsl(0 0% 6%)' : 'hsl(var(--secondary))' }}>
