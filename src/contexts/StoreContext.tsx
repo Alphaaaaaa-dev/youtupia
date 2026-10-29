@@ -8,6 +8,7 @@ export interface Product {
   price: number; originalPrice?: number; description: string; images: string[];
   variants: ProductVariant[]; tags: string[]; featured: boolean; createdAt: string;
   reviews?: Review[]; viewerCount?: number; limitedEdition?: boolean; preorder?: boolean;
+  diwaliSale?: boolean; // shown on /diwali-sale when true
 }
 export interface Series { id: string; name: string; description: string; logo: string; banner: string; color: string; }
 export interface Creator {
