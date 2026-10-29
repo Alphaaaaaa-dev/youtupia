@@ -16,6 +16,7 @@ import PromoBanner from './components/PromoBanner';
 
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
+import DiwaliSalePage from './pages/DiwaliSalePage';
 import ProductPage from './pages/ProductPage';
 import CataloguePage from './pages/CataloguePage';
 import CheckoutPage from './pages/CheckoutPage';
@@ -94,6 +95,7 @@ const StoreLayout = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/home" element={<HomePage />} />
             <Route path="/shop" element={<ShopPage />} />
+            <Route path="/diwali-sale" element={<DiwaliSalePage />} />
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/catalogue" element={<CataloguePage />} />
             <Route path="/about" element={<AboutPage />} />
