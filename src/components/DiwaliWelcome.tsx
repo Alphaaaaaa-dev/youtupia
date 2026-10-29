@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 import Diya from './Diya';
@@ -45,7 +46,9 @@ const DiwaliWelcome = () => {
   if (!open || phase === 'off') return null;
   const live = phase === 'live';
 
-  return (
+  // Portal to <body>: the page wrapper is transformed, which would otherwise
+  // make this "fixed" overlay as tall as the whole page instead of the screen.
+  return createPortal(
     <div role="dialog" aria-modal="true" aria-label={`${FESTIVAL.name} Sale`} onClick={close}
       style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
         background: 'radial-gradient(ellipse at 50% 40%, rgba(110,15,25,0.92), rgba(10,2,3,0.96) 70%)', backdropFilter: 'blur(6px)', overflow: 'hidden' }}>
@@ -88,7 +91,8 @@ const DiwaliWelcome = () => {
           <button onClick={close} className="btn-ghost" style={{ borderRadius: '10px', padding: '13px 22px', background: 'rgba(255,255,255,0.08)', color: '#fff1dc' }}>Maybe later</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
