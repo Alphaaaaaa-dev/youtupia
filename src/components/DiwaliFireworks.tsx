@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 type Part = { x: number; y: number; vx: number; vy: number; l: number; d: number; c: string; g: number; k: number };
 type Rocket = { x: number; y: number; ty: number; vy: number; c: string };
@@ -86,7 +87,11 @@ const DiwaliFireworks = () => {
     };
   }, []);
 
-  return <canvas ref={ref} aria-hidden style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', zIndex: 40, pointerEvents: 'none' }} />;
+  // Portal to <body> so "fixed" means the screen, not the transformed page wrapper.
+  return createPortal(
+    <canvas ref={ref} aria-hidden style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', zIndex: 40, pointerEvents: 'none' }} />,
+    document.body
+  );
 };
 
 export default DiwaliFireworks;
