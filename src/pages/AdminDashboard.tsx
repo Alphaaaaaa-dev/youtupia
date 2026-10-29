@@ -572,6 +572,7 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
     featured: false,      // ← explicit boolean
     limitedEdition: false, // ← explicit boolean
     preorder: false,       // ← explicit boolean
+    diwaliSale: false,
     createdAt: new Date().toISOString(),
   });
 
@@ -579,7 +580,7 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
     setForm(f => ({ ...f, [k]: v }));
 
   // ── FIXED: explicit boolean setter ──────────────────
-  const toggleBool = (k: 'featured' | 'limitedEdition' | 'preorder') =>
+  const toggleBool = (k: 'featured' | 'limitedEdition' | 'preorder' | 'diwaliSale') =>
     setForm(f => ({ ...f, [k]: !(f[k] === true) }));
 
   const handleSave = () => {
@@ -604,16 +605,18 @@ const ProductModal = ({ product, onSave, onClose }: { product: Partial<Product> 
       featured: form.featured === true,       // ← force boolean
       limitedEdition: form.limitedEdition === true, // ← force boolean
       preorder: form.preorder === true,       // ← force boolean
+      diwaliSale: form.diwaliSale === true,
       createdAt: form.createdAt || new Date().toISOString(),
       reviews: form.reviews || [],
     };
     onSave(saved);
   };
 
-  const boolToggles: Array<{ key: 'featured' | 'limitedEdition' | 'preorder'; label: string; color: string }> = [
+  const boolToggles: Array<{ key: 'featured' | 'limitedEdition' | 'preorder' | 'diwaliSale'; label: string; color: string }> = [
     { key: 'featured', label: 'Featured on homepage', color: '#ff0000' },
     { key: 'limitedEdition', label: 'Limited Edition badge', color: '#fbbf24' },
     { key: 'preorder', label: 'Preorder enabled', color: '#60a5fa' },
+    { key: 'diwaliSale', label: '🪔 Show on Diwali Sale page', color: '#f5a524' },
   ];
 
   return (
@@ -743,7 +746,7 @@ const ProductsTab = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
         <div>
           <h1 style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 800, fontSize: '22px', color: '#f1f5f9', margin: '0 0 4px' }}>Products</h1>
-          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>{products.length} products · Changes save instantly to database</p>
+          <p style={{ fontFamily: 'Roboto, sans-serif', fontSize: '13px', color: '#64748b' }}>{products.length} products · Changes save instantly to database · <span style={{ color: '#f5a524' }}>🪔 {products.filter(p => p.diwaliSale === true).length} on Diwali Sale page</span> · <a href="/diwali-sale" target="_blank" rel="noreferrer" style={{ color: '#f5a524' }}>view page</a></p>
         </div>
         <button onClick={() => { setEditing(null); setShowModal(true); }}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#ff0000', color: 'white', fontFamily: 'Roboto, sans-serif', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
@@ -771,6 +774,7 @@ const ProductsTab = () => {
                 {p.name}
                 {p.featured === true && <span style={{ background: 'rgba(255,0,0,0.12)', color: '#ff6666', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>⭐ FEATURED</span>}
                 {p.limitedEdition === true && <span style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>LIMITED</span>}
+                {p.diwaliSale === true && <span style={{ background: 'rgba(245,165,36,0.14)', color: '#f5a524', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>🪔 DIWALI SALE</span>}
                 {p.preorder === true && <span style={{ background: 'rgba(59,130,246,0.14)', color: '#60a5fa', fontSize: '9px', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>PREORDER</span>}
               </div>
               <div style={{ ...label, marginBottom: '4px' }}>{p.series} · Sizes: {p.variants.map(v => v.size).join(', ')}</div>
@@ -781,6 +785,11 @@ const ProductsTab = () => {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <button onClick={() => { setProduct({ ...p, diwaliSale: p.diwaliSale !== true }); sonnerToast.success(p.diwaliSale === true ? 'Removed from Diwali Sale page' : 'Added to Diwali Sale page', { description: p.name }); }}
+                title={p.diwaliSale === true ? 'Remove from Diwali Sale page' : 'Add to Diwali Sale page'}
+                style={{ padding: '7px 12px', borderRadius: '7px', border: `1px solid ${p.diwaliSale === true ? 'rgba(245,165,36,0.5)' : 'rgba(255,255,255,0.08)'}`, background: p.diwaliSale === true ? 'rgba(245,165,36,0.12)' : 'transparent', color: p.diwaliSale === true ? '#f5a524' : '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px', fontWeight: 600 }}>
+                🪔 {p.diwaliSale === true ? 'On sale page' : 'Add to sale'}
+              </button>
               <button onClick={() => { setEditing(p); setShowModal(true); }}
                 style={{ padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'Roboto, sans-serif', fontSize: '12px' }}>
                 <Edit2 size={12} /> Edit
